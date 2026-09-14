@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel Guru — Pembayaran TK</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Space+Grotesk:wght@400;500;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#FFFCF2;
+  --ink:#12100E;
+  --kuning:#FFD23F;
+  --biru:#3D6FF5;
+  --coral:#FF6B6B;
+  --mint:#2ED573;
+  --abu:#E8E4D9;
+  --shadow:5px 5px 0 var(--ink);
+  --shadow-sm:3px 3px 0 var(--ink);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{-webkit-text-size-adjust:100%}
+body{
+  background:var(--paper);
+  background-image:linear-gradient(var(--abu) 1px,transparent 1px),linear-gradient(90deg,var(--abu) 1px,transparent 1px);
+  background-size:28px 28px;
+  color:var(--ink);
+  font-family:'Space Grotesk',sans-serif;
+  font-size:15px;
+  line-height:1.45;
+  padding-bottom:80px;
+}
+h1,h2,h3,.display{font-family:'Archivo Black',sans-serif;letter-spacing:-.02em;text-transform:uppercase}
+.mono{font-family:'Space Mono',monospace}
+
+/* ---------- shell ---------- */
+.topbar{
+  border-bottom:3px solid var(--ink);
+  background:var(--kuning);
+  padding:14px 20px;
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  position:sticky;top:0;z-index:40;
+}
+.logo{
+  background:var(--ink);color:var(--kuning);
+  font-family:'Archivo Black',sans-serif;font-size:18px;
+  padding:8px 12px;border:3px solid var(--ink);
+  transform:rotate(-2deg);
+}
+.school{font-family:'Archivo Black',sans-serif;font-size:15px;line-height:1.1}
+.school small{display:block;font-family:'Space Mono',monospace;font-size:11px;font-weight:400;text-transform:none;letter-spacing:0}
+.user{margin-left:auto;display:flex;align-items:center;gap:10px}
+.avatar{width:38px;height:38px;border:3px solid var(--ink);background:var(--coral);display:grid;place-items:center;font-family:'Archivo Black',sans-serif;font-size:14px;box-shadow:var(--shadow-sm)}
+
+nav.tabs{display:flex;gap:0;overflow-x:auto;border-bottom:3px solid var(--ink);background:#fff;position:sticky;top:69px;z-index:35}
+nav.tabs button{
+  font-family:'Archivo Black',sans-serif;font-size:12px;letter-spacing:.02em;text-transform:uppercase;
+  background:#fff;border:none;border-right:3px solid var(--ink);
+  padding:14px 18px;cursor:pointer;white-space:nowrap;color:var(--ink);
+}
+nav.tabs button[aria-selected="true"]{background:var(--biru);color:#fff}
+nav.tabs button:focus-visible{outline:3px solid var(--coral);outline-offset:-3px}
+
+main{max-width:1100px;margin:0 auto;padding:24px 20px}
+.page{display:none}
+.page.on{display:block;animation:pop .18s ease-out}
+@keyframes pop{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+.eyebrow{font-family:'Space Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.14em;background:var(--ink);color:var(--paper);display:inline-block;padding:3px 8px;margin-bottom:10px}
+.page > h1{font-size:30px;margin-bottom:4px}
+.sub{font-size:14px;margin-bottom:22px;max-width:60ch}
+
+/* ---------- cards ---------- */
+.card{background:#fff;border:3px solid var(--ink);box-shadow:var(--shadow);padding:18px}
+.grid-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:16px;margin-bottom:26px}
+.stat{position:relative;overflow:hidden}
+.stat .label{font-family:'Space Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.1em}
+.stat .num{font-family:'Archivo Black',sans-serif;font-size:30px;line-height:1.05;margin-top:6px}
+.stat .foot{font-size:12px;margin-top:6px;font-family:'Space Mono',monospace}
+.stat.k{background:var(--kuning)}
+.stat.b{background:var(--biru);color:#fff}
+.stat.c{background:var(--coral);color:#fff}
+.stat.m{background:var(--mint)}
+
+/* ---------- table ---------- */
+.tablewrap{border:3px solid var(--ink);box-shadow:var(--shadow);background:#fff;overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:640px}
+thead th{
+  background:var(--ink);color:var(--paper);
+  font-family:'Space Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.1em;
+  text-align:left;padding:11px 14px;white-space:nowrap;
+}
+tbody td{border-bottom:2px solid var(--abu);padding:12px 14px;vertical-align:middle}
+tbody tr:last-child td{border-bottom:none}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:#FFF6D6}
+.nm{font-weight:700}
+.kls{font-family:'Space Mono',monospace;font-size:11px;border:2px solid var(--ink);padding:1px 6px;display:inline-block}
+
+.bar{height:14px;border:2px solid var(--ink);background:#fff;position:relative;min-width:90px}
+.bar span{display:block;height:100%;background:var(--mint)}
+.bar.warn span{background:var(--kuning)}
+.bar.bad span{background:var(--coral)}
+.barlabel{font-family:'Space Mono',monospace;font-size:11px;margin-top:3px}
+
+.pill{font-family:'Space Mono',monospace;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;border:2px solid var(--ink);padding:2px 7px;display:inline-block;white-space:nowrap}
+.pill.lunas{background:var(--mint)}
+.pill.nunggak{background:var(--coral);color:#fff}
+.pill.jalan{background:var(--kuning)}
+
+/* ---------- toolbar ---------- */
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px;align-items:center}
+input[type=text],input[type=number],select{
+  font-family:'Space Grotesk',sans-serif;font-size:14px;
+  border:3px solid var(--ink);background:#fff;padding:9px 11px;box-shadow:var(--shadow-sm);
+}
+input:focus,select:focus{outline:none;background:var(--kuning)}
+.btn{
+  font-family:'Archivo Black',sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:.02em;
+  border:3px solid var(--ink);background:#fff;padding:10px 14px;cursor:pointer;box-shadow:var(--shadow-sm);
+  transition:transform .08s,box-shadow .08s;
+}
+.btn:hover{transform:translate(-1px,-1px);box-shadow:4px 4px 0 var(--ink)}
+.btn:active{transform:translate(3px,3px);box-shadow:0 0 0 var(--ink)}
+.btn:focus-visible{outline:3px solid var(--biru);outline-offset:2px}
+.btn.primary{background:var(--biru);color:#fff}
+.btn.danger{background:var(--coral);color:#fff}
+.btn.ghost{background:transparent;box-shadow:none}
+.btn.sm{font-size:10px;padding:6px 9px;box-shadow:2px 2px 0 var(--ink)}
+
+/* ---------- detail siswa ---------- */
+.backlink{font-family:'Space Mono',monospace;font-size:12px;text-transform:uppercase;letter-spacing:.08em;background:none;border:none;cursor:pointer;border-bottom:3px solid var(--ink);padding:0 0 2px;margin-bottom:16px}
+.idcard{display:flex;gap:18px;align-items:flex-start;flex-wrap:wrap;background:var(--kuning);border:3px solid var(--ink);box-shadow:var(--shadow);padding:18px;margin-bottom:24px}
+.idcard .big{font-family:'Archivo Black',sans-serif;font-size:26px;line-height:1.05}
+.idmeta{font-family:'Space Mono',monospace;font-size:12px;margin-top:8px;display:grid;gap:2px}
+.idright{margin-left:auto;text-align:right}
+.idright .total{font-family:'Archivo Black',sans-serif;font-size:24px}
+
+h2.sec{font-size:17px;margin:0 0 4px}
+.secsub{font-family:'Space Mono',monospace;font-size:12px;margin-bottom:14px}
+.secblock{margin-bottom:34px}
+
+/* SIGNATURE: kartu SPP 12 bulan */
+.spp{display:grid;grid-template-columns:repeat(auto-fill,minmax(146px,1fr));gap:12px}
+.bln{
+  border:3px solid var(--ink);background:#fff;box-shadow:var(--shadow-sm);
+  padding:11px;text-align:left;cursor:pointer;position:relative;overflow:hidden;
+  transition:transform .08s;font-family:'Space Grotesk',sans-serif;
+}
+.bln:hover{transform:translate(-1px,-1px)}
+.bln:focus-visible{outline:3px solid var(--biru);outline-offset:2px}
+.bln .no{font-family:'Space Mono',monospace;font-size:10px;letter-spacing:.1em}
+.bln .nama{font-family:'Archivo Black',sans-serif;font-size:15px;text-transform:uppercase;margin-top:2px}
+.bln .rp{font-family:'Space Mono',monospace;font-size:12px;margin-top:5px}
+.bln .tgl{font-family:'Space Mono',monospace;font-size:10px;margin-top:2px;opacity:.7}
+.bln[data-status="lunas"]{background:#EAFBF0}
+.bln[data-status="belum"]{background:#fff}
+.bln[data-status="tempo"]{background:#FFECEC}
+/* stempel paraf — pengganti kolom "tanda tangan petugas" di kartu fisik */
+.stempel{
+  position:absolute;right:-6px;bottom:-4px;
+  font-family:'Archivo Black',sans-serif;font-size:11px;letter-spacing:.06em;
+  border:3px solid var(--mint);color:#1B9E52;padding:3px 7px;
+  transform:rotate(-14deg);opacity:0;pointer-events:none;
+}
+.bln[data-status="lunas"] .stempel{opacity:1;animation:stamp .28s cubic-bezier(.2,1.6,.4,1)}
+@keyframes stamp{0%{transform:rotate(-14deg) scale(2.4);opacity:0}60%{opacity:1}100%{transform:rotate(-14deg) scale(1);opacity:1}}
+
+/* kewajiban kegiatan */
+.keg{display:grid;gap:10px}
+.kegrow{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  border:3px solid var(--ink);background:#fff;box-shadow:var(--shadow-sm);padding:11px 13px;
+}
+.kegrow .n{font-family:'Space Mono',monospace;font-size:11px;border:2px solid var(--ink);width:24px;height:24px;display:grid;place-items:center;flex:none}
+.kegrow .t{font-weight:700;flex:1;min-width:130px}
+.kegrow .v{font-family:'Space Mono',monospace;font-size:13px}
+.kegrow[data-lunas="1"]{background:#EAFBF0}
+
+/* ---------- pengaturan ---------- */
+.split{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+@media(max-width:820px){.split{grid-template-columns:1fr}}
+.editrow{display:flex;gap:8px;align-items:center;border-bottom:2px dashed var(--abu);padding:9px 0}
+.editrow .t{flex:1;font-weight:700}
+.editrow .v{font-family:'Space Mono',monospace;font-size:13px}
+.note{border-left:8px solid var(--biru);background:#fff;border:3px solid var(--ink);padding:12px 14px;font-size:13px;box-shadow:var(--shadow-sm);margin-top:16px}
+
+/* ---------- modal ---------- */
+.overlay{position:fixed;inset:0;background:rgba(18,16,14,.55);display:none;place-items:center;padding:20px;z-index:60}
+.overlay.on{display:grid}
+.modal{background:var(--paper);border:3px solid var(--ink);box-shadow:8px 8px 0 var(--ink);width:100%;max-width:390px;padding:20px}
+.modal h3{font-size:19px}
+.modal .who{font-family:'Space Mono',monospace;font-size:12px;margin:4px 0 16px}
+.field{margin-bottom:13px}
+.field label{font-family:'Space Mono',monospace;font-size:11px;text-transform:uppercase;letter-spacing:.1em;display:block;margin-bottom:5px}
+.field input,.field select{width:100%}
+.modalfoot{display:flex;gap:10px;margin-top:18px}
+.modalfoot .btn{flex:1}
+
+/* ---------- toast ---------- */
+.toast{
+  position:fixed;left:50%;bottom:24px;transform:translate(-50%,140%);
+  background:var(--mint);border:3px solid var(--ink);box-shadow:var(--shadow);
+  padding:11px 18px;font-family:'Archivo Black',sans-serif;font-size:12px;text-transform:uppercase;
+  z-index:80;transition:transform .22s cubic-bezier(.2,1.4,.4,1);
+}
+.toast.on{transform:translate(-50%,0)}
+
+.empty{border:3px dashed var(--ink);padding:26px;text-align:center;background:#fff}
+.empty p{font-family:'Space Mono',monospace;font-size:13px;margin-bottom:12px}
+
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+@media(max-width:600px){
+  .page > h1{font-size:23px}
+  nav.tabs{top:auto}
+  .idright{margin-left:0;text-align:left;width:100%}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar">
+  <div class="logo">TK.</div>
+  <div class="school">TK Tunas Ceria<small>Tahun ajaran 2026/2027 · Semester 1</small></div>
+  <div class="user">
+    <div style="text-align:right;line-height:1.15">
+      <div style="font-weight:700;font-size:13px">Bu Rina</div>
+      <div class="mono" style="font-size:11px">Guru kelas A2</div>
+    </div>
+    <div class="avatar">R</div>
+  </div>
+</header>
+
+<nav class="tabs" role="tablist">
+  <button role="tab" aria-selected="true" data-go="dash">Ringkasan</button>
+  <button role="tab" aria-selected="false" data-go="siswa">Siswa</button>
+  <button role="tab" aria-selected="false" data-go="atur">Pengaturan biaya</button>
+</nav>
+
+<main>
+
+  <!-- ================= RINGKASAN ================= -->
+  <section class="page on" id="dash">
+    <div class="eyebrow">Agustus 2026</div>
+    <h1>Ringkasan bulan ini</h1>
+    <p class="sub">Angka di bawah dihitung dari pembayaran yang sudah Ibu catat. Klik kartu siswa untuk mencatat pembayaran baru.</p>
+
+    <div class="grid-stats">
+      <div class="card stat k"><div class="label">Siswa aktif</div><div class="num" id="s-siswa">0</div><div class="foot">3 kelas</div></div>
+      <div class="card stat m"><div class="label">SPP lunas Agustus</div><div class="num" id="s-lunas">0</div><div class="foot" id="s-lunas-f">dari 0 siswa</div></div>
+      <div class="card stat c"><div class="label">Belum bayar SPP</div><div class="num" id="s-belum">0</div><div class="foot">perlu ditagih</div></div>
+      <div class="card stat b"><div class="label">Terkumpul Agustus</div><div class="num mono" id="s-uang">Rp0</div><div class="foot">SPP + kegiatan</div></div>
+    </div>
+
+    <div class="eyebrow">Perlu ditindaklanjuti</div>
+    <h2 class="sec">Tunggakan terlama</h2>
+    <p class="secsub">Diurutkan dari yang paling banyak bulan tertunggak.</p>
+    <div class="tablewrap">
+      <table>
+        <thead><tr><th>Siswa</th><th>Kelas</th><th>Bulan tertunggak</th><th>Nilai</th><th>Orang tua</th></tr></thead>
+        <tbody id="tbl-tunggak"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ================= SISWA ================= -->
+  <section class="page" id="siswa">
+    <div id="listview">
+      <div class="eyebrow">Daftar</div>
+      <h1>Siswa</h1>
+      <p class="sub">Cari nama, lalu buka kartunya untuk mencatat SPP atau biaya kegiatan.</p>
+
+      <div class="toolbar">
+        <input type="text" id="cari" placeholder="Cari nama siswa…" style="flex:1;min-width:180px">
+        <select id="filterKelas"><option value="">Semua kelas</option><option>A1</option><option>A2</option><option>B1</option></select>
+        <select id="filterStatus"><option value="">Semua status</option><option value="lunas">Lunas</option><option value="nunggak">Menunggak</option></select>
+        <button class="btn primary" onclick="toast('Form tambah siswa akan muncul di sini')">+ Siswa</button>
+      </div>
+
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>Nama siswa</th><th>Kelas</th><th>SPP 2026/2027</th><th>Biaya kegiatan</th><th>Status</th></tr></thead>
+          <tbody id="tbl-siswa"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- detail -->
+    <div id="detailview" style="display:none">
+      <button class="backlink" onclick="tutupDetail()">← Kembali ke daftar</button>
+
+      <div class="idcard">
+        <div>
+          <div class="mono" style="font-size:11px;letter-spacing:.1em">KARTU PEMBAYARAN</div>
+          <div class="big" id="d-nama">—</div>
+          <div class="idmeta">
+            <div>Kelas <span id="d-kelas"></span> · No. induk <span id="d-induk"></span></div>
+            <div>Orang tua: <span id="d-ortu"></span></div>
+            <div>HP: <span id="d-hp"></span></div>
+          </div>
+        </div>
+        <div class="idright">
+          <div class="mono" style="font-size:11px;letter-spacing:.1em">TOTAL DIBAYAR</div>
+          <div class="total mono" id="d-total">Rp0</div>
+          <div class="mono" style="font-size:11px;margin-top:2px" id="d-sisa">Sisa Rp0</div>
+          <button class="btn sm" style="margin-top:10px" onclick="toast('Ringkasan tagihan dikirim ke WhatsApp orang tua')">Kirim tagihan ke ortu</button>
+        </div>
+      </div>
+
+      <div class="secblock">
+        <div class="eyebrow">Modul 1</div>
+        <h2 class="sec">Iuran SPP bulanan</h2>
+        <p class="secsub">Klik bulan untuk mencatat pembayaran. Bulan lunas otomatis ditandai paraf.</p>
+        <div class="spp" id="grid-spp"></div>
+      </div>
+
+      <div class="secblock">
+        <div class="eyebrow">Modul 2</div>
+        <h2 class="sec">Biaya kegiatan</h2>
+        <p class="secsub">Daftar kegiatan mengikuti pengaturan sekolah. Ubah di tab Pengaturan biaya.</p>
+        <div class="keg" id="list-keg"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= PENGATURAN ================= -->
+  <section class="page" id="atur">
+    <div class="eyebrow">Khusus admin sekolah</div>
+    <h1>Pengaturan biaya</h1>
+    <p class="sub">Setiap sekolah punya daftar biayanya sendiri. Apa yang diatur di sini langsung muncul di kartu semua siswa.</p>
+
+    <div class="split">
+      <div>
+        <h2 class="sec">Nominal SPP</h2>
+        <p class="secsub">Berlaku untuk siklus Juli–Juni.</p>
+        <div class="card">
+          <div class="field"><label>SPP per bulan (Rp)</label><input type="number" id="in-spp" value="150000"></div>
+          <div class="field"><label>Tanggal jatuh tempo tiap bulan</label><input type="number" id="in-tempo" value="10" min="1" max="28"></div>
+          <button class="btn primary" onclick="simpanSpp()">Simpan nominal</button>
+        </div>
+        <div class="note"><strong>Catatan:</strong> mengubah nominal hanya memengaruhi bulan yang belum dibayar. Pembayaran yang sudah dicatat tidak ikut berubah.</div>
+      </div>
+
+      <div>
+        <h2 class="sec">Daftar biaya kegiatan</h2>
+        <p class="secsub">Tambah, ubah, atau hapus sesuai kegiatan sekolah.</p>
+        <div class="card">
+          <div id="edit-keg"></div>
+          <div class="toolbar" style="margin:16px 0 0">
+            <input type="text" id="keg-nama" placeholder="Nama kegiatan" style="flex:1;min-width:120px">
+            <input type="number" id="keg-nom" placeholder="Nominal" style="width:120px">
+            <button class="btn primary" onclick="tambahKeg()">Tambah</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<!-- modal catat pembayaran -->
+<div class="overlay" id="ovl" onclick="if(event.target===this)tutupModal()">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="m-judul">
+    <h3 id="m-judul">Catat pembayaran</h3>
+    <div class="who" id="m-who">—</div>
+    <div class="field"><label>Jumlah dibayar (Rp)</label><input type="number" id="m-jumlah"></div>
+    <div class="field"><label>Tanggal pembayaran</label><input type="text" id="m-tgl" value="22/08/2026"></div>
+    <div class="field"><label>Keterangan</label><input type="text" id="m-ket" placeholder="opsional — mis. dititip kakak"></div>
+    <div class="modalfoot">
+      <button class="btn ghost" onclick="tutupModal()">Batal</button>
+      <button class="btn primary" onclick="simpanBayar()">Simpan</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">Tersimpan</div>
+
+<script>
+/* ================= DATA CONTOH ================= */
+const BULAN=['Juli','Agustus','September','Oktober','November','Desember','Januari','Februari','Maret','April','Mei','Juni'];
+let sppNominal=150000, tglTempo=10;
+const BULAN_KINI=1; // Agustus = indeks 1
+
+let kegiatanSekolah=[
+  {id:1,nama:'PMB',nominal:350000},
+  {id:2,nama:'Dana Usaha',nominal:100000},
+  {id:3,nama:'Manasik haji',nominal:150000},
+  {id:4,nama:'Outing class',nominal:200000},
+  {id:5,nama:'Pas foto',nominal:20000},
+  {id:6,nama:'Pentas seni',nominal:185000},
+  {id:7,nama:'Aksera / porseni',nominal:75000},
+  {id:8,nama:'Peduli ramadhan',nominal:50000}
+];
+
+let siswa=[
+  {id:1,nama:'Qaisha Putri M',kelas:'A2',induk:'2601',ortu:'Ibu Wulan',hp:'0812-1122-3344',spp:[1,1,0,0,0,0,0,0,0,0,0,0],keg:[1,1,0,1,1,0,1,1]},
+  {id:2,nama:'Arkan Zaidan',kelas:'A2',induk:'2602',ortu:'Bapak Hendra',hp:'0813-5566-7788',spp:[1,0,0,0,0,0,0,0,0,0,0,0],keg:[1,0,0,1,1,0,0,0]},
+  {id:3,nama:'Naila Syakira',kelas:'A1',induk:'2603',ortu:'Ibu Dewi',hp:'0857-2211-9900',spp:[1,1,0,0,0,0,0,0,0,0,0,0],keg:[1,1,1,1,1,1,1,0]},
+  {id:4,nama:'Rafardhan Aqila',kelas:'B1',induk:'2604',ortu:'Ibu Sari',hp:'0821-4433-1122',spp:[0,0,0,0,0,0,0,0,0,0,0,0],keg:[1,0,0,0,0,0,0,0]},
+  {id:5,nama:'Kayla Humaira',kelas:'B1',induk:'2605',ortu:'Bapak Aditya',hp:'0838-7788-2211',spp:[1,1,0,0,0,0,0,0,0,0,0,0],keg:[1,1,0,1,1,0,1,0]},
+  {id:6,nama:'Zafran Alkhalifi',kelas:'A1',induk:'2606',ortu:'Ibu Ratna',hp:'0852-3344-5566',spp:[1,0,0,0,0,0,0,0,0,0,0,0],keg:[1,1,0,1,0,0,0,0]}
+];
+let aktif=null, modalCtx=null;
+
+/* ================= UTIL ================= */
+const rp=n=>'Rp'+n.toLocaleString('id-ID');
+function toast(t){const e=document.getElementById('toast');e.textContent=t;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),2200)}
+const lunasSpp=s=>s.spp.filter(Boolean).length;
+const tunggak=s=>{let n=0;for(let i=0;i<=BULAN_KINI;i++)if(!s.spp[i])n++;return n};
+function terbayarKeg(s){return kegiatanSekolah.reduce((a,k,i)=>a+(s.keg[i]?k.nominal:0),0)}
+function totalKeg(){return kegiatanSekolah.reduce((a,k)=>a+k.nominal,0)}
+function totalBayar(s){return lunasSpp(s)*sppNominal+terbayarKeg(s)}
+
+/* ================= NAV ================= */
+document.querySelectorAll('nav.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('nav.tabs button').forEach(x=>x.setAttribute('aria-selected',x===b));
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id===b.dataset.go));
+  if(b.dataset.go==='siswa')tutupDetail();
+  window.scrollTo({top:0,behavior:'smooth'});
+});
+
+/* ================= RINGKASAN ================= */
+function renderDash(){
+  const lunas=siswa.filter(s=>s.spp[BULAN_KINI]).length;
+  document.getElementById('s-siswa').textContent=siswa.length;
+  document.getElementById('s-lunas').textContent=lunas;
+  document.getElementById('s-lunas-f').textContent='dari '+siswa.length+' siswa';
+  document.getElementById('s-belum').textContent=siswa.length-lunas;
+  document.getElementById('s-uang').textContent=rp(lunas*sppNominal);
+
+  const t=siswa.filter(s=>tunggak(s)>0).sort((a,b)=>tunggak(b)-tunggak(a));
+  document.getElementById('tbl-tunggak').innerHTML=t.length?t.map(s=>`
+    <tr onclick="bukaDetail(${s.id})">
+      <td class="nm">${s.nama}</td>
+      <td><span class="kls">${s.kelas}</span></td>
+      <td><span class="pill nunggak">${tunggak(s)} bulan</span></td>
+      <td class="mono">${rp(tunggak(s)*sppNominal)}</td>
+      <td class="mono" style="font-size:12px">${s.ortu}<br>${s.hp}</td>
+    </tr>`).join(''):'<tr><td colspan="5" style="padding:22px" class="mono">Tidak ada tunggakan. Semua siswa lunas sampai bulan ini.</td></tr>';
+}
+
+/* ================= DAFTAR SISWA ================= */
+function renderSiswa(){
+  const q=document.getElementById('cari').value.toLowerCase();
+  const fk=document.getElementById('filterKelas').value;
+  const fs=document.getElementById('filterStatus').value;
+  const rows=siswa.filter(s=>{
+    if(q&&!s.nama.toLowerCase().includes(q))return false;
+    if(fk&&s.kelas!==fk)return false;
+    if(fs==='lunas'&&tunggak(s)>0)return false;
+    if(fs==='nunggak'&&tunggak(s)===0)return false;
+    return true;
+  });
+  const el=document.getElementById('tbl-siswa');
+  if(!rows.length){el.innerHTML='<tr><td colspan="5" style="padding:26px" class="mono">Tidak ada siswa yang cocok. Coba hapus filternya.</td></tr>';return}
+  el.innerHTML=rows.map(s=>{
+    const p=Math.round(lunasSpp(s)/12*100);
+    const kp=totalKeg()?Math.round(terbayarKeg(s)/totalKeg()*100):0;
+    const tg=tunggak(s);
+    return `<tr onclick="bukaDetail(${s.id})">
+      <td class="nm">${s.nama}<div class="mono" style="font-size:11px;font-weight:400">${s.ortu}</div></td>
+      <td><span class="kls">${s.kelas}</span></td>
+      <td><div class="bar ${p>60?'':p>25?'warn':'bad'}"><span style="width:${p}%"></span></div><div class="barlabel">${lunasSpp(s)}/12 bulan</div></td>
+      <td><div class="bar ${kp>60?'':kp>25?'warn':'bad'}"><span style="width:${kp}%"></span></div><div class="barlabel">${rp(terbayarKeg(s))}</div></td>
+      <td>${tg?`<span class="pill nunggak">${tg} bln tertunggak</span>`:'<span class="pill lunas">Lancar</span>'}</td>
+    </tr>`}).join('');
+}
+['cari','filterKelas','filterStatus'].forEach(id=>document.getElementById(id).addEventListener('input',renderSiswa));
+
+/* ================= DETAIL ================= */
+function bukaDetail(id){
+  aktif=siswa.find(s=>s.id===id);
+  document.querySelectorAll('nav.tabs button').forEach(x=>x.setAttribute('aria-selected',x.dataset.go==='siswa'));
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('on',p.id==='siswa'));
+  document.getElementById('listview').style.display='none';
+  document.getElementById('detailview').style.display='block';
+  renderDetail();
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+function tutupDetail(){
+  document.getElementById('listview').style.display='block';
+  document.getElementById('detailview').style.display='none';
+  aktif=null;renderSiswa();
+}
+function renderDetail(){
+  const s=aktif;if(!s)return;
+  d('d-nama',s.nama);d('d-kelas',s.kelas);d('d-induk',s.induk);d('d-ortu',s.ortu);d('d-hp',s.hp);
+  const total=totalBayar(s), tagihan=12*sppNominal+totalKeg();
+  d('d-total',rp(total));d('d-sisa','Sisa '+rp(tagihan-total));
+
+  document.getElementById('grid-spp').innerHTML=BULAN.map((b,i)=>{
+    const st=s.spp[i]?'lunas':(i<=BULAN_KINI?'tempo':'belum');
+    return `<button class="bln" data-status="${st}" onclick="bukaModal('spp',${i})">
+      <div class="no">BULAN ${String(i+1).padStart(2,'0')}</div>
+      <div class="nama">${b}</div>
+      <div class="rp">${rp(sppNominal)}</div>
+      <div class="tgl">${s.spp[i]?'Dibayar '+(i+3)+'/'+(i<6?(i+7):(i-5))+'/26':(st==='tempo'?'Jatuh tempo tgl '+tglTempo:'Belum jatuh tempo')}</div>
+      <div class="stempel">LUNAS</div>
+    </button>`}).join('');
+
+  document.getElementById('list-keg').innerHTML=kegiatanSekolah.length?kegiatanSekolah.map((k,i)=>`
+    <div class="kegrow" data-lunas="${s.keg[i]?1:0}">
+      <div class="n">${i+1}</div>
+      <div class="t">${k.nama}</div>
+      <div class="v">${rp(k.nominal)}</div>
+      ${s.keg[i]?'<span class="pill lunas">Lunas</span>':'<span class="pill jalan">Belum</span>'}
+      <button class="btn sm ${s.keg[i]?'':'primary'}" onclick="toggleKeg(${i})">${s.keg[i]?'Batalkan':'Tandai lunas'}</button>
+    </div>`).join(''):'<div class="empty"><p>Belum ada biaya kegiatan yang diatur.</p><button class="btn primary" onclick="document.querySelector(\'[data-go=atur]\').click()">Atur biaya kegiatan</button></div>';
+}
+function d(id,v){document.getElementById(id).textContent=v}
+function toggleKeg(i){
+  aktif.keg[i]=aktif.keg[i]?0:1;
+  toast(aktif.keg[i]?kegiatanSekolah[i].nama+' ditandai lunas':'Status '+kegiatanSekolah[i].nama+' dibatalkan');
+  renderDetail();renderDash();
+}
+
+/* ================= MODAL ================= */
+function bukaModal(tipe,i){
+  modalCtx={tipe,i};
+  if(aktif.spp[i]){
+    aktif.spp[i]=0;toast(BULAN[i]+' dikembalikan ke belum bayar');renderDetail();renderDash();return;
+  }
+  document.getElementById('m-who').textContent=aktif.nama+' · SPP '+BULAN[i]+' 2026/2027';
+  document.getElementById('m-jumlah').value=sppNominal;
+  document.getElementById('m-ket').value='';
+  document.getElementById('ovl').classList.add('on');
+  setTimeout(()=>document.getElementById('m-jumlah').focus(),50);
+}
+function tutupModal(){document.getElementById('ovl').classList.remove('on')}
+function simpanBayar(){
+  aktif.spp[modalCtx.i]=1;
+  tutupModal();renderDetail();renderDash();
+  toast('SPP '+BULAN[modalCtx.i]+' tercatat lunas');
+}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')tutupModal()});
+
+/* ================= PENGATURAN ================= */
+function renderAtur(){
+  document.getElementById('edit-keg').innerHTML=kegiatanSekolah.map((k,i)=>`
+    <div class="editrow">
+      <div class="t">${k.nama}</div>
+      <div class="v">${rp(k.nominal)}</div>
+      <button class="btn sm danger" onclick="hapusKeg(${i})">Hapus</button>
+    </div>`).join('')||'<p class="mono" style="font-size:13px;padding:8px 0">Belum ada kegiatan. Tambahkan di bawah.</p>';
+}
+function tambahKeg(){
+  const n=document.getElementById('keg-nama').value.trim();
+  const v=parseInt(document.getElementById('keg-nom').value,10);
+  if(!n||!v){toast('Isi nama kegiatan dan nominalnya');return}
+  kegiatanSekolah.push({id:Date.now(),nama:n,nominal:v});
+  siswa.forEach(s=>s.keg.push(0));
+  document.getElementById('keg-nama').value='';document.getElementById('keg-nom').value='';
+  renderAtur();renderSiswa();if(aktif)renderDetail();
+  toast(n+' ditambahkan ke semua kartu siswa');
+}
+function hapusKeg(i){
+  const n=kegiatanSekolah[i].nama;
+  kegiatanSekolah.splice(i,1);siswa.forEach(s=>s.keg.splice(i,1));
+  renderAtur();renderSiswa();if(aktif)renderDetail();
+  toast(n+' dihapus');
+}
+function simpanSpp(){
+  sppNominal=parseInt(document.getElementById('in-spp').value,10)||0;
+  tglTempo=parseInt(document.getElementById('in-tempo').value,10)||10;
+  renderDash();renderSiswa();if(aktif)renderDetail();
+  toast('Nominal SPP diperbarui');
+}
+
+/* ================= INIT ================= */
+renderDash();renderSiswa();renderAtur();
+</script>
+</body>
+</html>

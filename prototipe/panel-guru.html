@@ -1,0 +1,688 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Panel Guru — Pembayaran TK</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F6FA;
+  --card:#FFFFFF;
+  --ink:#151A26;
+  --muted:#8A93A6;
+  --line:#EEF0F5;
+  --blue:#3B6EF6;   --blue-s:#EAF0FE;
+  --green:#22C55E;  --green-s:#E8F8EE;
+  --amber:#F5A524;  --amber-s:#FEF4E4;
+  --purple:#8B5CF6; --purple-s:#F1ECFE;
+  --pink:#EC4899;   --pink-s:#FDECF4;
+  --red:#EF4444;    --red-s:#FDECEC;
+  --r:20px;
+  --shadow:0 2px 12px rgba(21,26,38,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{
+  font-family:'Plus Jakarta Sans',system-ui,sans-serif;
+  background:#E9EBF2;color:var(--ink);
+  display:flex;justify-content:center;
+  font-size:15px;line-height:1.45;
+}
+button{font-family:inherit;color:inherit;border:none;background:none;cursor:pointer}
+input,select{font-family:inherit;font-size:15px;color:inherit}
+
+/* ---------- shell ---------- */
+.shell{
+  width:100%;max-width:430px;background:var(--bg);
+  height:100dvh;display:flex;flex-direction:column;position:relative;overflow:hidden;
+}
+@media(min-width:520px){
+  body{padding:22px 0}
+  .shell{height:min(900px,calc(100dvh - 44px));border-radius:36px;box-shadow:0 24px 60px rgba(21,26,38,.18)}
+}
+.statusbar{display:flex;justify-content:space-between;align-items:center;padding:12px 22px 2px;font-size:13px;font-weight:700;flex:none}
+.statusbar .ic{display:flex;gap:5px;align-items:center;opacity:.85}
+.scroll{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:0 18px 130px}
+.scroll::-webkit-scrollbar{width:0}
+
+/* ---------- header ---------- */
+.apphead{display:flex;align-items:center;gap:10px;padding:10px 0 4px}
+.iconbtn{width:44px;height:44px;border-radius:14px;background:var(--card);display:grid;place-items:center;box-shadow:var(--shadow);flex:none;position:relative}
+.school{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px}
+.school .badge{width:38px;height:38px;border-radius:50%;background:var(--card);display:grid;place-items:center;box-shadow:var(--shadow);font-size:18px}
+.dot{position:absolute;top:-4px;right:-4px;min-width:19px;height:19px;border-radius:10px;background:var(--red);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;padding:0 5px;border:2px solid var(--bg)}
+
+.hello{padding:14px 0 6px;position:relative;z-index:1}
+.hello h1{font-size:23px;font-weight:800;letter-spacing:-.02em;max-width:66%}
+.hello p{color:var(--muted);font-size:14px;margin-top:3px;max-width:64%}
+.mascot{position:absolute;right:-6px;top:6px;font-size:64px;line-height:1;z-index:0;filter:drop-shadow(0 6px 10px rgba(21,26,38,.08))}
+
+/* ---------- generic ---------- */
+.page{display:none}
+.page.on{display:block;animation:fade .22s ease}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:16px}
+.secthead{display:flex;align-items:center;justify-content:space-between;margin:22px 2px 12px}
+.secthead h2{font-size:17px;font-weight:800;letter-spacing:-.01em}
+.secthead button{color:var(--blue);font-size:13px;font-weight:700}
+.muted{color:var(--muted)}
+.tile{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;flex:none}
+.t-blue{background:var(--blue-s);color:var(--blue)} .t-green{background:var(--green-s);color:var(--green)}
+.t-amber{background:var(--amber-s);color:var(--amber)} .t-purple{background:var(--purple-s);color:var(--purple)}
+.t-pink{background:var(--pink-s);color:var(--pink)} .t-red{background:var(--red-s);color:var(--red)}
+.chip{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap}
+.c-red{background:var(--red-s);color:var(--red)} .c-amber{background:var(--amber-s);color:#B27614}
+.c-green{background:var(--green-s);color:#177C40} .c-blue{background:var(--blue-s);color:var(--blue)}
+.c-grey{background:#F1F2F6;color:var(--muted)}
+
+/* ---------- stat rail ---------- */
+.rail{display:flex;gap:12px;overflow-x:auto;padding:4px 18px 6px;margin:8px -18px 0;scroll-snap-type:x mandatory}
+.rail::-webkit-scrollbar{height:0}
+.stat{min-width:158px;scroll-snap-align:start;background:var(--card);border-radius:var(--r);padding:15px;box-shadow:var(--shadow)}
+.stat .lbl{color:var(--muted);font-size:13px;font-weight:500;margin-top:12px}
+.stat .val{font-size:21px;font-weight:800;letter-spacing:-.02em;margin-top:2px}
+.stat .sub{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);font-weight:600;margin-top:8px}
+.bullet{width:7px;height:7px;border-radius:50%;flex:none}
+.track{height:6px;border-radius:99px;background:#EFF1F6;margin-top:9px;overflow:hidden}
+.track i{display:block;height:100%;border-radius:99px;background:var(--green)}
+
+/* ---------- aksi cepat ---------- */
+.actions{display:flex;gap:10px;overflow-x:auto;margin:0 -4px;padding:2px 4px}
+.actions::-webkit-scrollbar{height:0}
+.act{min-width:88px;flex:1;border-radius:16px;padding:14px 8px;display:grid;justify-items:center;gap:9px;text-align:center;font-size:12px;font-weight:700;line-height:1.25;border:1px solid var(--line)}
+.act .tile{width:42px;height:42px;border-radius:13px;color:#fff}
+.a1 .tile{background:var(--blue)} .a2 .tile{background:var(--green)} .a3 .tile{background:var(--amber)}
+.a4 .tile{background:var(--pink)} .a5 .tile{background:var(--purple)}
+.a1{background:#F7F9FF} .a2{background:#F5FCF8} .a3{background:#FFFBF3} .a4{background:#FFF7FA} .a5{background:#FAF7FF}
+.act:active{transform:scale(.96)}
+
+/* ---------- list rows ---------- */
+.row{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:none}
+.ava{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:15px;flex:none}
+.row .body{flex:1;min-width:0}
+.row .nm{font-weight:700;font-size:14.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .meta{color:var(--muted);font-size:12.5px;margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .right{text-align:right;flex:none;display:grid;gap:5px;justify-items:end}
+.amt{font-weight:800;font-size:14px}
+.amt.red{color:var(--red)} .amt.green{color:#177C40}
+.chev{color:#C8CDD8;flex:none}
+
+/* ---------- search & filter ---------- */
+.search{display:flex;align-items:center;gap:10px;background:var(--card);border-radius:16px;padding:12px 14px;box-shadow:var(--shadow);margin-bottom:12px}
+.search input{border:none;outline:none;flex:1;background:none;font-weight:500}
+.filters{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:6px}
+.filters::-webkit-scrollbar{height:0}
+.fchip{padding:8px 14px;border-radius:999px;background:var(--card);font-size:13px;font-weight:700;color:var(--muted);white-space:nowrap;box-shadow:var(--shadow)}
+.fchip.on{background:var(--blue);color:#fff}
+
+/* ---------- detail siswa ---------- */
+.backrow{display:flex;align-items:center;gap:12px;padding:10px 0 6px}
+.backrow h2{font-size:17px;font-weight:800}
+.profile{background:linear-gradient(135deg,#3B6EF6,#6D8BFF);border-radius:24px;padding:18px;color:#fff;box-shadow:0 10px 24px rgba(59,110,246,.28)}
+.profile .top{display:flex;align-items:center;gap:13px}
+.profile .ava{background:rgba(255,255,255,.22);color:#fff}
+.profile .nm{font-size:18px;font-weight:800;letter-spacing:-.01em}
+.profile .meta{font-size:12.5px;opacity:.85;margin-top:2px}
+.profile .split{display:flex;gap:10px;margin-top:16px}
+.profile .box{flex:1;background:rgba(255,255,255,.16);border-radius:14px;padding:10px 12px}
+.profile .box .k{font-size:11.5px;opacity:.85;font-weight:600}
+.profile .box .v{font-size:15px;font-weight:800;margin-top:2px}
+.profile .cta{width:100%;margin-top:12px;background:#fff;color:var(--blue);border-radius:14px;padding:11px;font-weight:800;font-size:13.5px}
+
+.segment{display:flex;background:#EDEFF5;border-radius:14px;padding:4px;margin:18px 0 14px}
+.segment button{flex:1;padding:9px;border-radius:11px;font-size:13.5px;font-weight:700;color:var(--muted)}
+.segment button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 4px rgba(21,26,38,.08)}
+
+.mrow{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:16px;padding:13px 14px;box-shadow:var(--shadow);margin-bottom:9px}
+.mrow .no{width:38px;height:38px;border-radius:12px;background:#F2F4F9;color:var(--muted);display:grid;place-items:center;font-size:12px;font-weight:800;flex:none}
+.mrow[data-l="1"] .no{background:var(--green-s);color:var(--green)}
+.mrow .body{flex:1;min-width:0}
+.mrow .nm{font-weight:700;font-size:14.5px}
+.mrow .meta{font-size:12px;color:var(--muted);margin-top:1px}
+.mini{padding:7px 12px;border-radius:11px;background:var(--blue);color:#fff;font-size:12px;font-weight:700;flex:none}
+.mini.off{background:#F1F2F6;color:var(--muted)}
+
+/* ---------- form ---------- */
+.field{margin-bottom:14px}
+.field label{display:block;font-size:13px;font-weight:700;margin-bottom:7px}
+.field input,.field select{width:100%;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px 14px;outline:none;font-weight:600}
+.field input:focus,.field select:focus{border-color:var(--blue);box-shadow:0 0 0 3px var(--blue-s)}
+.pickers{display:flex;gap:9px}
+.pickers button{flex:1;padding:12px;border-radius:14px;background:var(--card);border:1px solid var(--line);font-weight:700;font-size:13.5px;color:var(--muted)}
+.pickers button.on{background:var(--blue-s);border-color:var(--blue);color:var(--blue)}
+.bigbtn{width:100%;padding:15px;border-radius:16px;background:var(--blue);color:#fff;font-weight:800;font-size:15px;box-shadow:0 8px 18px rgba(59,110,246,.3)}
+.bigbtn:active{transform:scale(.99)}
+.bigbtn.ghost{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+
+/* ---------- laporan ---------- */
+.barrow{margin-bottom:14px}
+.barrow .top{display:flex;justify-content:space-between;font-size:13px;font-weight:700;margin-bottom:6px}
+.barrow .track{height:10px;margin:0}
+.donut{display:grid;place-items:center;margin:6px 0 12px}
+.donut .num{position:absolute;text-align:center}
+.donut .num b{font-size:22px;font-weight:800;display:block}
+.donut .num span{font-size:11.5px;color:var(--muted);font-weight:600}
+
+/* ---------- tabbar + fab ---------- */
+.tabbar{
+  flex:none;background:var(--card);border-top:1px solid var(--line);
+  display:flex;align-items:flex-end;justify-content:space-between;
+  padding:10px 14px calc(12px + env(safe-area-inset-bottom));position:relative;
+}
+.tabbar button{flex:1;display:grid;justify-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--muted);padding-top:4px}
+.tabbar button.on{color:var(--blue)}
+.tabbar .gap{flex:1}
+.fab{
+  position:absolute;left:50%;transform:translate(-50%,-46%);
+  width:62px;height:62px;border-radius:50%;background:var(--blue);color:#fff;
+  display:grid;place-items:center;box-shadow:0 10px 22px rgba(59,110,246,.4);border:5px solid var(--card);
+}
+.fab:active{transform:translate(-50%,-46%) scale(.94)}
+.fablabel{position:absolute;left:50%;transform:translateX(-50%);bottom:calc(10px + env(safe-area-inset-bottom));font-size:11px;font-weight:700;color:var(--blue);width:96px;text-align:center;line-height:1.2}
+
+/* ---------- sheet & toast ---------- */
+.sheetwrap{position:absolute;inset:0;background:rgba(21,26,38,.42);display:none;align-items:flex-end;z-index:50}
+.sheetwrap.on{display:flex;animation:fade .18s ease}
+.sheet{width:100%;background:var(--bg);border-radius:26px 26px 0 0;padding:8px 18px calc(22px + env(safe-area-inset-bottom));max-height:88%;overflow-y:auto;animation:up .26s cubic-bezier(.2,.9,.3,1)}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+.grab{width:42px;height:5px;border-radius:9px;background:#D8DCE6;margin:6px auto 14px}
+.sheet h3{font-size:18px;font-weight:800;margin-bottom:4px}
+.sheet .lead{color:var(--muted);font-size:13.5px;margin-bottom:16px}
+.success{text-align:center;padding:14px 0 4px}
+.success .mark{width:76px;height:76px;border-radius:50%;background:var(--green-s);color:var(--green);display:grid;place-items:center;margin:0 auto 14px;animation:pop .34s cubic-bezier(.2,1.5,.4,1)}
+@keyframes pop{from{transform:scale(.4);opacity:0}to{transform:none;opacity:1}}
+.toast{position:absolute;left:50%;bottom:108px;transform:translate(-50%,180%);background:var(--ink);color:#fff;padding:11px 18px;border-radius:14px;font-size:13px;font-weight:600;z-index:60;transition:transform .26s cubic-bezier(.2,1.2,.4,1);max-width:88%;text-align:center}
+.toast.on{transform:translate(-50%,0)}
+.empty{text-align:center;padding:34px 20px;color:var(--muted);font-size:13.5px}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="statusbar">
+    <span>09.41</span>
+    <span class="ic">
+      <svg width="17" height="12" viewBox="0 0 17 12" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" y="0" width="3" height="12" rx="1"/></svg>
+      <svg width="15" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1 4a11 11 0 0 1 14 0M3.5 7a7.5 7.5 0 0 1 9 0"/><circle cx="8" cy="10" r="1.1" fill="currentColor" stroke="none"/></svg>
+      <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x=".7" y=".7" width="19" height="10.6" rx="3" stroke="currentColor" stroke-opacity=".4"/><rect x="2.4" y="2.4" width="15.6" height="7.2" rx="1.8" fill="currentColor"/><path d="M21.4 4v4c1 -.4 1.6 -1.1 1.6 -2s-.6 -1.6 -1.6 -2z" fill="currentColor" fill-opacity=".5"/></svg>
+    </span>
+  </div>
+
+  <div class="scroll" id="scroll">
+
+    <!-- ============ BERANDA ============ -->
+    <section class="page on" id="p-home">
+      <div class="apphead">
+        <button class="iconbtn" onclick="toast('Menu sekolah')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+        </button>
+        <div class="school"><span class="badge">🏫</span> TK Tunas Ceria
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 9l6 6 6-6"/></svg>
+        </div>
+        <button class="iconbtn" style="margin-left:auto" onclick="toast('5 tagihan mendekati jatuh tempo')">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+          <span class="dot">5</span>
+        </button>
+      </div>
+
+      <div class="hello">
+        <div class="mascot">🧕</div>
+        <h1>Selamat pagi, Bu Rina 👋</h1>
+        <p>Kelola pembayaran siswa dengan mudah</p>
+      </div>
+
+      <div class="rail" id="rail"></div>
+
+      <div class="secthead"><h2>Aksi cepat</h2></div>
+      <div class="card" style="padding:14px">
+        <div class="actions">
+          <button class="act a1" onclick="bukaCatat()"><span class="tile"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span>Catat pembayaran</button>
+          <button class="act a2" onclick="go('siswa')"><span class="tile"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c1-3.6 3.8-5.2 7-5.2s6 1.6 7 5.2"/></svg></span>Pilih siswa</button>
+          <button class="act a3" onclick="go('biaya')"><span class="tile"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 3h8l4 4v14H6z"/><path d="M9 12h6M9 16h4"/></svg></span>Jenis biaya</button>
+          <button class="act a4" onclick="toast('Atur jadwal & pengingat tagihan')"><span class="tile"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="16" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg></span>Jadwal tagihan</button>
+          <button class="act a5" onclick="go('laporan')"><span class="tile"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 20V10M12 20V4M18 20v-7"/></svg></span>Laporan</button>
+        </div>
+      </div>
+
+      <div class="secthead"><h2>Akan jatuh tempo</h2><button onclick="go('siswa')">Lihat semua</button></div>
+      <div class="card" id="tempo-list"></div>
+
+      <div class="secthead"><h2>Pembayaran terbaru</h2><button onclick="go('bayar')">Lihat semua</button></div>
+      <div class="card" id="baru-list"></div>
+    </section>
+
+    <!-- ============ SISWA ============ -->
+    <section class="page" id="p-siswa">
+      <div class="backrow"><h2>Siswa</h2></div>
+      <div class="search">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A93A6" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg>
+        <input id="cari" placeholder="Cari nama atau NIS…">
+      </div>
+      <div class="filters" id="filters"></div>
+      <div class="card" id="siswa-list"></div>
+    </section>
+
+    <!-- ============ DETAIL SISWA ============ -->
+    <section class="page" id="p-detail">
+      <div class="backrow">
+        <button class="iconbtn" style="width:38px;height:38px;border-radius:12px" onclick="go('siswa')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>
+        </button>
+        <h2>Kartu pembayaran</h2>
+      </div>
+
+      <div class="profile" id="d-profile"></div>
+
+      <div class="segment">
+        <button class="on" id="seg-spp" onclick="setSeg('spp')">Iuran SPP</button>
+        <button id="seg-keg" onclick="setSeg('keg')">Biaya kegiatan</button>
+      </div>
+      <div id="d-body"></div>
+    </section>
+
+    <!-- ============ PEMBAYARAN ============ -->
+    <section class="page" id="p-bayar">
+      <div class="backrow"><h2>Riwayat pembayaran</h2></div>
+      <div class="rail" style="margin-top:2px">
+        <div class="stat" style="min-width:150px"><span class="tile t-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16v12H4z"/><path d="M4 11h16"/></svg></span><div class="lbl">Masuk hari ini</div><div class="val" id="b-hari">Rp0</div></div>
+        <div class="stat" style="min-width:150px"><span class="tile t-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5l3 2"/></svg></span><div class="lbl">Transaksi</div><div class="val" id="b-jml">0</div></div>
+        <div class="stat" style="min-width:150px"><span class="tile t-amber"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 4v16M8 8h6a2.5 2.5 0 0 1 0 5H9a2.5 2.5 0 0 0 0 5h7"/></svg></span><div class="lbl">Tunai / transfer</div><div class="val" id="b-mix">0 / 0</div></div>
+      </div>
+      <div class="secthead"><h2>Semua transaksi</h2></div>
+      <div class="card" id="riwayat-list"></div>
+    </section>
+
+    <!-- ============ LAPORAN ============ -->
+    <section class="page" id="p-laporan">
+      <div class="backrow"><h2>Laporan</h2></div>
+      <div class="card">
+        <div style="font-weight:800;font-size:15px">Ketertiban bayar SPP</div>
+        <div class="muted" style="font-size:13px;margin-top:2px;margin-bottom:16px">Agustus 2026</div>
+        <div id="laporan-kelas"></div>
+      </div>
+      <div class="secthead"><h2>Pemasukan per jenis biaya</h2></div>
+      <div class="card" id="laporan-jenis"></div>
+      <div style="height:14px"></div>
+      <button class="bigbtn ghost" onclick="toast('Laporan diunduh sebagai PDF')">Unduh laporan PDF</button>
+    </section>
+
+    <!-- ============ JENIS BIAYA ============ -->
+    <section class="page" id="p-biaya">
+      <div class="backrow">
+        <button class="iconbtn" style="width:38px;height:38px;border-radius:12px" onclick="go('home')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 5l-7 7 7 7"/></svg>
+        </button>
+        <h2>Jenis biaya</h2>
+      </div>
+      <p class="muted" style="font-size:13.5px;margin-bottom:16px">Daftar biaya di sini dipakai untuk semua siswa. Setiap sekolah bisa mengatur sendiri sesuai kegiatannya.</p>
+
+      <div class="card" style="margin-bottom:16px">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px">
+          <span class="tile t-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="16" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg></span>
+          <div><div style="font-weight:800">Iuran SPP bulanan</div><div class="muted" style="font-size:12.5px">Siklus Juli–Juni</div></div>
+        </div>
+        <div class="field"><label>Nominal per bulan</label><input type="number" id="in-spp" value="150000"></div>
+        <div class="field" style="margin-bottom:16px"><label>Jatuh tempo setiap tanggal</label><input type="number" id="in-tempo" value="10" min="1" max="28"></div>
+        <button class="bigbtn" onclick="simpanSpp()">Simpan</button>
+      </div>
+
+      <div class="secthead" style="margin-top:6px"><h2>Biaya kegiatan</h2><button onclick="bukaTambahBiaya()">+ Tambah</button></div>
+      <div class="card" id="biaya-list"></div>
+    </section>
+
+  </div>
+
+  <!-- ============ TABBAR ============ -->
+  <nav class="tabbar">
+    <button class="on" data-tab="home" onclick="go('home')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></svg>Beranda
+    </button>
+    <button data-tab="siswa" onclick="go('siswa')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9.5" cy="8.5" r="3.2"/><path d="M3.5 19c.9-3.2 3.3-4.7 6-4.7s5.1 1.5 6 4.7"/><path d="M16 6.2a3 3 0 0 1 0 5.6M17.5 19c-.3-1.6-.8-2.9-1.6-3.9 2.2.2 3.9 1.6 4.6 3.9"/></svg>Siswa
+    </button>
+    <span class="gap"></span>
+    <button data-tab="bayar" onclick="go('bayar')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10.5h18"/><circle cx="17" cy="15" r="1.2" fill="currentColor" stroke="none"/></svg>Pembayaran
+    </button>
+    <button data-tab="laporan" onclick="go('laporan')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 20V11M12 20V5M18 20v-6"/></svg>Laporan
+    </button>
+    <button class="fab" onclick="bukaCatat()" aria-label="Catat pembayaran">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>
+    </button>
+    <span class="fablabel">Catat pembayaran</span>
+  </nav>
+
+  <!-- ============ SHEET ============ -->
+  <div class="sheetwrap" id="sheetwrap" onclick="if(event.target===this)tutupSheet()">
+    <div class="sheet" id="sheet"></div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* ================= DATA ================= */
+const BULAN=['Juli','Agustus','September','Oktober','November','Desember','Januari','Februari','Maret','April','Mei','Juni'];
+const KINI=1; // Agustus
+let sppNominal=150000, tglTempo=10;
+const WARNA=['t-blue','t-green','t-amber','t-purple','t-pink','t-red'];
+const AVA=[['#EAF0FE','#3B6EF6'],['#E8F8EE','#177C40'],['#FEF4E4','#B27614'],['#F1ECFE','#8B5CF6'],['#FDECF4','#EC4899'],['#FDECEC','#EF4444']];
+
+let biaya=[
+  {nama:'PMB',nominal:350000},{nama:'Dana usaha',nominal:100000},
+  {nama:'Manasik haji',nominal:150000},{nama:'Outing class',nominal:200000},
+  {nama:'Pas foto',nominal:20000},{nama:'Pentas seni',nominal:185000},
+  {nama:'Aksera / porseni',nominal:75000},{nama:'Peduli ramadhan',nominal:50000}
+];
+
+let siswa=[
+  {id:1,nama:'Aisyah Nur Fadilah',kelas:'A',nis:'2026-001',ortu:'Ibu Wulan',hp:'0812-1122-3344',spp:[1,0,0,0,0,0,0,0,0,0,0,0],keg:[1,1,0,1,1,0,1,0],tempo:3},
+  {id:2,nama:'Muhammad Zidan',kelas:'A',nis:'2026-002',ortu:'Bapak Hendra',hp:'0813-5566-7788',spp:[1,0,0,0,0,0,0,0,0,0,0,0],keg:[1,0,0,1,1,0,0,0],tempo:5},
+  {id:3,nama:'Khansa Aulia',kelas:'B',nis:'2026-015',ortu:'Ibu Dewi',hp:'0857-2211-9900',spp:[1,0,0,0,0,0,0,0,0,0,0,0],keg:[1,1,1,1,1,1,1,0],tempo:6},
+  {id:4,nama:'Raffasya Putra',kelas:'B',nis:'2026-011',ortu:'Ibu Sari',hp:'0821-4433-1122',spp:[1,1,0,0,0,0,0,0,0,0,0,0],keg:[1,1,0,1,0,0,1,0],tempo:null},
+  {id:5,nama:'Qaisha Putri M',kelas:'A',nis:'2026-004',ortu:'Bapak Aditya',hp:'0838-7788-2211',spp:[1,1,0,0,0,0,0,0,0,0,0,0],keg:[1,1,0,1,1,0,1,1],tempo:null},
+  {id:6,nama:'Zafran Alkhalifi',kelas:'B',nis:'2026-018',ortu:'Ibu Ratna',hp:'0852-3344-5566',spp:[0,0,0,0,0,0,0,0,0,0,0,0],keg:[1,0,0,0,0,0,0,0],tempo:1}
+];
+
+let riwayat=[
+  {sid:4,ket:'SPP bulanan (Agustus)',nominal:150000,metode:'Tunai',waktu:'Hari ini, 09.30'},
+  {sid:5,ket:'Biaya kegiatan · Outing class',nominal:200000,metode:'Transfer',waktu:'Hari ini, 09.15'},
+  {sid:3,ket:'Biaya kegiatan · Pentas seni',nominal:185000,metode:'Transfer',waktu:'Kemarin, 14.02'},
+  {sid:1,ket:'SPP bulanan (Juli)',nominal:150000,metode:'Tunai',waktu:'Kemarin, 08.40'}
+];
+
+let aktif=null, seg='spp', filterKelas='', drafBayar={};
+
+/* ================= UTIL ================= */
+const rp=n=>'Rp'+n.toLocaleString('id-ID');
+const inisial=n=>n.split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase();
+const avaStyle=id=>{const c=AVA[id%AVA.length];return `background:${c[0]};color:${c[1]}`};
+const lunasSpp=s=>s.spp.filter(Boolean).length;
+const tunggak=s=>{let n=0;for(let i=0;i<=KINI;i++)if(!s.spp[i])n++;return n};
+const bayarKeg=s=>biaya.reduce((a,b,i)=>a+(s.keg[i]?b.nominal:0),0);
+const totalKeg=()=>biaya.reduce((a,b)=>a+b.nominal,0);
+function toast(t){const e=document.getElementById('toast');e.textContent=t;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),2400)}
+const chev='<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>';
+
+/* ================= NAV ================= */
+function go(p){
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
+  document.getElementById('p-'+p).classList.add('on');
+  document.querySelectorAll('.tabbar button[data-tab]').forEach(b=>b.classList.toggle('on',b.dataset.tab===p));
+  document.getElementById('scroll').scrollTop=0;
+  if(p==='siswa')renderSiswa();
+  if(p==='bayar')renderRiwayat();
+  if(p==='laporan')renderLaporan();
+  if(p==='biaya')renderBiaya();
+  if(p==='home')renderHome();
+}
+
+/* ================= BERANDA ================= */
+function renderHome(){
+  const lunas=siswa.filter(s=>s.spp[KINI]).length;
+  const masuk=riwayat.reduce((a,r)=>a+r.nominal,0);
+  const nunggak=siswa.filter(s=>tunggak(s)>0);
+  const tagih=nunggak.reduce((a,s)=>a+tunggak(s)*sppNominal,0);
+  const target=siswa.length*sppNominal;
+  const pct=Math.min(100,Math.round(lunas/siswa.length*100));
+
+  document.getElementById('rail').innerHTML=`
+    <div class="stat"><span class="tile t-blue"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="9.5" cy="8.5" r="3.2"/><path d="M3.5 19c.9-3.2 3.3-4.7 6-4.7s5.1 1.5 6 4.7"/><path d="M16 6.2a3 3 0 0 1 0 5.6"/></svg></span>
+      <div class="lbl">Total siswa</div><div class="val">${siswa.length}</div>
+      <div class="sub"><i class="bullet" style="background:var(--blue)"></i>Siswa aktif</div></div>
+
+    <div class="stat"><span class="tile t-green"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10.5h18"/></svg></span>
+      <div class="lbl">Pembayaran bulan ini</div><div class="val">${rp(masuk)}</div>
+      <div class="sub">${pct}% dari target</div><div class="track"><i style="width:${pct}%"></i></div></div>
+
+    <div class="stat"><span class="tile t-amber"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5l3 2"/></svg></span>
+      <div class="lbl">Tunggakan</div><div class="val">${rp(tagih)}</div>
+      <div class="sub"><i class="bullet" style="background:var(--amber)"></i>${nunggak.length} siswa</div></div>
+
+    <div class="stat"><span class="tile t-purple"><svg width="21" height="21" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="16" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg></span>
+      <div class="lbl">Jatuh tempo</div><div class="val">${siswa.filter(s=>s.tempo).length}</div>
+      <div class="sub"><i class="bullet" style="background:var(--purple)"></i>Dalam 7 hari</div></div>`;
+
+  const t=siswa.filter(s=>s.tempo).sort((a,b)=>a.tempo-b.tempo);
+  document.getElementById('tempo-list').innerHTML=t.length?t.map(s=>`
+    <div class="row" onclick="buka(${s.id})">
+      <div class="ava" style="${avaStyle(s.id)}">${inisial(s.nama)}</div>
+      <div class="body"><div class="nm">${s.nama}</div><div class="meta">Kelas ${s.kelas} · NIS ${s.nis}</div></div>
+      <div class="right"><span class="chip ${s.tempo<=3?'c-red':'c-amber'}">${s.tempo} hari lagi</span><span class="amt red">${rp(sppNominal)}</span></div>
+      ${chev}
+    </div>`).join(''):'<div class="empty">Tidak ada tagihan yang mendekati jatuh tempo.</div>';
+
+  document.getElementById('baru-list').innerHTML=riwayat.slice(0,3).map(r=>{
+    const s=siswa.find(x=>x.id===r.sid);
+    return `<div class="row" onclick="buka(${s.id})">
+      <div class="ava" style="${avaStyle(s.id)}">${inisial(s.nama)}</div>
+      <div class="body"><div class="nm">${s.nama}</div><div class="meta">Kelas ${s.kelas} · ${r.ket}</div></div>
+      <div class="right"><span class="amt green">${rp(r.nominal)}</span><span class="chip ${r.metode==='Tunai'?'c-green':'c-blue'}">${r.metode}</span><span class="meta" style="font-size:11.5px">${r.waktu}</span></div>
+    </div>`}).join('');
+}
+
+/* ================= SISWA ================= */
+function renderFilters(){
+  const kelas=[...new Set(siswa.map(s=>s.kelas))].sort();
+  document.getElementById('filters').innerHTML=
+    `<button class="fchip ${filterKelas===''?'on':''}" onclick="setKelas('')">Semua</button>`+
+    kelas.map(k=>`<button class="fchip ${filterKelas===k?'on':''}" onclick="setKelas('${k}')">Kelas ${k}</button>`).join('')+
+    `<button class="fchip ${filterKelas==='#n'?'on':''}" onclick="setKelas('#n')">Menunggak</button>`;
+}
+function setKelas(k){filterKelas=k;renderSiswa()}
+function renderSiswa(){
+  renderFilters();
+  const q=document.getElementById('cari').value.toLowerCase();
+  const list=siswa.filter(s=>{
+    if(q&&!(s.nama.toLowerCase().includes(q)||s.nis.includes(q)))return false;
+    if(filterKelas==='#n')return tunggak(s)>0;
+    if(filterKelas&&s.kelas!==filterKelas)return false;
+    return true;
+  });
+  document.getElementById('siswa-list').innerHTML=list.length?list.map(s=>{
+    const tg=tunggak(s);
+    return `<div class="row" onclick="buka(${s.id})">
+      <div class="ava" style="${avaStyle(s.id)}">${inisial(s.nama)}</div>
+      <div class="body">
+        <div class="nm">${s.nama}</div>
+        <div class="meta">Kelas ${s.kelas} · SPP ${lunasSpp(s)}/12 bulan</div>
+        <div class="track" style="margin-top:7px;height:5px"><i style="width:${lunasSpp(s)/12*100}%;background:${tg?'var(--amber)':'var(--green)'}"></i></div>
+      </div>
+      <div class="right"><span class="chip ${tg?'c-red':'c-green'}">${tg?tg+' bln nunggak':'Lancar'}</span></div>
+      ${chev}
+    </div>`}).join(''):'<div class="empty">Tidak ada siswa yang cocok dengan pencarian.</div>';
+}
+document.getElementById('cari').addEventListener('input',renderSiswa);
+
+/* ================= DETAIL ================= */
+function buka(id){aktif=siswa.find(s=>s.id===id);seg='spp';go('detail');renderDetail()}
+function setSeg(s){seg=s;document.getElementById('seg-spp').classList.toggle('on',s==='spp');document.getElementById('seg-keg').classList.toggle('on',s==='keg');renderBody()}
+function renderDetail(){
+  const s=aktif;
+  const dibayar=lunasSpp(s)*sppNominal+bayarKeg(s);
+  const total=12*sppNominal+totalKeg();
+  document.getElementById('d-profile').innerHTML=`
+    <div class="top">
+      <div class="ava" style="width:52px;height:52px;font-size:17px">${inisial(s.nama)}</div>
+      <div><div class="nm">${s.nama}</div><div class="meta">Kelas ${s.kelas} · NIS ${s.nis}</div><div class="meta">${s.ortu} · ${s.hp}</div></div>
+    </div>
+    <div class="split">
+      <div class="box"><div class="k">Sudah dibayar</div><div class="v">${rp(dibayar)}</div></div>
+      <div class="box"><div class="k">Sisa tagihan</div><div class="v">${rp(total-dibayar)}</div></div>
+    </div>
+    <button class="cta" onclick="toast('Rincian tagihan dikirim ke WhatsApp ${s.ortu}')">Kirim tagihan ke orang tua</button>`;
+  renderBody();
+}
+function renderBody(){
+  const s=aktif;
+  if(seg==='spp'){
+    document.getElementById('d-body').innerHTML=BULAN.map((b,i)=>{
+      const l=s.spp[i], telat=!l&&i<=KINI;
+      return `<div class="mrow" data-l="${l?1:0}">
+        <div class="no">${String(i+1).padStart(2,'0')}</div>
+        <div class="body"><div class="nm">${b}</div><div class="meta">${l?'Lunas · '+rp(sppNominal):telat?'Jatuh tempo tgl '+tglTempo:'Belum jatuh tempo'}</div></div>
+        ${l?'<span class="chip c-green">Lunas</span>':telat?'<span class="chip c-red">Nunggak</span>':'<span class="chip c-grey">Menunggu</span>'}
+        <button class="mini ${l?'off':''}" onclick="toggleSpp(${i})">${l?'Batal':'Bayar'}</button>
+      </div>`}).join('');
+  }else{
+    document.getElementById('d-body').innerHTML=biaya.length?biaya.map((b,i)=>{
+      const l=s.keg[i];
+      return `<div class="mrow" data-l="${l?1:0}">
+        <div class="no">${String(i+1).padStart(2,'0')}</div>
+        <div class="body"><div class="nm">${b.nama}</div><div class="meta">${rp(b.nominal)}</div></div>
+        ${l?'<span class="chip c-green">Lunas</span>':'<span class="chip c-grey">Belum</span>'}
+        <button class="mini ${l?'off':''}" onclick="toggleKeg(${i})">${l?'Batal':'Bayar'}</button>
+      </div>`}).join(''):'<div class="empty">Belum ada biaya kegiatan. Tambahkan di menu Jenis biaya.</div>';
+  }
+}
+function toggleSpp(i){
+  aktif.spp[i]=aktif.spp[i]?0:1;
+  if(aktif.spp[i]){riwayat.unshift({sid:aktif.id,ket:'SPP bulanan ('+BULAN[i]+')',nominal:sppNominal,metode:'Tunai',waktu:'Baru saja'});toast('SPP '+BULAN[i]+' tercatat lunas')}
+  else toast('Pembayaran '+BULAN[i]+' dibatalkan');
+  renderDetail();
+}
+function toggleKeg(i){
+  aktif.keg[i]=aktif.keg[i]?0:1;
+  if(aktif.keg[i]){riwayat.unshift({sid:aktif.id,ket:'Biaya kegiatan · '+biaya[i].nama,nominal:biaya[i].nominal,metode:'Tunai',waktu:'Baru saja'});toast(biaya[i].nama+' tercatat lunas')}
+  else toast('Pembayaran '+biaya[i].nama+' dibatalkan');
+  renderDetail();
+}
+
+/* ================= RIWAYAT ================= */
+function renderRiwayat(){
+  const hari=riwayat.filter(r=>r.waktu.startsWith('Hari ini')||r.waktu==='Baru saja');
+  document.getElementById('b-hari').textContent=rp(hari.reduce((a,r)=>a+r.nominal,0));
+  document.getElementById('b-jml').textContent=riwayat.length;
+  document.getElementById('b-mix').textContent=riwayat.filter(r=>r.metode==='Tunai').length+' / '+riwayat.filter(r=>r.metode!=='Tunai').length;
+  document.getElementById('riwayat-list').innerHTML=riwayat.map(r=>{
+    const s=siswa.find(x=>x.id===r.sid);
+    return `<div class="row" onclick="buka(${s.id})">
+      <div class="ava" style="${avaStyle(s.id)}">${inisial(s.nama)}</div>
+      <div class="body"><div class="nm">${s.nama}</div><div class="meta">${r.ket} · ${r.waktu}</div></div>
+      <div class="right"><span class="amt green">${rp(r.nominal)}</span><span class="chip ${r.metode==='Tunai'?'c-green':'c-blue'}">${r.metode}</span></div>
+    </div>`}).join('');
+}
+
+/* ================= LAPORAN ================= */
+function renderLaporan(){
+  const kelas=[...new Set(siswa.map(s=>s.kelas))].sort();
+  document.getElementById('laporan-kelas').innerHTML=kelas.map(k=>{
+    const g=siswa.filter(s=>s.kelas===k);
+    const l=g.filter(s=>s.spp[KINI]).length;
+    const p=Math.round(l/g.length*100);
+    return `<div class="barrow"><div class="top"><span>Kelas ${k}</span><span class="muted">${l}/${g.length} lunas</span></div>
+      <div class="track"><i style="width:${p}%;background:${p>=70?'var(--green)':p>=40?'var(--amber)':'var(--red)'}"></i></div></div>`}).join('');
+
+  const perJenis={};
+  riwayat.forEach(r=>{const k=r.ket.startsWith('SPP')?'Iuran SPP':r.ket.split('· ')[1]||'Lainnya';perJenis[k]=(perJenis[k]||0)+r.nominal});
+  const max=Math.max(...Object.values(perJenis),1);
+  document.getElementById('laporan-jenis').innerHTML=Object.entries(perJenis).sort((a,b)=>b[1]-a[1]).map(([k,v],i)=>`
+    <div class="row" style="padding:11px 0">
+      <span class="tile ${WARNA[i%WARNA.length]}" style="width:38px;height:38px;border-radius:12px;font-weight:800;font-size:13px">${k[0]}</span>
+      <div class="body"><div class="nm">${k}</div><div class="track" style="margin-top:7px;height:5px"><i style="width:${v/max*100}%;background:var(--blue)"></i></div></div>
+      <div class="right"><span class="amt">${rp(v)}</span></div>
+    </div>`).join('');
+}
+
+/* ================= JENIS BIAYA ================= */
+function renderBiaya(){
+  document.getElementById('biaya-list').innerHTML=biaya.length?biaya.map((b,i)=>`
+    <div class="row">
+      <span class="tile ${WARNA[i%WARNA.length]}" style="width:40px;height:40px;border-radius:13px;font-weight:800">${b.nama[0]}</span>
+      <div class="body"><div class="nm">${b.nama}</div><div class="meta">${rp(b.nominal)} · sekali bayar</div></div>
+      <button class="mini off" onclick="hapusBiaya(${i})">Hapus</button>
+    </div>`).join(''):'<div class="empty">Belum ada biaya kegiatan.</div>';
+}
+function hapusBiaya(i){
+  const n=biaya[i].nama;
+  biaya.splice(i,1);siswa.forEach(s=>s.keg.splice(i,1));
+  renderBiaya();toast(n+' dihapus dari semua kartu siswa');
+}
+function bukaTambahBiaya(){
+  sheet(`<h3>Tambah biaya kegiatan</h3><p class="lead">Biaya ini otomatis muncul di kartu semua siswa.</p>
+    <div class="field"><label>Nama kegiatan</label><input id="nb-nama" placeholder="mis. Manasik haji"></div>
+    <div class="field"><label>Nominal</label><input id="nb-nom" type="number" placeholder="150000"></div>
+    <button class="bigbtn" onclick="simpanBiaya()">Tambahkan</button>`);
+}
+function simpanBiaya(){
+  const n=document.getElementById('nb-nama').value.trim(), v=parseInt(document.getElementById('nb-nom').value,10);
+  if(!n||!v){toast('Isi nama kegiatan dan nominalnya');return}
+  biaya.push({nama:n,nominal:v});siswa.forEach(s=>s.keg.push(0));
+  tutupSheet();renderBiaya();toast(n+' ditambahkan');
+}
+function simpanSpp(){
+  sppNominal=parseInt(document.getElementById('in-spp').value,10)||0;
+  tglTempo=parseInt(document.getElementById('in-tempo').value,10)||10;
+  toast('Pengaturan SPP disimpan');
+}
+
+/* ================= SHEET CATAT PEMBAYARAN ================= */
+function sheet(html){document.getElementById('sheet').innerHTML='<div class="grab"></div>'+html;document.getElementById('sheetwrap').classList.add('on')}
+function tutupSheet(){document.getElementById('sheetwrap').classList.remove('on')}
+
+function bukaCatat(){
+  drafBayar={sid:aktif?aktif.id:siswa[0].id,jenis:'spp',idx:KINI,metode:'Tunai'};
+  sheet(`<h3>Catat pembayaran</h3><p class="lead">Pilih siswa dan jenis biayanya.</p>
+    <div class="field"><label>Siswa</label><select id="cb-siswa" onchange="drafBayar.sid=+this.value">
+      ${siswa.map(s=>`<option value="${s.id}" ${drafBayar.sid===s.id?'selected':''}>${s.nama} — Kelas ${s.kelas}</option>`).join('')}
+    </select></div>
+    <div class="field"><label>Jenis biaya</label>
+      <div class="pickers"><button class="on" id="jb-spp" onclick="setJenis('spp')">Iuran SPP</button><button id="jb-keg" onclick="setJenis('keg')">Biaya kegiatan</button></div>
+    </div>
+    <div id="cb-detail"></div>
+    <div class="field"><label>Metode pembayaran</label>
+      <div class="pickers"><button class="on" id="mt-t" onclick="setMetode('Tunai')">Tunai</button><button id="mt-r" onclick="setMetode('Transfer')">Transfer</button></div>
+    </div>
+    <div class="field"><label>Tanggal</label><input type="text" value="22 Agustus 2026" readonly></div>
+    <button class="bigbtn" onclick="simpanBayar()">Simpan pembayaran</button>`);
+  renderCbDetail();
+}
+function setJenis(j){
+  drafBayar.jenis=j;drafBayar.idx=j==='spp'?KINI:0;
+  document.getElementById('jb-spp').classList.toggle('on',j==='spp');
+  document.getElementById('jb-keg').classList.toggle('on',j==='keg');
+  renderCbDetail();
+}
+function setMetode(m){
+  drafBayar.metode=m;
+  document.getElementById('mt-t').classList.toggle('on',m==='Tunai');
+  document.getElementById('mt-r').classList.toggle('on',m==='Transfer');
+}
+function renderCbDetail(){
+  const j=drafBayar.jenis;
+  const opsi=j==='spp'?BULAN.map((b,i)=>`<option value="${i}" ${drafBayar.idx===i?'selected':''}>${b}</option>`).join('')
+                      :biaya.map((b,i)=>`<option value="${i}" ${drafBayar.idx===i?'selected':''}>${b.nama}</option>`).join('');
+  const nom=j==='spp'?sppNominal:(biaya[drafBayar.idx]?biaya[drafBayar.idx].nominal:0);
+  document.getElementById('cb-detail').innerHTML=`
+    <div class="field"><label>${j==='spp'?'Bulan':'Kegiatan'}</label><select id="cb-idx" onchange="pilihIdx(+this.value)">${opsi}</select></div>
+    <div class="field"><label>Jumlah dibayar</label><input type="number" id="cb-nom" value="${nom}"></div>`;
+}
+function pilihIdx(i){drafBayar.idx=i;renderCbDetail()}
+function simpanBayar(){
+  const s=siswa.find(x=>x.id===+document.getElementById('cb-siswa').value);
+  const i=drafBayar.idx, nom=parseInt(document.getElementById('cb-nom').value,10)||0;
+  const ket=drafBayar.jenis==='spp'?'SPP bulanan ('+BULAN[i]+')':'Biaya kegiatan · '+biaya[i].nama;
+  if(drafBayar.jenis==='spp')s.spp[i]=1; else s.keg[i]=1;
+  riwayat.unshift({sid:s.id,ket,nominal:nom,metode:drafBayar.metode,waktu:'Baru saja'});
+  sheet(`<div class="success">
+      <div class="mark"><svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+      <h3>Pembayaran tersimpan</h3>
+      <p class="lead" style="margin-bottom:22px">${s.nama} · ${ket}<br><b style="color:var(--ink);font-size:16px">${rp(nom)}</b> · ${drafBayar.metode}</p>
+      <button class="bigbtn" onclick="tutupSheet();toast('Bukti pembayaran dikirim ke orang tua')">Kirim bukti ke orang tua</button>
+      <div style="height:10px"></div>
+      <button class="bigbtn ghost" onclick="tutupSheet()">Selesai</button>
+    </div>`);
+  if(aktif&&aktif.id===s.id)renderDetail();
+  renderHome();
+}
+
+/* ================= INIT ================= */
+renderHome();renderSiswa();
+</script>
+</body>
+</html>

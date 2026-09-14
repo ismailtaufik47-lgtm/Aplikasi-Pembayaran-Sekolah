@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Portal Orang Tua — Pembayaran TK</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F5F6FA; --card:#FFFFFF; --ink:#151A26; --muted:#8A93A6; --line:#EEF0F5;
+  --blue:#3B6EF6; --blue-s:#EAF0FE;
+  --green:#22C55E; --green-s:#E8F8EE;
+  --amber:#F5A524; --amber-s:#FEF4E4;
+  --purple:#8B5CF6; --purple-s:#F1ECFE;
+  --pink:#EC4899; --pink-s:#FDECF4;
+  --red:#EF4444; --red-s:#FDECEC;
+  --r:20px; --shadow:0 2px 12px rgba(21,26,38,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'Plus Jakarta Sans',system-ui,sans-serif;background:#E9EBF2;color:var(--ink);display:flex;justify-content:center;font-size:15px;line-height:1.45}
+button{font-family:inherit;color:inherit;border:none;background:none;cursor:pointer}
+input,select{font-family:inherit;font-size:15px;color:inherit}
+
+.shell{width:100%;max-width:430px;background:var(--bg);height:100dvh;display:flex;flex-direction:column;position:relative;overflow:hidden}
+@media(min-width:520px){body{padding:22px 0}.shell{height:min(900px,calc(100dvh - 44px));border-radius:36px;box-shadow:0 24px 60px rgba(21,26,38,.18)}}
+.statusbar{display:flex;justify-content:space-between;align-items:center;padding:12px 22px 2px;font-size:13px;font-weight:700;flex:none}
+.statusbar .ic{display:flex;gap:5px;align-items:center;opacity:.85}
+.scroll{flex:1;overflow-y:auto;overscroll-behavior:contain;padding:0 18px 34px}
+.scroll::-webkit-scrollbar{width:0}
+
+.apphead{display:flex;align-items:center;gap:10px;padding:10px 0 4px}
+.iconbtn{width:44px;height:44px;border-radius:14px;background:var(--card);display:grid;place-items:center;box-shadow:var(--shadow);flex:none;position:relative}
+.school{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px}
+.school .badge{width:38px;height:38px;border-radius:50%;background:var(--card);display:grid;place-items:center;box-shadow:var(--shadow);font-size:18px}
+.dot{position:absolute;top:-4px;right:-4px;min-width:19px;height:19px;border-radius:10px;background:var(--red);color:#fff;font-size:10px;font-weight:700;display:grid;place-items:center;padding:0 5px;border:2px solid var(--bg)}
+
+.page{display:none}
+.page.on{display:block;animation:fade .22s ease}
+@keyframes fade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:16px}
+.secthead{display:flex;align-items:center;justify-content:space-between;margin:22px 2px 12px}
+.secthead h2{font-size:17px;font-weight:800;letter-spacing:-.01em}
+.secthead button{color:var(--blue);font-size:13px;font-weight:700}
+.muted{color:var(--muted)}
+.tile{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;flex:none}
+.t-blue{background:var(--blue-s);color:var(--blue)} .t-green{background:var(--green-s);color:var(--green)}
+.t-amber{background:var(--amber-s);color:var(--amber)} .t-purple{background:var(--purple-s);color:var(--purple)}
+.t-pink{background:var(--pink-s);color:var(--pink)} .t-red{background:var(--red-s);color:var(--red)}
+.chip{font-size:11px;font-weight:700;padding:4px 10px;border-radius:999px;white-space:nowrap}
+.c-red{background:var(--red-s);color:var(--red)} .c-amber{background:var(--amber-s);color:#B27614}
+.c-green{background:var(--green-s);color:#177C40} .c-blue{background:var(--blue-s);color:var(--blue)}
+.c-grey{background:#F1F2F6;color:var(--muted)}
+.track{height:6px;border-radius:99px;background:#EFF1F6;overflow:hidden}
+.track i{display:block;height:100%;border-radius:99px;background:var(--green)}
+
+/* ---------- pemilih anak ---------- */
+.kids{display:flex;gap:10px;overflow-x:auto;margin:14px -18px 2px;padding:2px 18px 6px}
+.kids::-webkit-scrollbar{height:0}
+.kid{display:flex;align-items:center;gap:9px;background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:9px 13px 9px 9px;box-shadow:var(--shadow);white-space:nowrap}
+.kid.on{border-color:var(--blue);background:var(--blue-s)}
+.kid .ava{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:12px}
+.kid .nm{font-weight:700;font-size:13.5px}
+.kid .ke{font-size:11.5px;color:var(--muted);font-weight:600}
+
+/* ---------- hero tagihan ---------- */
+.hero{background:linear-gradient(135deg,#3B6EF6,#7B95FF);border-radius:24px;padding:20px;color:#fff;box-shadow:0 12px 26px rgba(59,110,246,.3);position:relative;overflow:hidden}
+.hero .blob{position:absolute;right:-30px;top:-40px;width:150px;height:150px;border-radius:50%;background:rgba(255,255,255,.12)}
+.hero .k{font-size:13px;opacity:.9;font-weight:600;position:relative}
+.hero .v{font-size:30px;font-weight:800;letter-spacing:-.03em;margin-top:4px;position:relative}
+.hero .sub{font-size:12.5px;opacity:.9;margin-top:6px;position:relative;font-weight:600}
+.hero .btns{display:flex;gap:9px;margin-top:16px;position:relative}
+.hero .btns button{flex:1;padding:12px;border-radius:14px;font-weight:800;font-size:13.5px}
+.hero .p1{background:#fff;color:var(--blue)}
+.hero .p2{background:rgba(255,255,255,.2);color:#fff}
+
+.alert{display:flex;gap:11px;align-items:flex-start;background:var(--amber-s);border-radius:16px;padding:13px 14px;margin-top:14px}
+.alert .txt{font-size:13px;font-weight:600;color:#8A5A08;line-height:1.4}
+
+/* ---------- ringkasan ---------- */
+.duo{display:flex;gap:12px;margin-top:14px}
+.duo .card{flex:1;padding:14px}
+.duo .lbl{color:var(--muted);font-size:12.5px;font-weight:600;margin-top:10px}
+.duo .val{font-size:17px;font-weight:800;letter-spacing:-.02em;margin-top:2px}
+
+/* ---------- baris ---------- */
+.row{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:none}
+.row .body{flex:1;min-width:0}
+.row .nm{font-weight:700;font-size:14.5px}
+.row .meta{color:var(--muted);font-size:12.5px;margin-top:2px}
+.row .right{text-align:right;flex:none;display:grid;gap:5px;justify-items:end}
+.amt{font-weight:800;font-size:14px}
+.amt.green{color:#177C40}
+.no{width:38px;height:38px;border-radius:12px;background:#F2F4F9;color:var(--muted);display:grid;place-items:center;font-size:12px;font-weight:800;flex:none}
+.no.ok{background:var(--green-s);color:var(--green)}
+.no.late{background:var(--red-s);color:var(--red)}
+.chev{color:#C8CDD8;flex:none}
+
+.segment{display:flex;background:#EDEFF5;border-radius:14px;padding:4px;margin:16px 0 14px}
+.segment button{flex:1;padding:9px;border-radius:11px;font-size:13.5px;font-weight:700;color:var(--muted)}
+.segment button.on{background:var(--card);color:var(--ink);box-shadow:0 1px 4px rgba(21,26,38,.08)}
+
+.bigbtn{width:100%;padding:15px;border-radius:16px;background:var(--blue);color:#fff;font-weight:800;font-size:15px;box-shadow:0 8px 18px rgba(59,110,246,.3)}
+.bigbtn.ghost{background:var(--card);color:var(--ink);box-shadow:var(--shadow)}
+.bigbtn.wa{background:#22C55E;box-shadow:0 8px 18px rgba(34,197,94,.3)}
+.bigbtn:active{transform:scale(.99)}
+
+/* ---------- tabbar ---------- */
+.tabbar{flex:none;background:var(--card);border-top:1px solid var(--line);display:flex;padding:10px 8px calc(12px + env(safe-area-inset-bottom))}
+.tabbar button{flex:1;display:grid;justify-items:center;gap:4px;font-size:11px;font-weight:700;color:var(--muted);padding-top:4px}
+.tabbar button.on{color:var(--blue)}
+
+/* ---------- sheet ---------- */
+.sheetwrap{position:absolute;inset:0;background:rgba(21,26,38,.42);display:none;align-items:flex-end;z-index:50}
+.sheetwrap.on{display:flex;animation:fade .18s ease}
+.sheet{width:100%;background:var(--bg);border-radius:26px 26px 0 0;padding:8px 18px calc(22px + env(safe-area-inset-bottom));max-height:90%;overflow-y:auto;animation:up .26s cubic-bezier(.2,.9,.3,1)}
+@keyframes up{from{transform:translateY(100%)}to{transform:none}}
+.grab{width:42px;height:5px;border-radius:9px;background:#D8DCE6;margin:6px auto 14px}
+.sheet h3{font-size:18px;font-weight:800;margin-bottom:4px}
+.sheet .lead{color:var(--muted);font-size:13.5px;margin-bottom:16px}
+
+/* struk */
+.struk{background:var(--card);border-radius:20px;padding:20px;box-shadow:var(--shadow);position:relative}
+.struk .mark{width:60px;height:60px;border-radius:50%;background:var(--green-s);color:var(--green);display:grid;place-items:center;margin:0 auto 12px}
+.struk .judul{text-align:center;font-weight:800;font-size:16px}
+.struk .sub{text-align:center;color:var(--muted);font-size:12.5px;margin-top:2px;margin-bottom:16px}
+.struk .cut{border-top:2px dashed #E3E7EF;margin:14px -20px;position:relative}
+.struk .cut::before,.struk .cut::after{content:'';position:absolute;top:-11px;width:22px;height:22px;border-radius:50%;background:var(--bg)}
+.struk .cut::before{left:-11px} .struk .cut::after{right:-11px}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:6px 0;font-size:13.5px}
+.kv .k{color:var(--muted);font-weight:600}
+.kv .v{font-weight:700;text-align:right}
+.total{display:flex;justify-content:space-between;align-items:center;margin-top:6px}
+.total .v{font-size:20px;font-weight:800;color:#177C40}
+
+/* rekening */
+.bank{display:flex;align-items:center;gap:12px;background:var(--card);border-radius:16px;padding:14px;box-shadow:var(--shadow);margin-bottom:10px}
+.bank .body{flex:1;min-width:0}
+.bank .n{font-weight:800;font-size:15px;letter-spacing:.01em}
+.bank .m{color:var(--muted);font-size:12.5px;margin-top:2px}
+.copy{padding:8px 12px;border-radius:11px;background:var(--blue-s);color:var(--blue);font-size:12px;font-weight:800}
+
+.faq{background:var(--card);border-radius:16px;box-shadow:var(--shadow);padding:2px 16px;margin-bottom:10px}
+.faq summary{padding:14px 0;font-weight:700;font-size:14px;cursor:pointer;list-style:none;display:flex;justify-content:space-between;align-items:center;gap:10px}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{content:'+';color:var(--muted);font-size:20px;font-weight:700}
+.faq[open] summary::after{content:'−'}
+.faq p{padding:0 0 14px;font-size:13.5px;color:var(--muted);line-height:1.5}
+
+.toast{position:absolute;left:50%;bottom:96px;transform:translate(-50%,180%);background:var(--ink);color:#fff;padding:11px 18px;border-radius:14px;font-size:13px;font-weight:600;z-index:60;transition:transform .26s cubic-bezier(.2,1.2,.4,1);max-width:88%;text-align:center}
+.toast.on{transform:translate(-50%,0)}
+.empty{text-align:center;padding:34px 20px;color:var(--muted);font-size:13.5px}
+@media(prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <div class="statusbar">
+    <span>09.41</span>
+    <span class="ic">
+      <svg width="17" height="12" viewBox="0 0 17 12" fill="currentColor"><rect y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5.5" width="3" height="6.5" rx="1"/><rect x="9" y="3" width="3" height="9" rx="1"/><rect x="13.5" width="3" height="12" rx="1"/></svg>
+      <svg width="15" height="12" viewBox="0 0 16 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M1 4a11 11 0 0 1 14 0M3.5 7a7.5 7.5 0 0 1 9 0"/><circle cx="8" cy="10" r="1.1" fill="currentColor" stroke="none"/></svg>
+      <svg width="24" height="12" viewBox="0 0 24 12" fill="none"><rect x=".7" y=".7" width="19" height="10.6" rx="3" stroke="currentColor" stroke-opacity=".4"/><rect x="2.4" y="2.4" width="15.6" height="7.2" rx="1.8" fill="currentColor"/><path d="M21.4 4v4c1-.4 1.6-1.1 1.6-2s-.6-1.6-1.6-2z" fill="currentColor" fill-opacity=".5"/></svg>
+    </span>
+  </div>
+
+  <div class="scroll" id="scroll">
+
+    <!-- ============ BERANDA ============ -->
+    <section class="page on" id="p-home">
+      <div class="apphead">
+        <div class="school"><span class="badge">🏫</span>
+          <div style="line-height:1.2">TK Tunas Ceria<div class="muted" style="font-size:11.5px;font-weight:600">Portal orang tua</div></div>
+        </div>
+        <button class="iconbtn" style="margin-left:auto" onclick="pengumuman()">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 8-3 8h18s-3-1-3-8"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+          <span class="dot">2</span>
+        </button>
+      </div>
+
+      <div style="padding:12px 2px 0">
+        <div style="font-size:22px;font-weight:800;letter-spacing:-.02em">Assalamu'alaikum, Ibu Wulan 👋</div>
+        <p class="muted" style="font-size:14px;margin-top:3px">Berikut status pembayaran ananda</p>
+      </div>
+
+      <div class="kids" id="kids"></div>
+
+      <div id="home-body"></div>
+    </section>
+
+    <!-- ============ TAGIHAN ============ -->
+    <section class="page" id="p-tagihan">
+      <div style="padding:14px 2px 2px"><div style="font-size:20px;font-weight:800">Rincian tagihan</div>
+      <p class="muted" style="font-size:13.5px;margin-top:2px" id="tg-anak"></p></div>
+      <div class="segment">
+        <button class="on" id="seg-spp" onclick="setSeg('spp')">Iuran SPP</button>
+        <button id="seg-keg" onclick="setSeg('keg')">Biaya kegiatan</button>
+      </div>
+      <div class="card" id="tagihan-list"></div>
+      <div style="height:14px"></div>
+      <button class="bigbtn" onclick="caraBayar()">Lihat cara pembayaran</button>
+    </section>
+
+    <!-- ============ RIWAYAT ============ -->
+    <section class="page" id="p-riwayat">
+      <div style="padding:14px 2px 2px"><div style="font-size:20px;font-weight:800">Riwayat pembayaran</div>
+      <p class="muted" style="font-size:13.5px;margin-top:2px">Ketuk transaksi untuk melihat buktinya</p></div>
+      <div class="duo" style="margin-bottom:4px">
+        <div class="card"><span class="tile t-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span><div class="lbl">Total dibayar</div><div class="val" id="r-total">Rp0</div></div>
+        <div class="card"><span class="tile t-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="4" width="16" height="16" rx="4"/><path d="M8 9h8M8 13h5"/></svg></span><div class="lbl">Transaksi</div><div class="val" id="r-jml">0</div></div>
+      </div>
+      <div class="secthead"><h2>Semua transaksi</h2></div>
+      <div class="card" id="riwayat-list"></div>
+    </section>
+
+    <!-- ============ BANTUAN ============ -->
+    <section class="page" id="p-bantuan">
+      <div style="padding:14px 2px 12px"><div style="font-size:20px;font-weight:800">Bantuan</div>
+      <p class="muted" style="font-size:13.5px;margin-top:2px">Pertanyaan yang sering ditanyakan orang tua</p></div>
+
+      <details class="faq"><summary>Bagaimana cara membayar SPP?</summary><p>Bisa tunai langsung ke guru kelas, atau transfer ke rekening sekolah. Setelah transfer, kirim bukti lewat tombol konfirmasi WhatsApp supaya guru bisa mencatatnya.</p></details>
+      <details class="faq"><summary>Kenapa pembayaran saya belum tercatat?</summary><p>Pencatatan dilakukan manual oleh guru pada jam kerja. Kalau lebih dari 1 hari kerja belum berubah statusnya, hubungi guru kelas lewat tombol di bawah.</p></details>
+      <details class="faq"><summary>Bisakah membayar beberapa bulan sekaligus?</summary><p>Bisa. Sampaikan saat membayar berapa bulan yang dilunasi, nanti guru menandai bulan-bulan tersebut sekaligus.</p></details>
+      <details class="faq"><summary>Bagaimana kalau ada biaya yang terasa keliru?</summary><p>Buka rincian tagihan, catat nama biaya dan nominalnya, lalu konfirmasi ke guru kelas. Perubahan hanya bisa dilakukan oleh pihak sekolah.</p></details>
+
+      <div class="secthead"><h2>Kontak sekolah</h2></div>
+      <div class="card">
+        <div class="row"><span class="tile t-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A15 15 0 0 1 4 5a1 1 0 0 1 1-1z"/></svg></span>
+          <div class="body"><div class="nm">Bu Rina — guru kelas A</div><div class="meta">0812-9000-1122</div></div></div>
+        <div class="row"><span class="tile t-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1z"/></svg></span>
+          <div class="body"><div class="nm">Kantor TK Tunas Ceria</div><div class="meta">Senin–Jumat, 07.30–14.00</div></div></div>
+      </div>
+      <div style="height:14px"></div>
+      <button class="bigbtn wa" onclick="toast('Membuka WhatsApp guru kelas')">Hubungi guru kelas</button>
+    </section>
+
+  </div>
+
+  <nav class="tabbar">
+    <button class="on" data-tab="home" onclick="go('home')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z"/></svg>Beranda
+    </button>
+    <button data-tab="tagihan" onclick="go('tagihan')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h8l4 4v14l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.5z"/><path d="M9 10h6M9 14h4"/></svg>Tagihan
+    </button>
+    <button data-tab="riwayat" onclick="go('riwayat')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v5l3.2 2"/></svg>Riwayat
+    </button>
+    <button data-tab="bantuan" onclick="go('bantuan')">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M9.6 9.5a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.7"/><circle cx="12" cy="16.8" r=".2" stroke-width="2.4"/></svg>Bantuan
+    </button>
+  </nav>
+
+  <div class="sheetwrap" id="sheetwrap" onclick="if(event.target===this)tutupSheet()">
+    <div class="sheet" id="sheet"></div>
+  </div>
+  <div class="toast" id="toast"></div>
+</div>
+
+<script>
+/* ================= DATA ================= */
+const BULAN=['Juli','Agustus','September','Oktober','November','Desember','Januari','Februari','Maret','April','Mei','Juni'];
+const KINI=1;               // Agustus
+const sppNominal=150000, tglTempo=10;
+const AVA=[['#EAF0FE','#3B6EF6'],['#FDECF4','#EC4899'],['#E8F8EE','#177C40'],['#F1ECFE','#8B5CF6']];
+
+const biaya=[
+  {nama:'PMB',nominal:350000},{nama:'Dana usaha',nominal:100000},
+  {nama:'Manasik haji',nominal:150000},{nama:'Outing class',nominal:200000},
+  {nama:'Pas foto',nominal:20000},{nama:'Pentas seni',nominal:185000},
+  {nama:'Aksera / porseni',nominal:75000},{nama:'Peduli ramadhan',nominal:50000}
+];
+
+const anak=[
+  {id:1,nama:'Aisyah Nur Fadilah',panggilan:'Aisyah',kelas:'A',nis:'2026-001',guru:'Bu Rina',
+   spp:[1,0,0,0,0,0,0,0,0,0,0,0], keg:[1,1,0,1,1,0,1,0]},
+  {id:2,nama:'Arkan Zaidan Fadilah',panggilan:'Arkan',kelas:'B',nis:'2026-009',guru:'Bu Yanti',
+   spp:[1,1,0,0,0,0,0,0,0,0,0,0], keg:[1,1,1,1,1,0,1,0]}
+];
+
+const riwayat=[
+  {aid:1,ket:'SPP bulanan — Juli',nominal:150000,metode:'Tunai',tgl:'8 Juli 2026, 08.40',petugas:'Bu Rina',no:'TRX-260708-014'},
+  {aid:1,ket:'Biaya kegiatan — Outing class',nominal:200000,metode:'Transfer',tgl:'21 Juli 2026, 10.12',petugas:'Bu Rina',no:'TRX-260721-032'},
+  {aid:1,ket:'Biaya kegiatan — PMB',nominal:350000,metode:'Transfer',tgl:'2 Juli 2026, 09.05',petugas:'Kantor TK',no:'TRX-260702-003'},
+  {aid:2,ket:'SPP bulanan — Agustus',nominal:150000,metode:'Tunai',tgl:'6 Agustus 2026, 07.55',petugas:'Bu Yanti',no:'TRX-260806-041'},
+  {aid:2,ket:'SPP bulanan — Juli',nominal:150000,metode:'Tunai',tgl:'9 Juli 2026, 08.10',petugas:'Bu Yanti',no:'TRX-260709-019'},
+  {aid:2,ket:'Biaya kegiatan — Manasik haji',nominal:150000,metode:'Transfer',tgl:'15 Juli 2026, 13.30',petugas:'Kantor TK',no:'TRX-260715-027'}
+];
+
+let aktif=anak[0], seg='spp';
+
+/* ================= UTIL ================= */
+const rp=n=>'Rp'+n.toLocaleString('id-ID');
+const inisial=n=>n.split(' ').slice(0,2).map(x=>x[0]).join('').toUpperCase();
+const avaStyle=i=>{const c=AVA[i%AVA.length];return `background:${c[0]};color:${c[1]}`};
+const lunasSpp=a=>a.spp.filter(Boolean).length;
+const tunggak=a=>{let n=0;for(let i=0;i<=KINI;i++)if(!a.spp[i])n++;return n};
+const bayarKeg=a=>biaya.reduce((s,b,i)=>s+(a.keg[i]?b.nominal:0),0);
+const sisaKeg=a=>biaya.reduce((s,b,i)=>s+(a.keg[i]?0:b.nominal),0);
+const totalKeg=()=>biaya.reduce((s,b)=>s+b.nominal,0);
+const sisaTotal=a=>(12-lunasSpp(a))*sppNominal+sisaKeg(a);
+const jatuhTempo=a=>tunggak(a)*sppNominal+sisaKeg(a);
+function toast(t){const e=document.getElementById('toast');e.textContent=t;e.classList.add('on');clearTimeout(e._t);e._t=setTimeout(()=>e.classList.remove('on'),2400)}
+const chev='<svg class="chev" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M9 5l7 7-7 7"/></svg>';
+
+/* ================= NAV ================= */
+function go(p){
+  document.querySelectorAll('.page').forEach(x=>x.classList.remove('on'));
+  document.getElementById('p-'+p).classList.add('on');
+  document.querySelectorAll('.tabbar button').forEach(b=>b.classList.toggle('on',b.dataset.tab===p));
+  document.getElementById('scroll').scrollTop=0;
+  if(p==='home')renderHome();
+  if(p==='tagihan')renderTagihan();
+  if(p==='riwayat')renderRiwayat();
+}
+
+/* ================= BERANDA ================= */
+function renderKids(){
+  document.getElementById('kids').innerHTML=anak.map((a,i)=>`
+    <button class="kid ${a.id===aktif.id?'on':''}" onclick="pilihAnak(${a.id})">
+      <span class="ava" style="${avaStyle(i)}">${inisial(a.nama)}</span>
+      <span><span class="nm">${a.panggilan}</span><br><span class="ke">Kelas ${a.kelas}</span></span>
+    </button>`).join('');
+}
+function pilihAnak(id){aktif=anak.find(a=>a.id===id);renderKids();renderHome()}
+
+function renderHome(){
+  renderKids();
+  const a=aktif, tg=tunggak(a), tempo=jatuhTempo(a);
+  const persen=Math.round((lunasSpp(a)*sppNominal+bayarKeg(a))/(12*sppNominal+totalKeg())*100);
+  const belumSpp=BULAN.map((b,i)=>({b,i})).filter(x=>!a.spp[x.i]&&x.i<=KINI);
+  const belumKeg=biaya.map((b,i)=>({...b,i})).filter(x=>!a.keg[x.i]);
+
+  document.getElementById('home-body').innerHTML=`
+    <div class="hero">
+      <div class="blob"></div>
+      <div class="k">Total yang belum dibayar</div>
+      <div class="v">${rp(sisaTotal(a))}</div>
+      <div class="sub">${a.nama} · Kelas ${a.kelas} · NIS ${a.nis}</div>
+      <div class="btns">
+        <button class="p1" onclick="caraBayar()">Cara bayar</button>
+        <button class="p2" onclick="go('tagihan')">Lihat rincian</button>
+      </div>
+    </div>
+
+    ${tg?`<div class="alert">
+      <span class="tile t-amber" style="width:34px;height:34px;border-radius:11px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5"/><circle cx="12" cy="16.6" r=".2" stroke-width="2.6"/><path d="M10.3 4.2 3.4 17a1.8 1.8 0 0 0 1.6 2.7h14a1.8 1.8 0 0 0 1.6-2.7L13.7 4.2a1.9 1.9 0 0 0-3.4 0z"/></svg></span>
+      <div class="txt">SPP ${belumSpp.map(x=>x.b).join(' dan ')} belum dibayar. Jatuh tempo setiap tanggal ${tglTempo}.</div>
+    </div>`:`<div class="alert" style="background:var(--green-s)">
+      <span class="tile t-green" style="width:34px;height:34px;border-radius:11px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+      <div class="txt" style="color:#177C40">SPP ananda lunas sampai bulan ini. Terima kasih atas kedisiplinannya.</div>
+    </div>`}
+
+    <div class="duo">
+      <div class="card"><span class="tile t-blue"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="16" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg></span>
+        <div class="lbl">SPP lunas</div><div class="val">${lunasSpp(a)}/12 bulan</div>
+        <div class="track" style="margin-top:9px;height:5px"><i style="width:${lunasSpp(a)/12*100}%"></i></div></div>
+      <div class="card"><span class="tile t-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 3h8l4 4v14H6z"/><path d="M9 12h6M9 16h4"/></svg></span>
+        <div class="lbl">Kegiatan lunas</div><div class="val">${biaya.length-belumKeg.length}/${biaya.length} item</div>
+        <div class="track" style="margin-top:9px;height:5px"><i style="width:${(biaya.length-belumKeg.length)/biaya.length*100}%;background:var(--purple)"></i></div></div>
+    </div>
+
+    <div class="secthead"><h2>Perlu dibayar</h2><button onclick="go('tagihan')">Lihat semua</button></div>
+    <div class="card">
+      ${[...belumSpp.map(x=>({n:'SPP '+x.b,m:'Jatuh tempo tgl '+tglTempo,v:sppNominal,late:true})),
+         ...belumKeg.slice(0,3).map(x=>({n:x.nama,m:'Biaya kegiatan',v:x.nominal,late:false}))]
+        .slice(0,4).map((x,i)=>`
+        <div class="row">
+          <div class="no ${x.late?'late':''}">${x.late?'!':i+1}</div>
+          <div class="body"><div class="nm">${x.n}</div><div class="meta">${x.m}</div></div>
+          <div class="right"><span class="amt">${rp(x.v)}</span>${x.late?'<span class="chip c-red">Terlambat</span>':'<span class="chip c-grey">Belum bayar</span>'}</div>
+        </div>`).join('')||'<div class="empty">Semua tagihan sudah lunas. 🎉</div>'}
+    </div>
+
+    <div class="secthead"><h2>Pembayaran terakhir</h2><button onclick="go('riwayat')">Lihat semua</button></div>
+    <div class="card">
+      ${riwayat.filter(r=>r.aid===a.id).slice(0,2).map((r,i)=>`
+        <div class="row" onclick="lihatStruk('${r.no}')">
+          <span class="tile t-green" style="width:40px;height:40px;border-radius:13px"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+          <div class="body"><div class="nm">${r.ket}</div><div class="meta">${r.tgl}</div></div>
+          <div class="right"><span class="amt green">${rp(r.nominal)}</span><span class="chip ${r.metode==='Tunai'?'c-green':'c-blue'}">${r.metode}</span></div>
+          ${chev}
+        </div>`).join('')||'<div class="empty">Belum ada pembayaran tercatat.</div>'}
+    </div>
+    <div style="height:16px"></div>
+    <button class="bigbtn wa" onclick="toast('Membuka WhatsApp ${a.guru}')">Konfirmasi pembayaran ke ${a.guru}</button>`;
+}
+
+/* ================= TAGIHAN ================= */
+function setSeg(s){seg=s;document.getElementById('seg-spp').classList.toggle('on',s==='spp');document.getElementById('seg-keg').classList.toggle('on',s==='keg');renderTagihan()}
+function renderTagihan(){
+  const a=aktif;
+  document.getElementById('tg-anak').textContent=a.nama+' · Kelas '+a.kelas+' · Tahun ajaran 2026/2027';
+  const el=document.getElementById('tagihan-list');
+  if(seg==='spp'){
+    el.innerHTML=BULAN.map((b,i)=>{
+      const l=a.spp[i], telat=!l&&i<=KINI;
+      return `<div class="row">
+        <div class="no ${l?'ok':telat?'late':''}">${l?'✓':String(i+1).padStart(2,'0')}</div>
+        <div class="body"><div class="nm">${b}</div><div class="meta">${l?'Sudah dibayar':telat?'Jatuh tempo tgl '+tglTempo:'Belum jatuh tempo'}</div></div>
+        <div class="right"><span class="amt">${rp(sppNominal)}</span>
+        ${l?'<span class="chip c-green">Lunas</span>':telat?'<span class="chip c-red">Belum bayar</span>':'<span class="chip c-grey">Menunggu</span>'}</div>
+      </div>`}).join('');
+  }else{
+    el.innerHTML=biaya.map((b,i)=>{
+      const l=a.keg[i];
+      return `<div class="row">
+        <div class="no ${l?'ok':''}">${l?'✓':String(i+1).padStart(2,'0')}</div>
+        <div class="body"><div class="nm">${b.nama}</div><div class="meta">${l?'Sudah dibayar':'Belum dibayar'}</div></div>
+        <div class="right"><span class="amt">${rp(b.nominal)}</span>
+        ${l?'<span class="chip c-green">Lunas</span>':'<span class="chip c-amber">Belum</span>'}</div>
+      </div>`}).join('');
+  }
+}
+
+/* ================= RIWAYAT ================= */
+function renderRiwayat(){
+  const list=riwayat.filter(r=>r.aid===aktif.id);
+  document.getElementById('r-total').textContent=rp(list.reduce((s,r)=>s+r.nominal,0));
+  document.getElementById('r-jml').textContent=list.length;
+  document.getElementById('riwayat-list').innerHTML=list.length?list.map(r=>`
+    <div class="row" onclick="lihatStruk('${r.no}')">
+      <span class="tile t-green" style="width:40px;height:40px;border-radius:13px"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>
+      <div class="body"><div class="nm">${r.ket}</div><div class="meta">${r.tgl} · ${r.metode}</div></div>
+      <div class="right"><span class="amt green">${rp(r.nominal)}</span></div>
+      ${chev}
+    </div>`).join(''):'<div class="empty">Belum ada pembayaran tercatat untuk ananda.</div>';
+}
+
+/* ================= SHEET ================= */
+function sheet(html){document.getElementById('sheet').innerHTML='<div class="grab"></div>'+html;document.getElementById('sheetwrap').classList.add('on')}
+function tutupSheet(){document.getElementById('sheetwrap').classList.remove('on')}
+
+function lihatStruk(no){
+  const r=riwayat.find(x=>x.no===no), a=anak.find(x=>x.id===r.aid);
+  sheet(`<h3>Bukti pembayaran</h3><p class="lead">Dicatat oleh pihak sekolah</p>
+    <div class="struk">
+      <div class="mark"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></div>
+      <div class="judul">Pembayaran diterima</div>
+      <div class="sub">TK Tunas Ceria · ${r.no}</div>
+      <div class="cut"></div>
+      <div class="kv"><span class="k">Nama siswa</span><span class="v">${a.nama}</span></div>
+      <div class="kv"><span class="k">Kelas</span><span class="v">${a.kelas} · NIS ${a.nis}</span></div>
+      <div class="kv"><span class="k">Jenis biaya</span><span class="v">${r.ket}</span></div>
+      <div class="kv"><span class="k">Metode</span><span class="v">${r.metode}</span></div>
+      <div class="kv"><span class="k">Waktu</span><span class="v">${r.tgl}</span></div>
+      <div class="kv"><span class="k">Diterima oleh</span><span class="v">${r.petugas}</span></div>
+      <div class="cut"></div>
+      <div class="total"><span class="k muted" style="font-weight:600;font-size:13.5px">Jumlah dibayar</span><span class="v">${rp(r.nominal)}</span></div>
+    </div>
+    <div style="height:14px"></div>
+    <button class="bigbtn" onclick="tutupSheet();toast('Bukti pembayaran disimpan sebagai gambar')">Simpan bukti</button>
+    <div style="height:10px"></div>
+    <button class="bigbtn ghost" onclick="tutupSheet()">Tutup</button>`);
+}
+
+function caraBayar(){
+  const a=aktif;
+  sheet(`<h3>Cara pembayaran</h3><p class="lead">Pilih salah satu, lalu konfirmasi ke guru kelas.</p>
+
+    <div style="font-weight:800;font-size:14px;margin-bottom:9px">1. Transfer ke rekening sekolah</div>
+    <div class="bank">
+      <span class="tile t-blue" style="border-radius:12px;font-weight:800;font-size:12px">BSI</span>
+      <div class="body"><div class="n">7123 4567 89</div><div class="m">a.n. Yayasan Tunas Ceria</div></div>
+      <button class="copy" onclick="toast('Nomor rekening disalin')">Salin</button>
+    </div>
+    <div class="bank">
+      <span class="tile t-amber" style="border-radius:12px;font-weight:800;font-size:12px">BJB</span>
+      <div class="body"><div class="n">0045 8891 2</div><div class="m">a.n. Yayasan Tunas Ceria</div></div>
+      <button class="copy" onclick="toast('Nomor rekening disalin')">Salin</button>
+    </div>
+
+    <div style="font-weight:800;font-size:14px;margin:18px 0 9px">2. Tunai ke guru kelas</div>
+    <div class="card" style="padding:14px">
+      <div class="row" style="padding:0;border:none">
+        <span class="tile t-green"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="3.4"/><path d="M5 20c1-3.6 3.8-5.2 7-5.2s6 1.6 7 5.2"/></svg></span>
+        <div class="body"><div class="nm">${a.guru}</div><div class="meta">Setiap hari kerja, 07.30–12.00</div></div>
+      </div>
+    </div>
+
+    <div class="alert" style="margin-top:16px">
+      <span class="tile t-amber" style="width:34px;height:34px;border-radius:11px"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5"/><circle cx="12" cy="8" r=".2" stroke-width="2.6"/></svg></span>
+      <div class="txt">Status di aplikasi berubah setelah guru mencatat pembayaran, biasanya di hari yang sama.</div>
+    </div>
+
+    <div style="height:16px"></div>
+    <button class="bigbtn wa" onclick="tutupSheet();toast('Membuka WhatsApp ${a.guru}')">Kirim bukti transfer via WhatsApp</button>
+    <div style="height:10px"></div>
+    <button class="bigbtn ghost" onclick="tutupSheet()">Tutup</button>`);
+}
+
+function pengumuman(){
+  sheet(`<h3>Pemberitahuan</h3><p class="lead">Dari TK Tunas Ceria</p>
+    <div class="card" style="margin-bottom:10px">
+      <div class="row" style="padding:0;border:none;align-items:flex-start">
+        <span class="tile t-red"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 8v5"/><circle cx="12" cy="16.6" r=".2" stroke-width="2.6"/><circle cx="12" cy="12" r="8.5"/></svg></span>
+        <div class="body"><div class="nm">SPP Agustus belum dibayar</div>
+        <div class="meta" style="white-space:normal">Aisyah — jatuh tempo tanggal 10 Agustus 2026.</div></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="row" style="padding:0;border:none;align-items:flex-start">
+        <span class="tile t-purple"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="5" width="17" height="16" rx="3"/><path d="M8 3v4M16 3v4M3.5 10h17"/></svg></span>
+        <div class="body"><div class="nm">Biaya pentas seni dibuka</div>
+        <div class="meta" style="white-space:normal">Rp185.000 · dikumpulkan paling lambat 30 September 2026.</div></div>
+      </div>
+    </div>
+    <div style="height:16px"></div>
+    <button class="bigbtn ghost" onclick="tutupSheet()">Tutup</button>`);
+}
+
+/* ================= INIT ================= */
+renderHome();
+</script>
+</body>
+</html>
