@@ -120,7 +120,7 @@ export default function DetailSiswa({ onCatat, onUbah }) {
                 <div className="mt-0.5 text-[15px] font-extrabold">{rp(dibayar)}</div>
               </div>
               <div className="flex-1 rounded-2xl bg-white/15 px-3 py-2.5">
-                <div className="text-[11.5px] font-semibold opacity-85">Perlu ditagih sekarang</div>
+                <div className="text-[11.5px] font-semibold opacity-85">Sisa pembayaran</div>
                 <div className="mt-0.5 text-[15px] font-extrabold">
                   {perluSekarang > 0 ? rp(perluSekarang) : 'Lunas ✅'}
                 </div>
@@ -128,7 +128,7 @@ export default function DetailSiswa({ onCatat, onUbah }) {
             </div>
             {sisaTahunAjaran > perluSekarang && (
               <div className="mt-2.5 text-[11.5px] leading-snug opacity-80">
-                Sisa tahun ajaran (termasuk bulan yang belum jatuh tempo): {rp(sisaTahunAjaran)}
+                Sisa total pembayaran SPP (termasuk bulan yang belum jatuh tempo): {rp(sisaTahunAjaran)}
               </div>
             )}
             {!readOnly && (

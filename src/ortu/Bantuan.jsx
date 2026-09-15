@@ -48,7 +48,7 @@ export default function Bantuan({ aktif }) {
       </div>
 
       <div className="h-4" />
-      <button className="bigbtn-wa" onClick={() => toast(`Membuka WhatsApp ${aktif.guru}`)}>Hubungi guru kelas</button>
+      <button className="bigbtn-wa" onClick={() => toast(`Membuka WhatsApp ${aktif.guru}`)}>Hubungi Petugas TU/Admin</button>
        </div>
       </div>
     </>

@@ -6,6 +6,39 @@ import { BULAN, bulanBerjalan, dibayarSpp, perluDitagihSekarang, rp, sppPerluSek
 
 export default function Laporan() {
   const { siswa, biaya, pembayaran, pengaturan, toast } = useData()
+  const [unduh, setUnduh] = useState(null) // 'pdf' | 'excel' | null — lagi proses generate file mana
+
+  // exceljs & jspdf lumayan berat (~500KB) — dimuat baru saat tombol
+  // Export benar-benar diklik (dynamic import), bukan ikut ter-bundle
+  // di halaman awal yang dibuka semua orang termasuk yang tidak pernah
+  // export laporan.
+  const eksporExcel = async () => {
+    if (unduh) return
+    setUnduh('excel')
+    try {
+      const { unduhExcel } = await import('../lib/exportExcel.js')
+      await unduhExcel({ siswa, biaya, pembayaran, pengaturan })
+      toast('Laporan Excel berhasil diunduh')
+    } catch (e) {
+      toast('Gagal membuat file Excel: ' + e.message)
+    } finally {
+      setUnduh(null)
+    }
+  }
+
+  const eksporPdf = async () => {
+    if (unduh) return
+    setUnduh('pdf')
+    try {
+      const { unduhPdf } = await import('../lib/exportPdf.js')
+      unduhPdf({ siswa, biaya, pembayaran, pengaturan })
+      toast('Laporan PDF berhasil diunduh')
+    } catch (e) {
+      toast('Gagal membuat file PDF: ' + e.message)
+    } finally {
+      setUnduh(null)
+    }
+  }
   const kini = bulanBerjalan()
   const [periode, setPeriode] = useState(kini)
 
@@ -69,8 +102,14 @@ export default function Laporan() {
         sub={`Analisis dan rekap keuangan sekolah ${pengaturan.namaSekolah}`}
         aksi={
           <>
-            <BtnKecil onClick={() => toast('Laporan diunduh sebagai PDF')}><Ikon.dokumen size={16} />Export PDF</BtnKecil>
-            <BtnKecil onClick={() => toast('Laporan diunduh sebagai Excel')}><Ikon.dokumen size={16} />Export Excel</BtnKecil>
+            <BtnKecil onClick={eksporPdf} disabled={!!unduh}>
+              <Ikon.dokumen size={16} />
+              {unduh === 'pdf' ? 'Membuat PDF…' : 'Export PDF'}
+            </BtnKecil>
+            <BtnKecil onClick={eksporExcel} disabled={!!unduh}>
+              <Ikon.dokumen size={16} />
+              {unduh === 'excel' ? 'Membuat Excel…' : 'Export Excel'}
+            </BtnKecil>
           </>
         }
       />
@@ -97,7 +136,7 @@ export default function Laporan() {
       {/* ---------- kartu statistik ---------- */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         <Stat
-          warna="blue" ikon={<Ikon.dompet size={20} />} label="Total pendapatan" nilai={rp(r.masuk)}
+          warna="blue" ikon={<Ikon.dompet size={20} />} label="Total Pemasukan" nilai={rp(r.masuk)}
           kaki={
             r.masukKegiatan > 0
               ? `SPP ${rp(r.masukSpp)} + kegiatan ${rp(r.masukKegiatan)}`
@@ -180,8 +219,12 @@ export default function Laporan() {
 
       <div className="h-3.5" />
       <div className="flex gap-2.5 lg:hidden">
-        <button className="bigbtn-ghost flex-1" onClick={() => toast('Laporan diunduh sebagai PDF')}>Export PDF</button>
-        <button className="bigbtn-ghost flex-1" onClick={() => toast('Laporan diunduh sebagai Excel')}>Export Excel</button>
+        <button className="bigbtn-ghost flex-1 disabled:opacity-60" onClick={eksporPdf} disabled={!!unduh}>
+          {unduh === 'pdf' ? 'Membuat…' : 'Export PDF'}
+        </button>
+        <button className="bigbtn-ghost flex-1 disabled:opacity-60" onClick={eksporExcel} disabled={!!unduh}>
+          {unduh === 'excel' ? 'Membuat…' : 'Export Excel'}
+        </button>
       </div>
 
       <div className="mt-6 flex items-center justify-center gap-3 rounded-card bg-warn-soft px-5 py-4">

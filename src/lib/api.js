@@ -144,7 +144,12 @@ export async function muatDataPortal(token) {
     siswa: data.siswa,
     pembayaran: data.pembayaran,
   })
-  return { ...hasil, wali: { nama: data.wali.nama, anak: hasil.siswa.map((s) => s.id) } }
+  // Nama yang ditampilkan di portal diambil dari siswa.wali (nama orang tua
+  // yang diisi/diperbarui guru), bukan dari tabel wali.nama (nama akun token
+  // yang dibuat sekali saat link digenerate dan tidak ikut terupdate).
+  // Kalau ada lebih dari satu anak, ambil nama wali dari anak pertama.
+  const namaWali = hasil.siswa[0]?.wali || data.wali.nama || 'Orang tua'
+  return { ...hasil, wali: { nama: namaWali, anak: hasil.siswa.map((s) => s.id) } }
 }
 
 /* ===================== tulis (khusus guru) ===================== */
@@ -189,7 +194,18 @@ export async function tambahSiswa({ sekolahId, ...data }) {
   if (modeDemo) return { id: 'demo-' + Date.now(), ...data }
   const { data: baris, error } = await supabase
     .from('siswa')
-    .insert({ sekolah_id: sekolahId, ...data })
+    .insert({
+      sekolah_id: sekolahId,
+      nama: data.nama?.trim(),
+      panggilan: data.panggilan?.trim() || null,
+      jenis_kelamin: data.jenis_kelamin,
+      kelas: data.kelas?.trim(),
+      nis: data.nis?.trim(),
+      wali: data.wali?.trim() || null,
+      hp: data.hp?.trim() || null,
+      guru: data.guru?.trim() || null,
+      avatar: Number.isInteger(data.avatar) ? data.avatar : null,
+    })
     .select()
     .single()
   if (error) throw new Error(pesanSiswa(error))
@@ -198,13 +214,40 @@ export async function tambahSiswa({ sekolahId, ...data }) {
 
 export async function ubahSiswa(id, data) {
   if (modeDemo) return { id, ...data }
+  const patch = {
+    nama: data.nama?.trim(),
+    panggilan: data.panggilan?.trim() || null,
+    jenis_kelamin: data.jenis_kelamin,
+    kelas: data.kelas?.trim(),
+    nis: data.nis?.trim(),
+    wali: data.wali?.trim() || null,
+    hp: data.hp?.trim() || null,
+    guru: data.guru?.trim() || null,
+    avatar: Number.isInteger(data.avatar) ? data.avatar : null,
+  }
   const { data: baris, error } = await supabase
     .from('siswa')
-    .update(data)
+    .update(patch)
     .eq('id', id)
     .select()
     .single()
   if (error) throw new Error(pesanSiswa(error))
+
+  // Sinkronkan nama di tabel wali supaya portal orang tua juga
+  // menampilkan nama yang baru — kalau link portal belum pernah
+  // dibuat, wali_siswa tidak akan menemukan baris apapun dan
+  // query ini diam-diam tidak melakukan apa-apa (aman).
+  if (patch.wali) {
+    const { data: ws } = await supabase
+      .from('wali_siswa')
+      .select('wali_id')
+      .eq('siswa_id', id)
+    if (ws?.length) {
+      const waliIds = ws.map((w) => w.wali_id)
+      await supabase.from('wali').update({ nama: patch.wali }).in('id', waliIds)
+    }
+  }
+
   return baris
 }
 

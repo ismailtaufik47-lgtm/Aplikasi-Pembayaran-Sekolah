@@ -69,7 +69,7 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
         <div className="relative flex items-center gap-3">
           <Avatar nama={a.nama} jenis={a.jenis} avatar={a.avatar} foto={a.foto} size={46} ring />
           <div>
-            <div className="text-[13px] font-semibold opacity-90">Perlu dibayar sekarang</div>
+            <div className="text-[13px] font-semibold opacity-90">Tagihan yang belum terlunasi</div>
             <div className="text-[26px] font-extrabold tracking-tight">
               {perluSekarang > 0 ? rp(perluSekarang) : 'Lunas ✅'}
             </div>
@@ -82,7 +82,7 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
         </div>
         {sisaTahun > perluSekarang && (
           <div className="relative mt-2.5 text-[11.5px] leading-snug opacity-80">
-            Sisa tahun ajaran (termasuk bulan yang belum jatuh tempo): {rp(sisaTahun)}
+            Sisa total pembayaran SPP (termasuk bulan yang belum jatuh tempo): {rp(sisaTahun)}
           </div>
         )}
       </div>
@@ -114,7 +114,7 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
       </div>
 
       <div className="seghead">
-        <h2>Perlu dibayar</h2>
+        <h2>Rincian tagihan</h2>
         <button className="text-[13px] font-bold text-brand" onClick={() => nav(akar + '/tagihan')}>Lihat semua</button>
       </div>
       <div className="card">

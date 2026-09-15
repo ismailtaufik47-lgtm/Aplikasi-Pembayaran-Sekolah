@@ -73,7 +73,7 @@ export function SheetCaraBayar({ buka, tutup, anak }) {
   }
 
   return (
-    <Sheet buka={buka} tutup={tutup} judul="Cara pembayaran" lead="Pilih salah satu, lalu konfirmasi ke guru kelas.">
+    <Sheet buka={buka} tutup={tutup} judul="Cara pembayaran" lead="Pilih salah satu, lalu konfirmasi ke petugas TU atau admin.">
       <div className="mb-2.5 text-sm font-extrabold">1. Transfer ke rekening sekolah</div>
       {pengaturan.rekening.map((r, i) => (
         <div key={r.nomor} className="mb-2.5 flex items-center gap-3 rounded-2xl bg-white p-3.5 shadow-soft">
@@ -88,7 +88,7 @@ export function SheetCaraBayar({ buka, tutup, anak }) {
         </div>
       ))}
 
-      <div className="mb-2.5 mt-4 text-sm font-extrabold">2. Tunai ke guru kelas</div>
+      <div className="mb-2.5 mt-4 text-sm font-extrabold">2. Tunai ke petugas TU/admin</div>
       <div className="card flex items-center gap-3 p-3.5">
         <Tile warna="green"><Ikon.orang size={20} /></Tile>
         <div className="min-w-0 flex-1">

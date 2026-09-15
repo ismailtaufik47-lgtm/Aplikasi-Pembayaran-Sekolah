@@ -73,7 +73,7 @@ export const PageHead = ({ judul, sub, aksi }) => (
 export const BtnKecil = ({ utama, children, ...p }) => (
   <button
     {...p}
-    className={`flex items-center gap-2 rounded-[13px] border px-4 py-2.5 text-[13.5px] font-bold ${
+    className={`flex items-center gap-2 rounded-[13px] border px-4 py-2.5 text-[13.5px] font-bold disabled:opacity-60 ${
       utama ? 'border-brand bg-brand text-white shadow-brand' : 'border-line bg-white shadow-soft'
     }`}
   >
