@@ -23,6 +23,7 @@ export function DataProvider({ children }) {
   const [wali, setWali] = useState(null)
   const [petugas, setPetugas] = useState('')
   const [peran, setPeran] = useState('')
+  const [pinAktif, setPinAktif] = useState(false)
   const [pesan, setPesan] = useState('')
   const sedang = useRef('')
 
@@ -40,6 +41,7 @@ export function DataProvider({ children }) {
     setWali(d.wali)
     setPetugas(d.petugas || '')
     setPeran(d.peran || '')
+    setPinAktif(!!d.pinAktif)
     setSiap(true)
     setGalat('')
   }
@@ -267,6 +269,28 @@ export function DataProvider({ children }) {
     }
   }
 
+  /** Aktifkan/ubah PIN — PIN tersimpan sebagai password akun di Supabase
+   *  Auth (server), bukan di perangkat. Lihat lib/api.js. */
+  async function aturPinAkun(pin) {
+    try {
+      await api.aturPin(pin)
+      setPinAktif(true)
+    } catch (e) {
+      toast('Gagal mengaktifkan PIN: ' + e.message)
+      throw e
+    }
+  }
+
+  async function matikanPinAkun() {
+    try {
+      await api.matikanPin()
+      setPinAktif(false)
+    } catch (e) {
+      toast('Gagal mematikan PIN: ' + e.message)
+      throw e
+    }
+  }
+
   const nilai = useMemo(
     () => ({
       siap,
@@ -279,6 +303,7 @@ export function DataProvider({ children }) {
       wali,
       petugas,
       peran,
+      pinAktif,
       pesan,
       muat,
       segarkan,
@@ -292,8 +317,10 @@ export function DataProvider({ children }) {
       hapusBiaya,
       ubahPengaturan,
       ubahNamaSaya,
+      aturPinAkun,
+      matikanPinAkun,
     }),
-    [siap, galat, pengaturan, biaya, siswa, pembayaran, wali, petugas, peran, pesan, muat, segarkan]
+    [siap, galat, pengaturan, biaya, siswa, pembayaran, wali, petugas, peran, pinAktif, pesan, muat, segarkan]
   )
 
   return <Ctx.Provider value={nilai}>{children}</Ctx.Provider>

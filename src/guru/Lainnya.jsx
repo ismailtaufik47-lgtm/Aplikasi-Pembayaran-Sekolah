@@ -17,14 +17,15 @@ export default function Lainnya() {
   const bisaUndang = peran === 'kepala' || peran === 'admin'
 
   const menuOperasional = [
-    { label: 'Laporan', sub: 'Ketertiban bayar & pemasukan', ikon: <Ikon.grafik size={19} />, warna: 't-blue', ke: '/guru/laporan' },
-    { label: 'Jenis biaya', sub: 'Nominal SPP & biaya kegiatan', ikon: <Ikon.dokumen size={19} />, warna: 't-amber', ke: '/guru/biaya' },
+    { label: 'Tagihan', sub: 'Semua tagihan SPP & kegiatan', ikon: <Ikon.nota size={19} />, warna: 'bg-rose-soft text-rose', ke: '/guru/tagihan' },
+    { label: 'Laporan', sub: 'Ketertiban bayar & pemasukan', ikon: <Ikon.grafik size={19} />, warna: 'bg-brand-soft text-brand', ke: '/guru/laporan' },
+    { label: 'Jenis biaya', sub: 'Nominal SPP & biaya kegiatan', ikon: <Ikon.dokumen size={19} />, warna: 'bg-warn-soft text-warn', ke: '/guru/biaya' },
   ]
   const menuUndang = bisaUndang
-    ? [{ label: 'Kode aktivasi', sub: 'Undang guru/admin baru', ikon: <Ikon.info size={19} />, warna: 't-purple', ke: '/guru/kode-aktivasi' }]
+    ? [{ label: 'Kode aktivasi', sub: 'Undang guru/admin baru', ikon: <Ikon.info size={19} />, warna: 'bg-grape-soft text-grape', ke: '/guru/kode-aktivasi' }]
     : []
   const menuKepala = peran === 'kepala'
-    ? [{ label: 'Profil sekolah', sub: 'Identitas & rekening sekolah', ikon: <Ikon.rumah size={19} />, warna: 't-green', ke: '/guru/profil-sekolah' }]
+    ? [{ label: 'Profil sekolah', sub: 'Identitas & rekening sekolah', ikon: <Ikon.rumah size={19} />, warna: 'bg-ok-soft text-ok', ke: '/guru/profil-sekolah' }]
     : []
 
   const daftar = peran === 'kepala' ? [...menuUndang, ...menuKepala] : [...menuOperasional, ...menuUndang]

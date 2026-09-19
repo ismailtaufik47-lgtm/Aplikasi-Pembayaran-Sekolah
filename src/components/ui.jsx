@@ -74,7 +74,7 @@ export const BtnKecil = ({ utama, children, ...p }) => (
   <button
     {...p}
     className={`flex items-center gap-2 rounded-[13px] border px-4 py-2.5 text-[13.5px] font-bold disabled:opacity-60 ${
-      utama ? 'border-brand bg-brand text-white shadow-brand' : 'border-line bg-white shadow-soft'
+      utama ? 'border-brand bg-brand text-white' : 'border-line bg-white text-ink'
     }`}
   >
     {children}
@@ -217,6 +217,30 @@ const P = (d, extra = {}) => ({ size, className = '', ...rest }) => (
     {...rest}
   >
     {d}
+  </svg>
+)
+
+/**
+ * Badge WhatsApp — lingkaran hijau dengan ikon telepon putih di tengah.
+ * Dipisah dari objek Ikon (yang semuanya ikon garis single-color) karena
+ * ini butuh dua warna (latar hijau + ikon putih), bukan cuma stroke.
+ */
+export const IkonWhatsapp = ({ size = 18, className = '' }) => (
+  <span
+    className={`inline-grid shrink-0 place-items-center rounded-full ${className}`}
+    style={{ width: size, height: size, background: '#25D366' }}
+  >
+    <svg width={size * 0.52} height={size * 0.52} viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A15 15 0 0 1 4 5a1 1 0 0 1 1-1z" />
+    </svg>
+  </span>
+)
+
+/** Varian polos (tanpa badge lingkaran hijau) — dipakai di atas tombol
+ *  yang latarnya sendiri sudah hijau, supaya tidak dobel lingkaran. */
+export const IkonWhatsappPolos = ({ size = 16, warna = '#fff' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={warna} strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 4h4l2 5-2.5 1.5a11 11 0 0 0 5 5L15 13l5 2v4a1 1 0 0 1-1 1A15 15 0 0 1 4 5a1 1 0 0 1 1-1z" />
   </svg>
 )
 

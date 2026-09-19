@@ -60,7 +60,7 @@ export default function RiwayatBayar() {
         </div>
         {tglFilter && (
           <button
-            className="rounded-2xl bg-white px-3.5 py-2.5 text-[13px] font-bold text-brand shadow-soft"
+            className="rounded-2xl bg-white border border-brand px-3.5 py-2.5 text-[13px] font-bold text-brand"
             onClick={() => setTglFilter('')}
           >
             Tampilkan semua
@@ -72,7 +72,7 @@ export default function RiwayatBayar() {
               <button
                 key={t}
                 onClick={() => setTglFilter(t)}
-                className="whitespace-nowrap rounded-pill bg-white px-3 py-2 text-[12.5px] font-bold text-muted shadow-soft"
+                className="whitespace-nowrap rounded-pill bg-white border border-line px-3 py-2 text-[12.5px] font-bold text-muted"
               >
                 {hariTampil(new Date(t + 'T00:00:00').toISOString())}
               </button>

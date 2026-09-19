@@ -12,10 +12,18 @@
  */
 import { useState } from 'react'
 import { Ikon } from '../components/ui.jsx'
+import { KUNCI_PERAN_DAFTAR } from '../components/DaftarPeran.jsx'
 import * as api from '../lib/api.js'
 
 export default function Onboarding({ onSelesai }) {
-  const [langkah, setLangkah] = useState('pilih') // pilih | kode | daftar
+  // Kalau orang ini sudah memilih peran di layar DaftarPeran (sebelum
+  // Google), langsung ke form yang sesuai — tidak perlu tanya ulang.
+  // Kalau tidak ada hint (mis. sesi lama / akses langsung), tampilkan
+  // pemilih seperti biasa supaya tetap aman dipakai dari jalur manapun.
+  const hint = sessionStorage.getItem(KUNCI_PERAN_DAFTAR)
+  sessionStorage.removeItem(KUNCI_PERAN_DAFTAR)
+  const awal = hint === 'kepala' ? 'daftar' : hint === 'tu' ? 'kode' : 'pilih'
+  const [langkah, setLangkah] = useState(awal)
 
   return (
     <div className="flex min-h-dvh items-center justify-center p-6">
@@ -32,7 +40,7 @@ function Pilih({ ke }) {
   return (
     <>
       <div className="mb-7 text-center">
-        <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-[19px] bg-brand text-3xl text-white shadow-brand">
+        <div className="mx-auto mb-4 grid h-16 w-16 place-items-center rounded-[19px] bg-brand text-3xl text-white">
           📘
         </div>
         <h1 className="text-[21px] font-extrabold tracking-tight">Selangkah lagi</h1>

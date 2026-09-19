@@ -62,7 +62,7 @@ export default function KodeAktivasi() {
                 <span className="block text-xs text-muted">{k.waktu} · sekali pakai</span>
               </span>
               <button
-                className="shrink-0 rounded-xl bg-white px-3 py-2 text-xs font-bold shadow-soft"
+                className="shrink-0 rounded-xl bg-white border border-line px-3 py-2 text-xs font-bold"
                 onClick={() => salin(k.kode)}
               >
                 Salin

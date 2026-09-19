@@ -89,13 +89,13 @@ export default function DetailSiswa({ onCatat, onUbah }) {
   return (
     <>
       <div className="flex items-center gap-3 pb-1.5 pt-2.5 lg:pt-7">
-        <button className="grid h-[38px] w-[38px] place-items-center rounded-xl bg-white shadow-soft" onClick={() => nav('/guru/siswa')}>
+        <button className="grid h-[38px] w-[38px] place-items-center rounded-xl bg-white border border-line" onClick={() => nav('/guru/siswa')}>
           <Ikon.kembali size={18} />
         </button>
         <h2 className="text-[17px] font-extrabold">Kartu pembayaran</h2>
         {!readOnly && (
           <button
-            className="ml-auto rounded-xl bg-white px-3 py-2 text-xs font-extrabold shadow-soft"
+            className="ml-auto rounded-xl bg-white border border-line px-3 py-2 text-xs font-extrabold"
             onClick={() => onUbah(s.id)}
           >
             Ubah data
@@ -128,7 +128,7 @@ export default function DetailSiswa({ onCatat, onUbah }) {
             </div>
             {sisaTahunAjaran > perluSekarang && (
               <div className="mt-2.5 text-[11.5px] leading-snug opacity-80">
-                Sisa total pembayaran SPP (termasuk bulan yang belum jatuh tempo): {rp(sisaTahunAjaran)}
+                Sisa tahun ajaran (termasuk bulan yang belum jatuh tempo): {rp(sisaTahunAjaran)}
               </div>
             )}
             {!readOnly && (

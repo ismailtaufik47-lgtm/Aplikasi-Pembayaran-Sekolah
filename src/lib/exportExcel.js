@@ -28,39 +28,7 @@ import {
   totalDibayar,
   totalKegiatan,
 } from './format.js'
-
-// Palet warna selaras dengan aplikasi (hex tanpa '#', format yang dipakai ExcelJS)
-const WARNA = {
-  brand: 'FF3B6EF6', brandSoft: 'FFEAF0FE', brandDeep: 'FF2A55CC',
-  ok: 'FF177C40', okSoft: 'FFE8F8EE',
-  warn: 'FF8A5A08', warnSoft: 'FFFEF4E4',
-  danger: 'FFB91C1C', dangerSoft: 'FFFDECEC',
-  abu: 'FF8A93A6', abuSoft: 'FFF1F2F6',
-  putih: 'FFFFFFFF', teks: 'FF151A26',
-}
-
-const isiSel = (argb) => ({ type: 'pattern', pattern: 'solid', fgColor: { argb } })
-const FONT_HEADER = { bold: true, color: { argb: WARNA.putih }, size: 11 }
-const FONT_JUDUL = { bold: true, color: { argb: WARNA.putih }, size: 16 }
-
-/** Warna latar+teks per status — dipakai berulang di beberapa sheet. */
-function gayaStatus(status) {
-  const map = {
-    lunas: [WARNA.okSoft, WARNA.ok],
-    sebagian: [WARNA.warnSoft, WARNA.warn],
-    nunggak: [WARNA.dangerSoft, WARNA.danger],
-    'belum-bayar': [WARNA.warnSoft, WARNA.warn],
-    belum: [WARNA.dangerSoft, WARNA.danger],
-    menunggu: [WARNA.abuSoft, WARNA.abu],
-  }
-  const [bg, fg] = map[status] || map.menunggu
-  return { fill: isiSel(bg), font: { color: { argb: fg }, bold: true } }
-}
-
-const LABEL_STATUS = {
-  lunas: 'Lunas', sebagian: 'Sebagian', nunggak: 'Nunggak',
-  'belum-bayar': 'Belum bayar', belum: 'Menunggak', menunggu: 'Menunggu',
-}
+import { WARNA, isiSel, FONT_HEADER, FONT_JUDUL, gayaStatus, LABEL_STATUS, judulLembar, baposHeader } from './exportHelpers.js'
 
 export async function unduhExcel({ siswa, biaya, pembayaran, pengaturan }) {
   const kini = bulanBerjalan()
@@ -81,36 +49,6 @@ export async function unduhExcel({ siswa, biaya, pembayaran, pengaturan }) {
 
 /* ------------------------------------------------------------------ */
 
-function judulLembar(ws, kolTerakhir, judul, sub) {
-  ws.mergeCells(1, 1, 1, kolTerakhir)
-  const c1 = ws.getCell(1, 1)
-  c1.value = judul
-  c1.font = FONT_JUDUL
-  c1.fill = isiSel(WARNA.brand)
-  c1.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 }
-  ws.getRow(1).height = 30
-
-  ws.mergeCells(2, 1, 2, kolTerakhir)
-  const c2 = ws.getCell(2, 1)
-  c2.value = sub
-  c2.font = { italic: true, color: { argb: WARNA.abu }, size: 10 }
-  c2.alignment = { vertical: 'middle', horizontal: 'left', indent: 1 }
-  ws.getRow(2).height = 20
-}
-
-function baposHeader(ws, baris, label) {
-  const row = ws.getRow(baris)
-  label.forEach((teks, i) => {
-    const c = row.getCell(i + 1)
-    c.value = teks
-    c.font = FONT_HEADER
-    c.fill = isiSel(WARNA.brandDeep)
-    c.alignment = { vertical: 'middle', horizontal: 'center', wrapText: true }
-    c.border = { bottom: { style: 'thin', color: { argb: WARNA.putih } } }
-  })
-  row.height = 26
-}
-
 /* ---------------- Sheet 1: Ringkasan ---------------- */
 
 function sheetRingkasan(wb, { siswa, biaya, pembayaran, pengaturan, kini }) {
@@ -118,7 +56,7 @@ function sheetRingkasan(wb, { siswa, biaya, pembayaran, pengaturan, kini }) {
   ws.pageSetup = { fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0, footer: 0 } }
   ws.columns = [{ width: 22 }, { width: 20 }, { width: 20 }, { width: 22 }, { width: 20 }]
 
-  judulLembar(ws, 5, `Laporan Pembayaran SPP & Biaya kegiatan — ${pengaturan.namaSekolah}`, `Tahun ajaran ${pengaturan.tahunAjaran} · Dicetak ${tanggalPanjang()}`)
+  judulLembar(ws, 5, `Laporan Keuangan — ${pengaturan.namaSekolah}`, `Tahun ajaran ${pengaturan.tahunAjaran} · Dicetak ${tanggalPanjang()}`)
 
   const masuk = pembayaran.reduce((t, p) => t + p.nominal, 0)
   const tunggakanSpp = siswa.reduce((t, s) => t + sppPerluSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini), 0)
@@ -304,16 +242,6 @@ function sheetSpp(wb, { siswa, pembayaran, pengaturan, kini }) {
   ws.getCell(rTotal, colKurang).alignment = { horizontal: 'right' }
   ws.getRow(rTotal).height = 20
 
-  // legenda warna kolom bulan
-  const rLeg = rTotal + 2
-  const legenda = [['lunas', 'Lunas (dibayar penuh)'], ['sebagian', 'Sebagian (dicicil)'], ['nunggak', 'Nunggak (bulan sudah lewat)'], ['belum-bayar', 'Belum bayar (bulan ini, lewat jatuh tempo)'], ['menunggu', 'Menunggu (belum jatuh tempo)']]
-  legenda.forEach(([key, label], i) => {
-    const gaya = gayaStatus(key)
-    const cell = ws.getCell(rLeg + i, 2)
-    cell.value = '  ' + label
-    cell.fill = gaya.fill
-    cell.font = { ...gaya.font, size: 9 }
-  })
 
   // filter di header supaya guru bisa sortir/saring
   ws.autoFilter = { from: { row: 3, column: 1 }, to: { row: 3, column: colStatus } }

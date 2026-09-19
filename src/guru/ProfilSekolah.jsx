@@ -8,6 +8,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Ikon, Kosong, PageHead } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
+import * as api from '../lib/api.js'
 
 export default function ProfilSekolah() {
   const { pengaturan, ubahPengaturan, toast } = useData()
@@ -16,12 +17,35 @@ export default function ProfilSekolah() {
   const [tahun, setTahun] = useState(pengaturan.tahunAjaran)
   const [rekening, setRekening] = useState(pengaturan.rekening || [])
   const [sibuk, setSibuk] = useState(false)
+  const [stafTerkunci, setStafTerkunci] = useState([])
+  const [memuatTerkunci, setMemuatTerkunci] = useState(true)
+  const [membuka, setMembuka] = useState('') // id staf yang lagi diproses
 
   useEffect(() => {
     setNama(pengaturan.namaSekolah)
     setTahun(pengaturan.tahunAjaran)
     setRekening(pengaturan.rekening || [])
   }, [pengaturan])
+
+  useEffect(() => {
+    api.daftarStafTerkunci()
+      .then(setStafTerkunci)
+      .catch(() => {})
+      .finally(() => setMemuatTerkunci(false))
+  }, [])
+
+  const bukaKunci = async (staf) => {
+    setMembuka(staf.id)
+    try {
+      await api.bukaKunciPin(staf.id)
+      setStafTerkunci((lama) => lama.filter((s) => s.id !== staf.id))
+      toast(`PIN ${staf.nama} sudah dibuka — dia bisa coba masuk lagi pakai PIN yang sama`)
+    } catch (e) {
+      toast('Gagal membuka: ' + e.message)
+    } finally {
+      setMembuka('')
+    }
+  }
 
   const ubahRek = (i, kunci, nilai) =>
     setRekening((lama) => lama.map((r, idx) => (idx === i ? { ...r, [kunci]: nilai } : r)))
@@ -46,7 +70,7 @@ export default function ProfilSekolah() {
   return (
     <>
       <div className="flex items-center gap-3 pb-1.5 pt-2.5 lg:hidden">
-        <button className="grid h-[38px] w-[38px] place-items-center rounded-xl bg-white shadow-soft" onClick={() => nav(-1)}>
+        <button className="grid h-[38px] w-[38px] place-items-center rounded-xl bg-white border border-line" onClick={() => nav(-1)}>
           <Ikon.kembali size={18} />
         </button>
         <h2 className="text-[17px] font-extrabold">Profil sekolah</h2>
@@ -59,6 +83,42 @@ export default function ProfilSekolah() {
         <label className="mb-1.5 block text-[13px] font-bold">Tahun ajaran</label>
         <input className="field-input" value={tahun} onChange={(e) => setTahun(e.target.value)} placeholder="2026/2027" />
       </div>
+
+      {!memuatTerkunci && stafTerkunci.length > 0 && (
+        <>
+          <div className="seghead lg:max-w-lg">
+            <h2>PIN terkunci</h2>
+            <span className="rounded-pill bg-danger-soft px-3 py-1 text-[12px] font-bold text-danger">
+              {stafTerkunci.length} staf
+            </span>
+          </div>
+          <div className="mb-4 lg:max-w-lg">
+            {stafTerkunci.map((s) => (
+              <div key={s.id} className="card mb-2.5 flex items-center gap-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] bg-danger-soft text-danger">
+                  <Ikon.info size={20} />
+                </span>
+                <div className="min-w-0 flex-1">
+                  <div className="truncate text-[14.5px] font-bold">{s.nama}</div>
+                  <div className="text-xs text-muted">Salah PIN 3x — {s.peran === 'admin' ? 'Admin' : 'Guru'}</div>
+                </div>
+                <button
+                  className="shrink-0 rounded-xl bg-brand px-3.5 py-2 text-xs font-bold text-white disabled:opacity-60"
+                  onClick={() => bukaKunci(s)}
+                  disabled={membuka === s.id}
+                >
+                  {membuka === s.id ? 'Membuka…' : 'Buka kunci'}
+                </button>
+              </div>
+            ))}
+          </div>
+          <p className="mb-6 text-xs leading-relaxed text-muted lg:max-w-lg">
+            Membuka kunci cuma mereset hitungan salah — PIN staf itu <b className="text-ink">tidak berubah</b>,
+            jadi mereka bisa langsung coba masuk lagi dengan PIN yang sama seperti biasa. Kalau mereka lupa PIN-nya,
+            arahkan masuk pakai Google dulu lalu buat PIN baru lewat Profil Akun.
+          </p>
+        </>
+      )}
 
       <div className="seghead lg:max-w-lg">
         <h2>Rekening sekolah</h2>

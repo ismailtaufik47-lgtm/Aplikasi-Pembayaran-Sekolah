@@ -116,7 +116,7 @@ export default function Laporan() {
 
       {/* ---------- filter periode ---------- */}
       <div className="mb-4 mt-1 flex flex-wrap items-center gap-2.5 lg:mt-4">
-        <div className="flex items-center gap-2 rounded-2xl bg-white px-3.5 py-2.5 shadow-soft">
+        <div className="flex items-center gap-2 rounded-2xl bg-white border border-line px-3.5 py-2.5">
           <span className="text-brand"><Ikon.kalender size={17} /></span>
           <select
             className="bg-transparent text-[13.5px] font-bold text-ink outline-none"
@@ -128,7 +128,7 @@ export default function Laporan() {
             ))}
           </select>
         </div>
-        <span className="rounded-2xl bg-white px-3.5 py-2.5 text-[13.5px] font-bold text-muted shadow-soft">
+        <span className="rounded-2xl bg-white border border-line px-3.5 py-2.5 text-[13.5px] font-bold text-muted">
           Tahun ajaran {pengaturan.tahunAjaran}
         </span>
       </div>
@@ -136,7 +136,7 @@ export default function Laporan() {
       {/* ---------- kartu statistik ---------- */}
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
         <Stat
-          warna="blue" ikon={<Ikon.dompet size={20} />} label="Total Pemasukan" nilai={rp(r.masuk)}
+          warna="blue" ikon={<Ikon.dompet size={20} />} label="Total pendapatan" nilai={rp(r.masuk)}
           kaki={
             r.masukKegiatan > 0
               ? `SPP ${rp(r.masukSpp)} + kegiatan ${rp(r.masukKegiatan)}`

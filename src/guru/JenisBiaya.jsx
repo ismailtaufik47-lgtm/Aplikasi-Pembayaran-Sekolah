@@ -26,7 +26,7 @@ export default function JenisBiaya() {
   return (
     <>
       <div className="flex items-center gap-3 pb-1.5 pt-2.5 lg:hidden">
-        <button className="grid h-[38px] w-[38px] place-items-center rounded-xl bg-white shadow-soft" onClick={() => nav('/guru')}>
+        <button className="grid h-[38px] w-[38px] place-items-center rounded-xl bg-white border border-line" onClick={() => nav('/guru')}>
           <Ikon.kembali size={18} />
         </button>
         <h2 className="text-[17px] font-extrabold">Jenis biaya</h2>

@@ -3,7 +3,6 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import GuruApp from './guru/GuruApp.jsx'
 import OrtuApp from './ortu/OrtuApp.jsx'
-import Pintu from './components/Pintu.jsx'
 import { DataProvider } from './lib/store.jsx'
 import { AuthProvider } from './lib/auth.jsx'
 import './index.css'
@@ -14,7 +13,10 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <DataProvider>
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Pintu />} />
+            {/* Dulu "/" menampilkan pemilih peran dev/demo (Pintu.jsx) —
+                sekarang langsung ke /guru supaya yang buka aplikasi langsung
+                lihat layar Masuk, bukan halaman pilih dulu. */}
+            <Route path="/" element={<Navigate to="/guru" replace />} />
             <Route path="/guru/*" element={<GuruApp />} />
             {/* token wali ada di URL; tanpa token hanya jalan di mode demo */}
             <Route path="/ortu/:token/*" element={<OrtuApp />} />

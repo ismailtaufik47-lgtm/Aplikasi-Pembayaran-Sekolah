@@ -25,6 +25,9 @@ export function AuthProvider({ children }) {
     siap,
     modeDemo,
     masukGoogle: () => api.masukGoogle(),
+    // PIN sungguhan — verifikasi terjadi di server Supabase
+    // (signInWithPassword), bukan dicocokkan di browser. Lihat lib/api.js.
+    masukPin: (email, pin) => api.masukPin(email, pin),
     keluar: async () => {
       await api.keluar()
       setSesi(null)

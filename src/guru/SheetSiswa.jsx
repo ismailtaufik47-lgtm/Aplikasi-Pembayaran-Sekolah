@@ -21,6 +21,7 @@ const kosong = {
   wali: '',
   hp: '',
   guru: '',
+  alamat: '',
   avatar: 0,
 }
 
@@ -50,6 +51,7 @@ export default function SheetSiswa({ buka, tutup, siswaId = null, onSimpan }) {
             wali: s.wali,
             hp: s.hp,
             guru: s.guru,
+            alamat: s.alamat || '',
             avatar: Number.isInteger(s.avatar) ? s.avatar : 0,
           }
         : { ...kosong, guru: petugas || '', kelas: kelasAda[0] || '', nis: usulNis(siswa) }
@@ -157,7 +159,7 @@ export default function SheetSiswa({ buka, tutup, siswaId = null, onSimpan }) {
               type="button"
               onClick={() => setForm((f) => ({ ...f, kelas: k }))}
               className={`rounded-pill px-3 py-1.5 text-xs font-bold ${
-                form.kelas === k ? 'bg-brand text-white' : 'bg-white text-muted shadow-soft'
+                form.kelas === k ? 'bg-brand text-white' : 'bg-white text-muted border border-line'
               }`}
             >
               {k}
@@ -178,7 +180,16 @@ export default function SheetSiswa({ buka, tutup, siswaId = null, onSimpan }) {
       </div>
 
       <label className="mb-1.5 block text-[13px] font-bold">Guru kelas</label>
-      <input className="field-input mb-4" placeholder="opsional" value={form.guru} onChange={isi('guru')} />
+      <input className="field-input mb-3.5" placeholder="opsional" value={form.guru} onChange={isi('guru')} />
+
+      <label className="mb-1.5 block text-[13px] font-bold">Alamat</label>
+      <textarea
+        className="field-input mb-4 min-h-[72px] resize-none"
+        placeholder="opsional — alamat rumah siswa"
+        value={form.alamat}
+        onChange={isi('alamat')}
+        rows={2}
+      />
 
       {galat && (
         <p className="mb-3 flex items-center gap-2 rounded-xl bg-danger-soft px-3 py-2.5 text-[13px] font-semibold text-danger">
@@ -210,7 +221,7 @@ export default function SheetSiswa({ buka, tutup, siswaId = null, onSimpan }) {
             </div>
           ) : (
             <button
-              className="w-full rounded-2xl bg-white py-3.5 text-[15px] font-extrabold text-danger shadow-soft"
+              className="w-full rounded-2xl bg-white border border-danger-soft py-3.5 text-[15px] font-extrabold text-danger"
               onClick={() => setKonfirmasi(true)}
             >
               Keluarkan siswa

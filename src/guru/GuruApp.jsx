@@ -4,10 +4,12 @@ import { Shell, Toast, Ikon, Muat, Sidebar, SidebarBrand, NavLabel, NavItem } fr
 import { useData } from '../lib/store.jsx'
 import { useAuth } from '../lib/auth.jsx'
 import Masuk from '../components/Masuk.jsx'
+import DaftarPeran from '../components/DaftarPeran.jsx'
 import Onboarding from './Onboarding.jsx'
 import Beranda from './Beranda.jsx'
 import DaftarSiswa from './DaftarSiswa.jsx'
 import DetailSiswa from './DetailSiswa.jsx'
+import Tagihan from './Tagihan.jsx'
 import RiwayatBayar from './RiwayatBayar.jsx'
 import Laporan from './Laporan.jsx'
 import JenisBiaya from './JenisBiaya.jsx'
@@ -23,6 +25,7 @@ export default function GuruApp() {
   const { sesi, siap: authSiap } = useAuth()
   const [catat, setCatat] = useState(null)   // { siswaId } | null
   const [formSiswa, setFormSiswa] = useState(null) // { siswaId } | null
+  const [layarMasuk, setLayarMasuk] = useState('masuk') // 'masuk' | 'daftar' — sebelum ada sesi
   const nav = useNavigate()
   const { pathname } = useLocation()
 
@@ -31,7 +34,11 @@ export default function GuruApp() {
   }, [sesi, muat])
 
   if (!authSiap) return <Muat>Menyiapkan sesi…</Muat>
-  if (!sesi) return <Masuk />
+  if (!sesi) {
+    return layarMasuk === 'daftar'
+      ? <DaftarPeran kembali={() => setLayarMasuk('masuk')} />
+      : <Masuk onDaftar={() => setLayarMasuk('daftar')} />
+  }
   if (galat?.includes('belum terhubung ke sekolah')) return <Onboarding onSelesai={segarkan} />
   if (galat) return <Muat aksi={segarkan}>Gagal memuat data: {galat}</Muat>
   if (!siap) return <Muat>Memuat data sekolah…</Muat>
@@ -40,6 +47,7 @@ export default function GuruApp() {
   const bisaUndang = kepala || peran === 'admin'
 
   const tabAktif = pathname.includes('/siswa') ? 'siswa'
+    : pathname.includes('/tagihan') ? 'tagihan'
     : pathname.includes('/pembayaran') ? 'pembayaran'
     : pathname.includes('/laporan') ? 'laporan'
     : pathname.includes('/lainnya') ? 'lainnya'
@@ -73,6 +81,7 @@ export default function GuruApp() {
 
           {/* Rute operasional — dikunci untuk kepala sekolah, bukan cuma disembunyikan
               di menu. Kalau kepala mengetik URL-nya langsung, dilempar balik ke beranda. */}
+          {!kepala && <Route path="tagihan" element={<Tagihan />} />}
           {!kepala && <Route path="pembayaran" element={<RiwayatBayar />} />}
           {!kepala && <Route path="biaya" element={<JenisBiaya />} />}
 
@@ -110,6 +119,11 @@ function SisiKiri({ aktif, nav, buka, kepala, bisaUndang }) {
       <NavItem aktif={aktif === 'beranda'} onClick={() => nav('/guru')} ikon={Ikon.rumah}>Beranda</NavItem>
       <NavItem aktif={aktif === 'siswa'} onClick={() => nav('/guru/siswa')} ikon={Ikon.siswa}>Siswa</NavItem>
       {!kepala && (
+        <NavItem aktif={aktif === 'tagihan'} onClick={() => nav('/guru/tagihan')} ikon={Ikon.nota}>
+          Tagihan
+        </NavItem>
+      )}
+      {!kepala && (
         <NavItem aktif={aktif === 'pembayaran'} onClick={() => nav('/guru/pembayaran')} ikon={Ikon.dompet}>
           Pembayaran
         </NavItem>
@@ -139,7 +153,7 @@ function SisiKiri({ aktif, nav, buka, kepala, bisaUndang }) {
       {!kepala && (
         <button
           onClick={buka}
-          className="mt-3 flex items-center justify-center gap-2 rounded-[14px] bg-brand py-3 text-[13.5px] font-extrabold text-white shadow-brand active:scale-[.98]"
+          className="mt-3 flex items-center justify-center gap-2 rounded-[14px] bg-brand py-3 text-[13.5px] font-extrabold text-white active:scale-[.98]"
         >
           <Ikon.plus size={18} />
           Catat pembayaran

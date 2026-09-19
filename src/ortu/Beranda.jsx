@@ -69,7 +69,7 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
         <div className="relative flex items-center gap-3">
           <Avatar nama={a.nama} jenis={a.jenis} avatar={a.avatar} foto={a.foto} size={46} ring />
           <div>
-            <div className="text-[13px] font-semibold opacity-90">Tagihan yang belum terlunasi</div>
+            <div className="text-[13px] font-semibold opacity-90">Tagihan yang belum dibayar</div>
             <div className="text-[26px] font-extrabold tracking-tight">
               {perluSekarang > 0 ? rp(perluSekarang) : 'Lunas ✅'}
             </div>

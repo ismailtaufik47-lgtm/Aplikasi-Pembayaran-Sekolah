@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import Avatar from '../components/Avatar.jsx'
 import { BtnKecil, Chevron, Chip, Ikon, Kosong, PageHead, Sheet, Track } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
+import SheetImportSiswa from './SheetImportSiswa.jsx'
+import SheetKenaikanKelas from './SheetKenaikanKelas.jsx'
+import * as api from '../lib/api.js'
 import {
   bulanBerjalan,
   kegiatanBelum,
@@ -19,14 +22,36 @@ const STATUS_LABEL = { lunas: 'Lunas', sebagian: 'Sebagian', belum: 'Menunggak' 
 const STATUS_WARNA = { lunas: 'green', sebagian: 'amber', belum: 'red' }
 
 export default function DaftarSiswa({ onTambah, onUbah }) {
-  const { siswa, biaya, pengaturan, peran, hapusSiswa, toast } = useData()
+  const { siswa, biaya, pengaturan, peran, hapusSiswa, segarkan, toast } = useData()
   const readOnly = peran === 'kepala'
   const nav = useNavigate()
+  const [showImport, setShowImport] = useState(false)
+  const [showKenaikanKelas, setShowKenaikanKelas] = useState(false)
+  const [tabAktif, setTabAktif] = useState('aktif') // 'aktif' | 'alumni'
+  const [alumni, setAlumni] = useState([])
+  const [memuatAlumni, setMemuatAlumni] = useState(false)
   const [cari, setCari] = useState('')
   const [filter, setFilter] = useState('')
   const [menuAksi, setMenuAksi] = useState(null) // siswa yang lagi dibuka menu "..."-nya
   const [konfirmHapus, setKonfirmHapus] = useState(false)
   const kini = bulanBerjalan()
+
+  const bukaTabAlumni = async () => {
+    setTabAktif('alumni')
+    setFilter(''); setCari('')
+    if (alumni.length > 0) return
+    setMemuatAlumni(true)
+    try {
+      const data = await api.muatAlumni(pengaturan.id)
+      setAlumni(data.map((s) => ({
+        id: s.id, nama: s.nama, kelas: s.kelas, nis: s.nis,
+        jenis: s.jenis_kelamin, avatar: s.avatar, foto: s.foto,
+        tahunLulus: s.tahun_lulus,
+        spp: [], kegiatan: [], hp: s.hp, wali: s.wali,
+      })))
+    } catch { toast('Gagal memuat data alumni') }
+    finally { setMemuatAlumni(false) }
+  }
 
   const kelas = useMemo(() => [...new Set(siswa.map((s) => s.kelas))].sort(), [siswa])
   const hasil = siswa.filter((s) => {
@@ -68,15 +93,34 @@ export default function DaftarSiswa({ onTambah, onUbah }) {
     <>
       <div className="flex items-center justify-between gap-3 pb-1.5 pt-3.5 lg:hidden">
         <h1 className="text-xl font-extrabold">Siswa</h1>
-        {!readOnly && (
+        <div className="flex items-center gap-2">
           <button
-            className="flex items-center gap-1.5 rounded-2xl bg-brand px-3.5 py-2.5 text-[13px] font-extrabold text-white shadow-brand active:scale-95"
-            onClick={onTambah}
+            className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-2xl border border-line bg-white active:scale-95"
+            onClick={() => setShowKenaikanKelas(true)}
+            title="Kenaikan Kelas"
           >
-            <Ikon.plus size={16} />
-            Siswa
+            🎓
           </button>
-        )}
+          {!readOnly && (
+            <>
+              <button
+                className="flex items-center gap-1.5 rounded-2xl border border-brand bg-white px-3 py-2.5 text-[13px] font-extrabold text-brand active:scale-95"
+                onClick={() => setShowImport(true)}
+                title="Import dari Excel"
+              >
+                <Ikon.dokumen size={15} />
+                Import
+              </button>
+              <button
+                className="flex items-center gap-1.5 rounded-2xl bg-brand px-3.5 py-2.5 text-[13px] font-extrabold text-white active:scale-95"
+                onClick={onTambah}
+              >
+                <Ikon.plus size={16} />
+                Siswa
+              </button>
+            </>
+          )}
+        </div>
       </div>
 
       <PageHead
@@ -85,16 +129,54 @@ export default function DaftarSiswa({ onTambah, onUbah }) {
         aksi={!readOnly && <BtnKecil utama onClick={onTambah}><Ikon.plus size={16} />Siswa</BtnKecil>}
       />
 
-      <div className="mb-3 flex items-center gap-2.5 rounded-2xl bg-white px-3.5 py-3 shadow-soft lg:mt-4 lg:max-w-md">
-        <span className="text-muted"><Ikon.cari size={18} /></span>
-        <input
-          value={cari}
-          onChange={(e) => setCari(e.target.value)}
-          placeholder="Cari nama atau NIS…"
-          className="flex-1 bg-transparent font-medium outline-none"
-        />
+      {/* Search + tombol utilitas kompak (Kenaikan Kelas, Import) sejajar
+          di kanan pada desktop — supaya tidak makan tempat lebar seperti
+          sebelumnya. Di mobile, tombol-tombol ini pindah ke header atas. */}
+      <div className="mb-3 flex items-center gap-2.5">
+        <div className="flex flex-1 items-center gap-2.5 rounded-2xl bg-white px-3.5 py-3 shadow-soft lg:max-w-md">
+          <span className="text-muted"><Ikon.cari size={18} /></span>
+          <input
+            value={cari}
+            onChange={(e) => setCari(e.target.value)}
+            placeholder="Cari nama atau NIS…"
+            className="flex-1 bg-transparent font-medium outline-none"
+          />
+        </div>
+        <button
+          onClick={() => setShowKenaikanKelas(true)}
+          className="hidden shrink-0 items-center gap-1.5 rounded-2xl border border-line bg-white px-3.5 py-3 text-[13px] font-bold text-ink lg:flex"
+          title="Kenaikan Kelas"
+        >
+          🎓 <span className="whitespace-nowrap">Kenaikan Kelas</span>
+        </button>
+        {!readOnly && (
+          <button
+            onClick={() => setShowImport(true)}
+            className="hidden shrink-0 items-center gap-1.5 rounded-2xl border border-line bg-white px-3.5 py-3 text-[13px] font-bold text-ink lg:flex"
+            title="Import dari Excel"
+          >
+            <Ikon.dokumen size={15} /> <span className="whitespace-nowrap">Import</span>
+          </button>
+        )}
       </div>
 
+      {/* Tab Aktif / Alumni */}
+      <div className="mb-3 flex gap-2">
+        <button
+          onClick={() => { setTabAktif('aktif'); setFilter(''); setCari('') }}
+          className={`flex-1 rounded-2xl py-2.5 text-[13px] font-extrabold transition ${tabAktif === 'aktif' ? 'bg-brand text-white' : 'bg-white text-muted border border-line'}`}
+        >
+          Siswa Aktif
+        </button>
+        <button
+          onClick={bukaTabAlumni}
+          className={`flex-1 rounded-2xl py-2.5 text-[13px] font-extrabold transition ${tabAktif === 'alumni' ? 'bg-grape text-white' : 'bg-white text-muted border border-line'}`}
+        >
+          🎓 Alumni
+        </button>
+      </div>
+
+      {tabAktif === 'aktif' && (
       <div className="noscroll mb-1.5 flex gap-2 overflow-x-auto pb-1">
         <FChip on={filter === ''} onClick={() => setFilter('')}>Semua</FChip>
         {kelas.map((k) => (
@@ -102,13 +184,16 @@ export default function DaftarSiswa({ onTambah, onUbah }) {
         ))}
         <FChip on={filter === '#n'} onClick={() => setFilter('#n')}>Menunggak</FChip>
       </div>
+      )}
 
-      {siswa.length > 0 && (
+      {tabAktif === 'aktif' && siswa.length > 0 && (
         <p className="mb-2.5 px-0.5 text-[12.5px] font-bold text-muted lg:hidden">
-          {siswa.length} siswa terdaftar · {ringkasan.lunas} Lunas · {ringkasan.belum} Menunggak · {ringkasan.sebagian} Sebagian
+          {siswa.length} siswa aktif · {ringkasan.lunas} Lunas · {ringkasan.belum} Menunggak · {ringkasan.sebagian} Sebagian
         </p>
       )}
 
+      {tabAktif === 'aktif' && (
+      <>
       {/* ---------- mobile: daftar kartu ---------- */}
       <div className="card lg:hidden">
         {hasil.length === 0 ? (
@@ -233,6 +318,8 @@ export default function DaftarSiswa({ onTambah, onUbah }) {
           </table>
         )}
       </div>
+      </>
+      )}
 
       <Sheet buka={!!menuAksi} tutup={tutupMenu} judul={menuAksi?.nama} lead="Kelas siswa ini">
         {konfirmHapus ? (
@@ -260,6 +347,45 @@ export default function DaftarSiswa({ onTambah, onUbah }) {
           </>
         )}
       </Sheet>
+      {/* ── TAB ALUMNI ─────────────────────────────────── */}
+      {tabAktif === 'alumni' && (
+        <div className="card">
+          {memuatAlumni ? (
+            <p className="py-4 text-center text-[13px] text-muted">Memuat data alumni…</p>
+          ) : alumni.length === 0 ? (
+            <div className="py-6 text-center">
+              <p className="mb-1 text-3xl">🎓</p>
+              <p className="font-bold">Belum ada alumni</p>
+              <p className="mt-1 text-[13px] text-muted">Alumni akan muncul di sini setelah proses Kenaikan Kelas / Kelulusan dijalankan.</p>
+            </div>
+          ) : (
+            <div>
+              <p className="mb-3 px-0.5 text-[12.5px] font-bold text-muted">{alumni.length} alumni</p>
+              {alumni.map((s) => (
+                <div key={s.id} className="row items-center border-t border-line first:border-t-0">
+                  <Avatar nama={s.nama} jenis={s.jenis} avatar={s.avatar} foto={s.foto} />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-[14.5px] font-bold">{s.nama}</div>
+                    <div className="text-[12px] text-muted">
+                      Kelas {s.kelas} · {s.nis}
+                      {s.tahunLulus && <> · Lulus {s.tahunLulus}</>}
+                    </div>
+                  </div>
+                  <button
+                    className="shrink-0 rounded-xl border border-line bg-white px-3 py-1.5 text-[12px] font-bold text-brand"
+                    onClick={() => nav("/guru/siswa/" + s.id)}
+                  >
+                    Lihat
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      <SheetImportSiswa buka={showImport} tutup={() => setShowImport(false)} />
+      <SheetKenaikanKelas buka={showKenaikanKelas} tutup={() => setShowKenaikanKelas(false)} />
     </>
   )
 }
@@ -267,7 +393,7 @@ export default function DaftarSiswa({ onTambah, onUbah }) {
 const FChip = ({ on, children, ...p }) => (
   <button
     {...p}
-    className={`whitespace-nowrap rounded-pill px-3.5 py-2 text-[13px] font-bold shadow-soft ${on ? 'bg-brand text-white' : 'bg-white text-muted'}`}
+    className={`whitespace-nowrap rounded-pill px-3.5 py-2 text-[13px] font-bold ${on ? 'bg-brand text-white' : 'bg-white text-muted'}`}
   >
     {children}
   </button>

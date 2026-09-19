@@ -92,12 +92,12 @@ export async function muatDataGuru() {
   // 'admin' dipilih supaya mode demo menunjukkan kemampuan paling lengkap
   // (catat pembayaran + kode aktivasi). Untuk mencoba tampilan kepala
   // sekolah yang lebih terbatas, ganti sementara jadi 'kepala' di sini.
-  if (modeDemo) return { ...bentuk(mock.bentukDemo()), petugas: 'Bu Rina', peran: 'admin' }
+  if (modeDemo) return { ...bentuk(mock.bentukDemo()), petugas: 'Bu Rina', peran: 'admin', pinAktif: false }
 
   const { data: pengguna } = await supabase.auth.getUser()
   const { data: profil, error: eProfil } = await supabase
     .from('profil')
-    .select('nama, peran, sekolah:sekolah_id (*)')
+    .select('nama, peran, pin_aktif, sekolah:sekolah_id (*)')
     .eq('id', pengguna.user.id)
     .single()
 
@@ -122,6 +122,7 @@ export async function muatDataGuru() {
     }),
     petugas: profil.nama,
     peran: profil.peran,
+    pinAktif: profil.pin_aktif,
   }
 }
 
@@ -204,6 +205,7 @@ export async function tambahSiswa({ sekolahId, ...data }) {
       wali: data.wali?.trim() || null,
       hp: data.hp?.trim() || null,
       guru: data.guru?.trim() || null,
+      alamat: data.alamat?.trim() || null,
       avatar: Number.isInteger(data.avatar) ? data.avatar : null,
     })
     .select()
@@ -223,6 +225,7 @@ export async function ubahSiswa(id, data) {
     wali: data.wali?.trim() || null,
     hp: data.hp?.trim() || null,
     guru: data.guru?.trim() || null,
+    alamat: data.alamat?.trim() || null,
     avatar: Number.isInteger(data.avatar) ? data.avatar : null,
   }
   const { data: baris, error } = await supabase
@@ -261,6 +264,84 @@ export async function nonaktifkanSiswa(id) {
   if (error) throw new Error(error.message)
   return true
 }
+
+/**
+ * Muat daftar siswa termasuk alumni — untuk halaman Siswa yang punya
+ * tab Alumni. muatDataGuru hanya mengambil siswa aktif, jadi ini
+ * dipanggil terpisah saat tab Alumni dibuka.
+ */
+export async function muatAlumni(sekolahId) {
+  if (modeDemo) return []
+  const { data, error } = await supabase
+    .from('siswa')
+    .select('*')
+    .eq('sekolah_id', sekolahId)
+    .eq('status_siswa', 'alumni')
+    .order('tahun_lulus', { ascending: false })
+    .order('nama')
+  if (error) throw new Error(error.message)
+  return data
+}
+
+/**
+ * Naikkan kelas satu siswa — update kelas saja, status tetap 'aktif'.
+ */
+export async function naikkanKelas(siswaId, kelasBaru) {
+  if (modeDemo) return true
+  const { error } = await supabase
+    .from('siswa')
+    .update({ kelas: kelasBaru.trim() })
+    .eq('id', siswaId)
+  if (error) throw new Error(error.message)
+  return true
+}
+
+/**
+ * Naikkan kelas massal — update semua siswa di daftar ID sekaligus.
+ * Dipanggil dari sheet Kenaikan Kelas setelah guru mengatur pemetaan
+ * "kelas lama → kelas baru" dan mengkonfirmasi.
+ */
+export async function naikkanKelasMassal(peta) {
+  // peta: array of { siswaId, kelasBaru }
+  if (modeDemo) return { berhasil: peta.length, gagal: 0 }
+  let berhasil = 0; const gagal = []
+  for (const { siswaId, kelasBaru } of peta) {
+    const { error } = await supabase
+      .from('siswa').update({ kelas: kelasBaru.trim() }).eq('id', siswaId)
+    if (error) gagal.push(siswaId)
+    else berhasil++
+  }
+  return { berhasil, gagal: gagal.length }
+}
+
+/**
+ * Luluskan siswa massal — ubah status ke 'alumni', isi tahun_lulus,
+ * trigger otomatis set aktif = false.
+ */
+export async function luluskanMassal(siswaIds, tahunLulus) {
+  if (modeDemo) return { berhasil: siswaIds.length, gagal: 0 }
+  const { data, error } = await supabase
+    .from('siswa')
+    .update({ status_siswa: 'alumni', tahun_lulus: tahunLulus })
+    .in('id', siswaIds)
+    .select('id')
+  if (error) throw new Error(error.message)
+  return { berhasil: data.length, gagal: siswaIds.length - data.length }
+}
+
+/**
+ * Kembalikan alumni ke aktif — kalau ada kesalahan input kelulusan.
+ */
+export async function batalkanLulus(siswaId) {
+  if (modeDemo) return true
+  const { error } = await supabase
+    .from('siswa')
+    .update({ status_siswa: 'aktif', tahun_lulus: null })
+    .eq('id', siswaId)
+  if (error) throw new Error(error.message)
+  return true
+}
+
 
 function pesanSiswa(error) {
   if (error.code === '23505') return 'NIS ini sudah dipakai siswa lain'
@@ -358,7 +439,7 @@ export async function masukGoogle() {
   if (modeDemo) return { url: null }
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: window.location.origin + window.location.pathname },
+    options: { redirectTo: window.location.origin + '/guru' },
   })
   if (error) throw new Error(pesanAuth(error.message))
   return data
@@ -370,9 +451,162 @@ export async function keluar() {
   return true
 }
 
+/**
+ * Login PIN — PIN-nya sesungguhnya ADALAH password akun Supabase Auth
+ * orang ini, cuma dibatasi 6 digit angka di sisi form. Supabase yang
+ * meng-hash & menyimpannya (di auth.users, sisi server), kita tidak
+ * pernah menyentuh atau menyimpan PIN mentah di database sendiri.
+ */
+/**
+ * Login PIN — PIN-nya sesungguhnya ADALAH password akun Supabase Auth
+ * orang ini, cuma dibatasi 6 digit angka di sisi form. Supabase yang
+ * meng-hash & menyimpannya (di auth.users, sisi server), kita tidak
+ * pernah menyentuh atau menyimpan PIN mentah di database sendiri.
+ *
+ * Lockout 3x salah dicek & dicatat di SERVER (lihat migrasi
+ * 0008_pin_lockout.sql) — bukan di browser, supaya tidak bisa dilewati
+ * cuma dengan refresh halaman atau ganti perangkat.
+ */
+
+/**
+ * Cek apakah email ini punya PIN aktif di server — dipanggil saat
+ * pengguna mengetik email di layar Masuk (debounce 800ms), supaya
+ * kalau belum ada PIN langsung tampil saran pakai Google tanpa harus
+ * coba login dulu dan gagal. Anon, karena memang sebelum login.
+ * Menggunakan RPC status_pin yang juga dipakai lockout — hemat satu
+ * round-trip. Kalau RPC tidak mengenal email itu, pin_aktif = false.
+ */
+/**
+ * Cek apakah email ini punya PIN aktif di server — dipanggil saat
+ * pengguna mengetik email di layar Masuk (debounce 800ms), supaya
+ * kalau belum ada PIN langsung tampil saran pakai Google tanpa harus
+ * coba login dulu dan gagal. Anon, karena memang sebelum login.
+ * Menggunakan RPC status_pin (migrasi 0009 menambah kolom `aktif` ke
+ * situ khusus untuk kebutuhan ini) — satu round-trip saja.
+ */
+export async function cekPinAktif(email) {
+  if (modeDemo) return false
+  try {
+    const { data, error } = await supabase.rpc('status_pin', { p_email: email.trim() })
+    if (error || !data?.length) return false
+    return data[0].aktif === true
+  } catch {
+    return false // gagal → jangan blokir pengguna
+  }
+}
+
+export async function masukPin(email, pin) {
+  if (modeDemo) return { url: null }
+  const emailBersih = email.trim()
+
+  // Cek dulu apakah sudah terkunci, sebelum buang satu percobaan
+  // sign-in yang memang pasti akan ditolak.
+  const { data: status } = await supabase.rpc('status_pin', { p_email: emailBersih })
+  if (status?.[0]?.terkunci) {
+    throw new Error('PIN dikunci setelah 3 kali salah. Minta kepala sekolah membuka kembali lewat menu Profil Sekolah.')
+  }
+
+  const { data, error } = await supabase.auth.signInWithPassword({ email: emailBersih, password: pin })
+  if (error) {
+    if (/invalid login credentials/i.test(error.message)) {
+      const { data: hasil } = await supabase.rpc('catat_pin_gagal', { p_email: emailBersih })
+      const h = hasil?.[0]
+      if (h?.terkunci) {
+        throw new Error('PIN salah 3 kali — akun dikunci. Minta kepala sekolah membuka kembali lewat menu Profil Sekolah.')
+      }
+      const sisa = 3 - (h?.percobaan ?? 0)
+      throw new Error(`Email atau PIN salah (sisa ${sisa}x percobaan sebelum terkunci)`)
+    }
+    throw new Error(pesanAuth(error.message))
+  }
+
+  // Berhasil — reset hitungan gagal supaya tidak nyangkut dari percobaan lama.
+  await supabase.rpc('reset_percobaan_pin_saya')
+  return data
+}
+
+/**
+ * Cek apakah PIN gampang ditebak — angka sama semua (111111), urut naik
+ * (123456) atau turun (654321), atau pola berulang (121212 / 123123).
+ * Dicek di sisi klien saat PIN dibuat/diubah, bukan gerbang keamanan
+ * utama (itu tetap panjang+lockout) tapi cukup untuk menyaring pola
+ * paling jelas mudah ditebak.
+ */
+export function pinLemah(pin) {
+  if (!/^\d{6}$/.test(pin)) return true
+  if (new Set(pin).size === 1) return true // 111111, 222222, dst
+  if (berurutanSiklis(pin)) return true // 123456, 654321, 098765, 890123, dst (termasuk yang "muter")
+  if (pin[0] === pin[2] && pin[2] === pin[4] && pin[1] === pin[3] && pin[3] === pin[5]) return true // 121212
+  if (pin.slice(0, 3) === pin.slice(3, 6)) return true // 123123
+  return false
+}
+
+/** Naik atau turun 1 angka terus-menerus, termasuk yang "muter" lewat
+ *  0/9 (mis. 890123 atau 098765) — bukan cuma yang berhenti di ujung. */
+function berurutanSiklis(pin) {
+  const d = pin.split('').map(Number)
+  let naik = true
+  let turun = true
+  for (let i = 1; i < d.length; i++) {
+    if ((d[i - 1] + 1) % 10 !== d[i]) naik = false
+    if ((d[i - 1] + 9) % 10 !== d[i]) turun = false
+  }
+  return naik || turun
+}
+
+/**
+ * Aktifkan/ubah PIN — dipanggil saat SUDAH login (lewat Google). Set
+ * password akun ini jadi PIN yang diketik, lalu tandai `pin_aktif` di
+ * tabel profil (cuma penanda UI, PIN aslinya tetap di Supabase Auth).
+ */
+export async function aturPin(pin) {
+  if (pinLemah(pin)) {
+    throw new Error('PIN terlalu mudah ditebak — hindari angka sama semua atau berurutan (contoh: 111111, 123456).')
+  }
+  if (modeDemo) return true
+  const { error: eUpdate } = await supabase.auth.updateUser({ password: pin })
+  if (eUpdate) throw new Error(pesanAuth(eUpdate.message))
+  const { error: eRpc } = await supabase.rpc('tandai_pin_aktif')
+  if (eRpc) throw new Error(eRpc.message)
+  return true
+}
+
+/**
+ * Matikan PIN — ganti password ke string acak panjang (yang tidak
+ * pernah ditampilkan/disimpan di mana pun) supaya PIN lama pasti tidak
+ * bisa dipakai login lagi, baru tandai `pin_aktif = false`.
+ */
+export async function matikanPin() {
+  if (modeDemo) return true
+  const acak = crypto.randomUUID() + crypto.randomUUID()
+  const { error: eUpdate } = await supabase.auth.updateUser({ password: acak })
+  if (eUpdate) throw new Error(pesanAuth(eUpdate.message))
+  const { error: eRpc } = await supabase.rpc('matikan_pin')
+  if (eRpc) throw new Error(eRpc.message)
+  return true
+}
+
+/** Khusus kepala sekolah — daftar staf di sekolahnya yang PIN-nya terkunci. */
+export async function daftarStafTerkunci() {
+  if (modeDemo) return []
+  const { data, error } = await supabase.rpc('daftar_staf_terkunci')
+  if (error) throw new Error(error.message)
+  return data.map((s) => ({ id: s.id, nama: s.nama, peran: s.peran }))
+}
+
+/** Khusus kepala sekolah — buka kunci PIN satu staf di sekolahnya. */
+export async function bukaKunciPin(profilId) {
+  if (modeDemo) return true
+  const { error } = await supabase.rpc('buka_kunci_pin', { p_profil_id: profilId })
+  if (error) throw new Error(error.message)
+  return true
+}
+
 function pesanAuth(pesan) {
   if (/provider is not enabled/i.test(pesan))
     return 'Login Google belum diaktifkan untuk aplikasi ini. Hubungi admin sekolah.'
+  if (/password.*at least|should be at least/i.test(pesan))
+    return 'PIN minimal 6 digit'
   return pesan
 }
 
