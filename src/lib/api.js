@@ -77,6 +77,15 @@ function bentuk({ sekolah, biaya, siswa, pembayaran, wali }) {
       sppNominal: sekolah.spp_nominal,
       tanggalJatuhTempo: sekolah.tanggal_jatuh_tempo,
       rekening: sekolah.rekening || [],
+      // Langganan — dipakai lib/langganan.js untuk hitung status di layar.
+      // (Kolomnya ikut terbawa karena muatDataGuru select '*' dari sekolah.)
+      trialMulai: sekolah.trial_mulai || null,
+      langgananSampai: sekolah.langganan_sampai || null,
+      // Tarif langganan per siswa aktif per bulan. NULL = pakai tarif
+      // default aplikasi (lihat HARGA_PER_SISWA_DEFAULT di lib/langganan.js).
+      hargaPerSiswa: sekolah.harga_per_siswa ?? null,
+      // TRUE = dinonaktifkan paksa oleh admin aplikasi (lihat 0018_panel_admin.sql).
+      dinonaktifkanAdmin: !!sekolah.dinonaktifkan_admin,
     },
     biaya: biaya.map((b) => ({ id: b.id, nama: b.nama, nominal: b.nominal })),
     siswa: daftarSiswa,
@@ -435,11 +444,11 @@ export async function ubahNamaSaya(nama) {
  * kembali ke `redirectTo` setelah berhasil — sesi baru muncul lewat
  * `onAuthStateChange` di auth.jsx, bukan lewat nilai balik fungsi ini.
  */
-export async function masukGoogle() {
+export async function masukGoogle(tujuan = '/guru') {
   if (modeDemo) return { url: null }
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
-    options: { redirectTo: window.location.origin + '/guru' },
+    options: { redirectTo: window.location.origin + tujuan },
   })
   if (error) throw new Error(pesanAuth(error.message))
   return data
@@ -643,6 +652,50 @@ export async function aktivasiKode(kode) {
 export async function buatKodeAktivasi(peran = 'guru') {
   if (modeDemo) return { kode: 'DEMO01', peran }
   const { data, error } = await supabase.rpc('buat_kode_aktivasi', { p_peran: peran })
+  if (error) throw new Error(error.message)
+  return data
+}
+
+/* ===================== langganan ===================== */
+
+/** Status langganan sekolah dari server (opsional — layar biasanya
+ *  cukup menghitung sendiri dari pengaturan lewat lib/langganan.js). */
+export async function statusLangganan() {
+  if (modeDemo) return null
+  const { data, error } = await supabase.rpc('status_langganan')
+  if (error) throw new Error(error.message)
+  return data
+}
+
+/** Khusus admin aplikasi (pengembang): daftar semua sekolah + statusnya. */
+export async function daftarLangganan() {
+  if (modeDemo) return []
+  const { data, error } = await supabase.rpc('daftar_langganan')
+  if (error) throw new Error(error.message)
+  return data
+}
+
+/** Khusus admin aplikasi: perpanjang langganan sekolah N bulan setelah
+ *  pembayaran dikonfirmasi manual. */
+export async function perpanjangLangganan(sekolahId, bulan = 1) {
+  if (modeDemo) return { sekolahId, langgananSampai: null }
+  const { data, error } = await supabase.rpc('perpanjang_langganan', {
+    p_sekolah_id: sekolahId,
+    p_bulan: bulan,
+  })
+  if (error) throw new Error(error.message)
+  return data
+}
+
+/** Khusus admin aplikasi: atur tarif langganan per siswa/bulan untuk satu
+ *  sekolah (harga khusus/negosiasi). Kirim null untuk kembali ke tarif
+ *  default aplikasi. */
+export async function ubahHargaPerSiswa(sekolahId, hargaPerSiswa) {
+  if (modeDemo) return { sekolahId, hargaPerSiswa }
+  const { data, error } = await supabase.rpc('ubah_harga_per_siswa', {
+    p_sekolah_id: sekolahId,
+    p_harga: hargaPerSiswa,
+  })
   if (error) throw new Error(error.message)
   return data
 }

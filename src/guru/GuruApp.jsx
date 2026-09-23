@@ -19,9 +19,12 @@ import KodeAktivasi from './KodeAktivasi.jsx'
 import Lainnya from './Lainnya.jsx'
 import ProfilAkun from './ProfilAkun.jsx'
 import ProfilSekolah from './ProfilSekolah.jsx'
+import Langganan from './Langganan.jsx'
+import SpandukLangganan from '../components/SpandukLangganan.jsx'
+import { hitungLangganan, pesanKunci } from '../lib/langganan.js'
 
 export default function GuruApp() {
-  const { siap, galat, peran, pesan, muat, segarkan } = useData()
+  const { siap, galat, peran, pesan, muat, segarkan, pengaturan, toast } = useData()
   const { sesi, siap: authSiap } = useAuth()
   const [catat, setCatat] = useState(null)   // { siswaId } | null
   const [formSiswa, setFormSiswa] = useState(null) // { siswaId } | null
@@ -43,6 +46,23 @@ export default function GuruApp() {
   if (galat) return <Muat aksi={segarkan}>Gagal memuat data: {galat}</Muat>
   if (!siap) return <Muat>Memuat data sekolah…</Muat>
 
+  // Masa aktif habis → aplikasi TETAP bisa dibuka & semua data tetap bisa
+  // dilihat. Yang dikunci hanya AKSI menambah siswa baru & mencatat
+  // pembayaran baru (spanduk menetap menjelaskannya, lihat SpandukLangganan).
+  // Penguncian sebenarnya ditegakkan di database lewat trigger (0013) —
+  // ini hanya lapisan tampilan supaya tombolnya tidak menipu/aktif percuma.
+  const langganan = hitungLangganan(pengaturan)
+  const terkunci = langganan.status === 'kadaluarsa'
+
+  const bukaCatat = (siswaId) => {
+    if (terkunci) return toast(pesanKunci(pengaturan, 'bayar'))
+    setCatat(siswaId ? { siswaId } : {})
+  }
+  const bukaTambahSiswa = () => {
+    if (terkunci) return toast(pesanKunci(pengaturan, 'siswa'))
+    setFormSiswa({})
+  }
+
   const kepala = peran === 'kepala'
   const bisaUndang = kepala || peran === 'admin'
 
@@ -54,23 +74,25 @@ export default function GuruApp() {
     : pathname.includes('/kode-aktivasi') ? 'lainnya'
     : pathname.includes('/biaya') ? 'lainnya'
     : pathname.includes('/profil') ? 'lainnya'
+    : pathname.includes('/langganan') ? 'lainnya'
     : 'beranda'
 
   return (
     <Shell
-      sidebar={<SisiKiri aktif={tabAktif} nav={nav} buka={() => setCatat({})} kepala={kepala} bisaUndang={bisaUndang} />}
-      tabbar={<TabBar aktif={tabAktif} nav={nav} buka={() => setCatat({})} kepala={kepala} />}
+      sidebar={<SisiKiri aktif={tabAktif} nav={nav} buka={() => bukaCatat()} terkunci={terkunci} kepala={kepala} bisaUndang={bisaUndang} />}
+      tabbar={<TabBar aktif={tabAktif} nav={nav} buka={() => bukaCatat()} kepala={kepala} />}
     >
       <div className="noscroll flex-1 overflow-y-auto overscroll-contain px-[18px] pb-32 lg:px-8 lg:pb-10">
        <div className="mx-auto w-full lg:max-w-[1180px] 2xl:max-w-[1320px]">
+        <SpandukLangganan pengaturan={pengaturan} />
         <Routes>
-          <Route index element={<Beranda onCatat={(siswaId) => setCatat({ siswaId })} />} />
-          <Route path="siswa" element={<DaftarSiswa onTambah={() => setFormSiswa({})} onUbah={(siswaId) => setFormSiswa({ siswaId })} />} />
+          <Route index element={<Beranda onCatat={(siswaId) => bukaCatat(siswaId)} />} />
+          <Route path="siswa" element={<DaftarSiswa onTambah={bukaTambahSiswa} onUbah={(siswaId) => setFormSiswa({ siswaId })} terkunci={terkunci} />} />
           <Route
             path="siswa/:id"
             element={
               <DetailSiswa
-                onCatat={(siswaId) => setCatat({ siswaId })}
+                onCatat={(siswaId) => bukaCatat(siswaId)}
                 onUbah={(siswaId) => setFormSiswa({ siswaId })}
               />
             }
@@ -78,6 +100,7 @@ export default function GuruApp() {
           <Route path="laporan" element={<Laporan />} />
           <Route path="lainnya" element={<Lainnya />} />
           <Route path="profil-akun" element={<ProfilAkun />} />
+          <Route path="langganan" element={<Langganan />} />
 
           {/* Rute operasional — dikunci untuk kepala sekolah, bukan cuma disembunyikan
               di menu. Kalau kepala mengetik URL-nya langsung, dilempar balik ke beranda. */}
@@ -108,7 +131,7 @@ export default function GuruApp() {
 }
 
 /** Navigasi kiri, hanya tampil mulai lebar 1024px. */
-function SisiKiri({ aktif, nav, buka, kepala, bisaUndang }) {
+function SisiKiri({ aktif, nav, buka, terkunci, kepala, bisaUndang }) {
   const { pengaturan, petugas, modeDemo } = useData()
   const { keluar } = useAuth()
   return (
@@ -146,6 +169,11 @@ function SisiKiri({ aktif, nav, buka, kepala, bisaUndang }) {
           Profil sekolah
         </NavItem>
       )}
+      {bisaUndang && (
+        <NavItem aktif={false} onClick={() => nav('/guru/langganan')} ikon={Ikon.dompet}>
+          Langganan
+        </NavItem>
+      )}
       <NavItem aktif={aktif === 'profil-akun'} onClick={() => nav('/guru/profil-akun')} ikon={Ikon.orang}>
         Profil akun
       </NavItem>
@@ -153,9 +181,12 @@ function SisiKiri({ aktif, nav, buka, kepala, bisaUndang }) {
       {!kepala && (
         <button
           onClick={buka}
-          className="mt-3 flex items-center justify-center gap-2 rounded-[14px] bg-brand py-3 text-[13.5px] font-extrabold text-white active:scale-[.98]"
+          title={terkunci ? 'Terkunci sampai langganan diperpanjang' : undefined}
+          className={`mt-3 flex items-center justify-center gap-2 rounded-[14px] py-3 text-[13.5px] font-extrabold active:scale-[.98] ${
+            terkunci ? 'bg-[#F1F4F9] text-muted' : 'bg-brand text-white'
+          }`}
         >
-          <Ikon.plus size={18} />
+          {terkunci ? <Ikon.jam size={18} /> : <Ikon.plus size={18} />}
           Catat pembayaran
         </button>
       )}

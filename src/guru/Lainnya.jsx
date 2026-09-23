@@ -27,8 +27,13 @@ export default function Lainnya() {
   const menuKepala = peran === 'kepala'
     ? [{ label: 'Profil sekolah', sub: 'Identitas & rekening sekolah', ikon: <Ikon.rumah size={19} />, warna: 'bg-ok-soft text-ok', ke: '/guru/profil-sekolah' }]
     : []
+  const menuLangganan = bisaUndang
+    ? [{ label: 'Langganan', sub: 'Masa aktif aplikasi & perpanjangan', ikon: <Ikon.dompet size={19} />, warna: 'bg-brand-soft text-brand', ke: '/guru/langganan' }]
+    : []
 
-  const daftar = peran === 'kepala' ? [...menuUndang, ...menuKepala] : [...menuOperasional, ...menuUndang]
+  const daftar = peran === 'kepala'
+    ? [...menuUndang, ...menuKepala, ...menuLangganan]
+    : [...menuOperasional, ...menuUndang, ...menuLangganan]
 
   return (
     <>

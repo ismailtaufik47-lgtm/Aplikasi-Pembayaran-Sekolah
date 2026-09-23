@@ -6,6 +6,7 @@ import { useData } from '../lib/store.jsx'
 import SheetImportSiswa from './SheetImportSiswa.jsx'
 import SheetKenaikanKelas from './SheetKenaikanKelas.jsx'
 import * as api from '../lib/api.js'
+import { pesanKunci } from '../lib/langganan.js'
 import {
   bulanBerjalan,
   kegiatanBelum,
@@ -21,11 +22,18 @@ import {
 const STATUS_LABEL = { lunas: 'Lunas', sebagian: 'Sebagian', belum: 'Menunggak' }
 const STATUS_WARNA = { lunas: 'green', sebagian: 'amber', belum: 'red' }
 
-export default function DaftarSiswa({ onTambah, onUbah }) {
+export default function DaftarSiswa({ onTambah, onUbah, terkunci = false }) {
   const { siswa, biaya, pengaturan, peran, hapusSiswa, segarkan, toast } = useData()
   const readOnly = peran === 'kepala'
   const nav = useNavigate()
   const [showImport, setShowImport] = useState(false)
+
+  // Import massal juga menambah siswa baru → ikut dikunci saat langganan habis.
+  const bukaImport = () => {
+    if (terkunci) return toast(pesanKunci(pengaturan, 'siswa'))
+    setShowImport(true)
+  }
+  const gayaKunci = terkunci ? 'opacity-60' : ''
   const [showKenaikanKelas, setShowKenaikanKelas] = useState(false)
   const [tabAktif, setTabAktif] = useState('aktif') // 'aktif' | 'alumni'
   const [alumni, setAlumni] = useState([])
@@ -104,16 +112,17 @@ export default function DaftarSiswa({ onTambah, onUbah }) {
           {!readOnly && (
             <>
               <button
-                className="flex items-center gap-1.5 rounded-2xl border border-brand bg-white px-3 py-2.5 text-[13px] font-extrabold text-brand active:scale-95"
-                onClick={() => setShowImport(true)}
-                title="Import dari Excel"
+                className={`flex items-center gap-1.5 rounded-2xl border border-brand bg-white px-3 py-2.5 text-[13px] font-extrabold text-brand active:scale-95 ${gayaKunci}`}
+                onClick={bukaImport}
+                title={terkunci ? 'Terkunci sampai langganan diperpanjang' : 'Import dari Excel'}
               >
                 <Ikon.dokumen size={15} />
                 Import
               </button>
               <button
-                className="flex items-center gap-1.5 rounded-2xl bg-brand px-3.5 py-2.5 text-[13px] font-extrabold text-white active:scale-95"
+                className={`flex items-center gap-1.5 rounded-2xl bg-brand px-3.5 py-2.5 text-[13px] font-extrabold text-white active:scale-95 ${gayaKunci}`}
                 onClick={onTambah}
+                title={terkunci ? 'Terkunci sampai langganan diperpanjang' : undefined}
               >
                 <Ikon.plus size={16} />
                 Siswa
@@ -126,7 +135,13 @@ export default function DaftarSiswa({ onTambah, onUbah }) {
       <PageHead
         judul="Siswa"
         sub={readOnly ? 'Klik siswa untuk melihat status pembayarannya' : 'Klik siswa untuk membuka kartu pembayarannya'}
-        aksi={!readOnly && <BtnKecil utama onClick={onTambah}><Ikon.plus size={16} />Siswa</BtnKecil>}
+        aksi={
+          !readOnly && (
+            <BtnKecil utama onClick={onTambah} title={terkunci ? 'Terkunci sampai langganan diperpanjang' : undefined}>
+              {terkunci ? <Ikon.jam size={16} /> : <Ikon.plus size={16} />}Siswa
+            </BtnKecil>
+          )
+        }
       />
 
       {/* Search + tombol utilitas kompak (Kenaikan Kelas, Import) sejajar
@@ -151,9 +166,9 @@ export default function DaftarSiswa({ onTambah, onUbah }) {
         </button>
         {!readOnly && (
           <button
-            onClick={() => setShowImport(true)}
-            className="hidden shrink-0 items-center gap-1.5 rounded-2xl border border-line bg-white px-3.5 py-3 text-[13px] font-bold text-ink lg:flex"
-            title="Import dari Excel"
+            onClick={bukaImport}
+            className={`hidden shrink-0 items-center gap-1.5 rounded-2xl border border-line bg-white px-3.5 py-3 text-[13px] font-bold text-ink lg:flex ${gayaKunci}`}
+            title={terkunci ? 'Terkunci sampai langganan diperpanjang' : 'Import dari Excel'}
           >
             <Ikon.dokumen size={15} /> <span className="whitespace-nowrap">Import</span>
           </button>

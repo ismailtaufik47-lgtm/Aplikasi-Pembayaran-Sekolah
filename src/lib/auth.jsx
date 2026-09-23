@@ -24,7 +24,8 @@ export function AuthProvider({ children }) {
     sesi,
     siap,
     modeDemo,
-    masukGoogle: () => api.masukGoogle(),
+    // tujuan: halaman setelah login Google ('/guru' atau '/admin')
+    masukGoogle: (tujuan) => api.masukGoogle(tujuan),
     // PIN sungguhan — verifikasi terjadi di server Supabase
     // (signInWithPassword), bukan dicocokkan di browser. Lihat lib/api.js.
     masukPin: (email, pin) => api.masukPin(email, pin),
