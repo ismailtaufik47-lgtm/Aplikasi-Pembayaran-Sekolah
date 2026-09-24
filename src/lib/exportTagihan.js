@@ -189,7 +189,7 @@ function sheetKelas(wb, { kelas, tagihan, pengaturan }) {
 
     const statusKey = t.status === 'nunggak' ? 'nunggak' : t.status === 'sebagian' ? 'sebagian' : t.status === 'lunas' ? 'lunas' : 'belum-bayar'
     const gaya = gayaStatus(statusKey)
-    const label = { nunggak: 'Jatuh Tempo', sebagian: 'Sebagian', lunas: 'Lunas', 'belum-bayar': 'Belum' }[statusKey]
+    const label = { nunggak: 'Nunggak', sebagian: 'Sebagian', lunas: 'Lunas', 'belum-bayar': 'Belum' }[statusKey]
     ws.getCell(r, 8).value = label
     ws.getCell(r, 8).fill = gaya.fill
     ws.getCell(r, 8).font = gaya.font

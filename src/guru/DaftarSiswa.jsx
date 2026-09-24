@@ -176,16 +176,21 @@ export default function DaftarSiswa({ onTambah, onUbah, terkunci = false }) {
       </div>
 
       {/* Tab Aktif / Alumni */}
-      <div className="mb-3 flex gap-2">
+      {/* Sakelar ringkas selebar isinya (bukan membentang penuh) */}
+      <div className="mb-3 inline-flex rounded-2xl border border-line bg-white p-1 shadow-soft" role="tablist">
         <button
+          role="tab"
+          aria-selected={tabAktif === 'aktif'}
           onClick={() => { setTabAktif('aktif'); setFilter(''); setCari('') }}
-          className={`flex-1 rounded-2xl py-2.5 text-[13px] font-extrabold transition ${tabAktif === 'aktif' ? 'bg-brand text-white' : 'bg-white text-muted border border-line'}`}
+          className={`flex items-center gap-1.5 whitespace-nowrap rounded-xl px-4 py-2 text-[13px] font-extrabold transition ${tabAktif === 'aktif' ? 'bg-brand text-white shadow-[0_4px_12px_rgba(59,110,246,.28)]' : 'text-muted hover:text-ink'}`}
         >
-          Siswa Aktif
+          🧒 Siswa aktif
         </button>
         <button
+          role="tab"
+          aria-selected={tabAktif === 'alumni'}
           onClick={bukaTabAlumni}
-          className={`flex-1 rounded-2xl py-2.5 text-[13px] font-extrabold transition ${tabAktif === 'alumni' ? 'bg-grape text-white' : 'bg-white text-muted border border-line'}`}
+          className={`flex items-center gap-1.5 whitespace-nowrap rounded-xl px-4 py-2 text-[13px] font-extrabold transition ${tabAktif === 'alumni' ? 'bg-grape text-white shadow-[0_4px_12px_rgba(139,92,246,.28)]' : 'text-muted hover:text-ink'}`}
         >
           🎓 Alumni
         </button>

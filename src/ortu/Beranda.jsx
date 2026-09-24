@@ -2,14 +2,16 @@ import { useNavigate } from 'react-router-dom'
 import Avatar from '../components/Avatar.jsx'
 import { Chip, Chevron, Ikon, Kosong, Tile, Track } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
-import { BULAN, bulanBerjalan, kegiatanBelum, lunasSpp, perluDitagihSekarang, rp, sisaTagihan, sppPerluSekarang, statusSpp } from '../lib/format.js'
+import { daftarPemberitahuan, kalimatSpp } from './sheets.jsx'
+import { BULAN, bulanBerjalan, kegiatanBelum, labelJatuhTempoPeriode, teksJatuhTempo, lunasSpp, perluDitagihSekarang, rp, sisaTagihan, sppPerluSekarang, statusSpp } from '../lib/format.js'
 
 export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaCaraBayar, bukaPengumuman }) {
   const { pengaturan, biaya, pembayaran, wali, toast } = useData()
   const nav = useNavigate()
   const kini = bulanBerjalan()
   const a = aktif
-  const adaPerlu = perluDitagihSekarang(a, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)
+  const teksSpp = kalimatSpp(a, pengaturan, kini)
+  const adaPerlu = !!teksSpp || perluDitagihSekarang(a, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)
   const belumSpp = BULAN.map((b, i) => ({ b, i, dibayar: a.spp[i] || 0, status: statusSpp(a.spp[i] || 0, pengaturan.sppNominal, i, kini, pengaturan.tanggalJatuhTempo) }))
     .filter((x) => x.status === 'nunggak' || x.status === 'belum-bayar' || x.status === 'sebagian')
   const belumKeg = biaya.map((b, i) => ({ ...b, i, dibayar: a.kegiatan[i] || 0 }))
@@ -22,6 +24,10 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
   // tempo, plus kegiatan yang terbuka.
   const perluSekarang = sppPerluSekarang(a, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini) + kegiatanBelum(a, biaya)
   const sisaTahun = sisaTagihan(a, biaya, pengaturan.sppNominal)
+  const lunasSemua = perluSekarang <= 0
+  const jumlahNotif = daftarPemberitahuan(a, pengaturan, biaya, kini).length
+  // Saat lunas: tunjukkan SPP berikutnya yang belum dibayar, supaya orang tua tahu kapan bayar lagi.
+  const iBerikut = a.spp.findIndex((v, i) => i >= kini && (v || 0) < pengaturan.sppNominal)
 
   return (
     <>
@@ -33,7 +39,9 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
         </div>
         <button className="tile relative ml-auto bg-white shadow-soft" onClick={bukaPengumuman}>
           <Ikon.lonceng size={20} />
-          <span className="absolute -right-1 -top-1 grid h-[19px] min-w-[19px] place-items-center rounded-[10px] border-2 border-canvas bg-danger px-1 text-[10px] font-bold text-white">2</span>
+          {jumlahNotif > 0 && (
+            <span className="absolute -right-1 -top-1 grid h-[19px] min-w-[19px] place-items-center rounded-[10px] border-2 border-canvas bg-danger px-1 text-[10px] font-bold text-white">{jumlahNotif}</span>
+          )}
         </button>
       </header>
 
@@ -69,20 +77,37 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
         <div className="relative flex items-center gap-3">
           <Avatar nama={a.nama} jenis={a.jenis} avatar={a.avatar} foto={a.foto} size={46} ring />
           <div>
-            <div className="text-[13px] font-semibold opacity-90">Tagihan yang belum dibayar</div>
+            <div className="text-[13px] font-semibold opacity-90">
+              {lunasSemua ? 'Status pembayaran ananda' : 'Tagihan yang perlu dibayar'}
+            </div>
             <div className="text-[26px] font-extrabold tracking-tight">
-              {perluSekarang > 0 ? rp(perluSekarang) : 'Lunas ✅'}
+              {lunasSemua ? 'Semua lunas ✅' : rp(perluSekarang)}
             </div>
           </div>
         </div>
         <div className="relative mt-1.5 text-[12.5px] font-semibold opacity-90">{a.nama} · Kelas {a.kelas} · NIS {a.nis}</div>
         <div className="relative mt-4 flex gap-2.5">
-          <button className="flex-1 rounded-2xl bg-white py-3 text-[13.5px] font-extrabold text-brand" onClick={bukaCaraBayar}>Cara bayar</button>
-          <button className="flex-1 rounded-2xl bg-white/20 py-3 text-[13.5px] font-extrabold" onClick={() => nav(akar + '/tagihan')}>Lihat rincian</button>
+          {lunasSemua ? (
+            <>
+              <button className="flex-1 rounded-2xl bg-white py-3 text-[13.5px] font-extrabold text-brand" onClick={() => nav(akar + '/tagihan')}>Lihat rincian</button>
+              <button className="flex-1 rounded-2xl bg-white/20 py-3 text-[13.5px] font-extrabold" onClick={() => nav(akar + '/riwayat')}>Riwayat bayar</button>
+            </>
+          ) : (
+            <>
+              <button className="flex-1 rounded-2xl bg-white py-3 text-[13.5px] font-extrabold text-brand" onClick={bukaCaraBayar}>Cara bayar</button>
+              <button className="flex-1 rounded-2xl bg-white/20 py-3 text-[13.5px] font-extrabold" onClick={() => nav(akar + '/tagihan')}>Lihat rincian</button>
+            </>
+          )}
         </div>
-        {sisaTahun > perluSekarang && (
+        {lunasSemua ? (
+          <div className="relative mt-2.5 text-[11.5px] leading-snug opacity-85">
+            {iBerikut >= 0
+              ? `Tagihan berikutnya: SPP ${BULAN[iBerikut]} ${rp(pengaturan.sppNominal - (a.spp[iBerikut] || 0))} · jatuh tempo ${labelJatuhTempoPeriode(pengaturan.tanggalJatuhTempo, iBerikut)}`
+              : 'SPP satu tahun ajaran ini sudah lunas semua. Terima kasih 🎉'}
+          </div>
+        ) : sisaTahun > perluSekarang && (
           <div className="relative mt-2.5 text-[11.5px] leading-snug opacity-80">
-            Sisa total pembayaran SPP (termasuk bulan yang belum jatuh tempo): {rp(sisaTahun)}
+            Sisa total tahun ajaran ini (termasuk bulan yang belum jatuh tempo): {rp(sisaTahun)}
           </div>
         )}
       </div>
@@ -93,7 +118,7 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
         </Tile>
         <div className={`text-[13px] font-semibold leading-snug ${adaPerlu ? 'text-warn-deep' : 'text-ok-deep'}`}>
           {adaPerlu
-            ? `SPP ${belumSpp.filter((x) => x.status !== 'sebagian').map((x) => x.b).join(' dan ') || BULAN[kini]} belum dibayar. Jatuh tempo setiap tanggal ${pengaturan.tanggalJatuhTempo}.`
+            ? teksSpp || `SPP ${BULAN[kini]} belum dibayar. Jatuh tempo setiap ${teksJatuhTempo(pengaturan.tanggalJatuhTempo)}.`
             : 'SPP ananda lunas sampai bulan ini. Terima kasih atas kedisiplinannya.'}
         </div>
       </div>
@@ -124,13 +149,17 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
           [
             ...belumSpp.map((x) => ({
               n: `SPP ${x.b}`,
-              m: x.dibayar > 0 ? `Sudah ${rp(x.dibayar)} · sisa berikut` : x.status === 'nunggak' ? 'Sudah lewat bulan ini' : `Jatuh tempo tgl ${pengaturan.tanggalJatuhTempo}`,
+              m: x.dibayar > 0
+                ? `Baru dibayar ${rp(x.dibayar)} · kurang ${rp(pengaturan.sppNominal - x.dibayar)}`
+                : x.status === 'nunggak'
+                  ? `Terlambat · jatuh tempo ${labelJatuhTempoPeriode(pengaturan.tanggalJatuhTempo, x.i)}`
+                  : `Jatuh tempo ${labelJatuhTempoPeriode(pengaturan.tanggalJatuhTempo, x.i)}`,
               v: pengaturan.sppNominal - x.dibayar,
               status: x.status,
             })),
             ...belumKeg.map((x) => ({
               n: x.nama,
-              m: x.dibayar > 0 ? `Sudah ${rp(x.dibayar)} · sisa berikut` : 'Biaya kegiatan',
+              m: x.dibayar > 0 ? `Biaya kegiatan · baru dibayar ${rp(x.dibayar)}` : 'Biaya kegiatan · belum dibayar',
               v: x.nominal - x.dibayar,
               status: x.dibayar > 0 ? 'sebagian' : 'belum-bayar',
             })),

@@ -1,7 +1,60 @@
 import Avatar from '../components/Avatar.jsx'
 import { Ikon, Sheet, Tile } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
-import { rp } from '../lib/format.js'
+import { BULAN, bulanBerjalan, rp, statusSpp, teksJatuhTempo } from '../lib/format.js'
+
+const gabungBulan = (xs) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} dan ${xs[xs.length - 1]}`)
+
+/**
+ * Kalimat status SPP untuk orang tua, memisahkan yang BARU DIBAYAR
+ * SEBAGIAN dan yang BELUM DIBAYAR SAMA SEKALI, contoh:
+ *   "SPP Juli baru dibayar sebagian (kurang Rp50.000), SPP Agustus belum
+ *    dibayar. Jatuh tempo setiap akhir bulan."
+ * null kalau tidak ada SPP yang perlu diperhatikan.
+ */
+export function kalimatSpp(anak, pengaturan, kini = bulanBerjalan()) {
+  if (!anak) return null
+  const sebagian = []
+  const belum = []
+  BULAN.forEach((b, i) => {
+    const dibayar = anak.spp[i] || 0
+    const st = statusSpp(dibayar, pengaturan.sppNominal, i, kini, pengaturan.tanggalJatuhTempo)
+    if (st === 'sebagian') sebagian.push(`SPP ${b} baru dibayar sebagian (kurang ${rp(pengaturan.sppNominal - dibayar)})`)
+    else if (st === 'nunggak' || st === 'belum-bayar') belum.push(b)
+  })
+  const bagian = [...sebagian]
+  if (belum.length) bagian.push(`SPP ${gabungBulan(belum)} belum dibayar`)
+  if (bagian.length === 0) return null
+  return `${bagian.join(', ')}. Jatuh tempo setiap ${teksJatuhTempo(pengaturan.tanggalJatuhTempo)}.`
+}
+
+/**
+ * Daftar pemberitahuan untuk satu anak — dihitung dari data asli, bukan
+ * teks tetap: SPP yang perlu dibayar sekarang, lalu biaya kegiatan yang
+ * belum lunas. Kosong kalau semuanya sudah beres. Dipakai untuk isi
+ * lembar Pemberitahuan sekaligus angka di ikon lonceng.
+ */
+export function daftarPemberitahuan(anak, pengaturan, biaya, kini = bulanBerjalan()) {
+  if (!anak) return []
+  const hasil = []
+  const teksSpp = kalimatSpp(anak, pengaturan, kini)
+  if (teksSpp) {
+    hasil.push({ id: 'spp', warna: 'red', judul: `SPP ${anak.panggilan} belum lunas`, isi: teksSpp })
+  }
+  // Biaya kegiatan digabung jadi SATU pemberitahuan supaya lonceng tidak penuh angka.
+  const keg = biaya
+    .map((b, i) => ({ nama: b.nama, kurang: b.nominal - (anak.kegiatan[i] || 0) }))
+    .filter((k) => k.kurang > 0)
+  if (keg.length > 0) {
+    hasil.push({
+      id: 'kegiatan',
+      warna: 'grape',
+      judul: keg.length === 1 ? `Biaya ${keg[0].nama.toLowerCase()} belum lunas` : `${keg.length} biaya kegiatan belum lunas`,
+      isi: `${keg.map((k) => k.nama).join(', ')} · total ${rp(keg.reduce((t, k) => t + k.kurang, 0))}.`,
+    })
+  }
+  return hasil
+}
 
 /* ---------- bukti pembayaran ---------- */
 export function SheetStruk({ id, tutup }) {
@@ -117,27 +170,28 @@ export function SheetCaraBayar({ buka, tutup, anak }) {
 /* ---------- pemberitahuan ---------- */
 export function SheetPengumuman({ buka, tutup, anak }) {
   const { pengaturan, biaya } = useData()
-  const kegiatanTerbaru = biaya[biaya.length - 1]
+  const daftar = daftarPemberitahuan(anak, pengaturan, biaya)
 
   return (
     <Sheet buka={buka} tutup={tutup} judul="Pemberitahuan" lead={`Dari ${pengaturan.namaSekolah}`}>
-      <div className="card mb-2.5 flex items-start gap-3">
-        <Tile warna="red"><Ikon.peringatan size={20} /></Tile>
-        <div className="min-w-0 flex-1">
-          <div className="text-[14.5px] font-bold">SPP bulan ini belum dibayar</div>
-          <div className="text-[12.5px] text-muted">
-            {anak.panggilan} — jatuh tempo setiap tanggal {pengaturan.tanggalJatuhTempo}.
-          </div>
-        </div>
-      </div>
-      {kegiatanTerbaru && (
+      {daftar.length === 0 ? (
         <div className="card flex items-start gap-3">
-          <Tile warna="grape"><Ikon.kalender size={20} /></Tile>
+          <Tile warna="green"><Ikon.cek size={20} /></Tile>
           <div className="min-w-0 flex-1">
-            <div className="text-[14.5px] font-bold">Biaya {kegiatanTerbaru.nama.toLowerCase()} dibuka</div>
-            <div className="text-[12.5px] text-muted">{rp(kegiatanTerbaru.nominal)} · dikumpulkan lewat guru kelas.</div>
+            <div className="text-[14.5px] font-bold">Tidak ada pemberitahuan</div>
+            <div className="text-[12.5px] text-muted">Semua tagihan {anak?.panggilan} sudah lunas. Terima kasih 🙏</div>
           </div>
         </div>
+      ) : (
+        daftar.map((d) => (
+          <div key={d.id} className="card mb-2.5 flex items-start gap-3">
+            <Tile warna={d.warna}>{d.warna === 'red' ? <Ikon.peringatan size={20} /> : <Ikon.kalender size={20} />}</Tile>
+            <div className="min-w-0 flex-1">
+              <div className="text-[14.5px] font-bold">{d.judul}</div>
+              <div className="text-[12.5px] text-muted">{d.isi}</div>
+            </div>
+          </div>
+        ))
       )}
       <div className="h-4" />
       <button className="bigbtn-ghost" onClick={tutup}>Tutup</button>

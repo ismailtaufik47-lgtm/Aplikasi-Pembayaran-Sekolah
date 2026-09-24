@@ -5,7 +5,30 @@ import { BtnKecil, Chip, Chevron, Ikon, Kosong, PageHead, Sheet, Tile, Track } f
 import { useData } from '../lib/store.jsx'
 import { useAuth } from '../lib/auth.jsx'
 import { GrafikPembayaran, StatusPembayaran } from './GrafikBeranda.jsx'
-import { bulanBerjalan, labelTunggakan, perluDitagihSekarang, rp, sppPerluSekarang } from '../lib/format.js'
+import { BULAN, bulanBerjalan, labelTunggakan, perluDitagihSekarang, rp, sppPerluSekarang, tanggalJatuhTempoDi } from '../lib/format.js'
+
+/** Salam sesuai jam perangkat. */
+function salamWaktu(jam = new Date().getHours()) {
+  if (jam < 11) return 'Selamat pagi'
+  if (jam < 15) return 'Selamat siang'
+  if (jam < 18) return 'Selamat sore'
+  return 'Selamat malam'
+}
+
+/**
+ * Tanggal jatuh tempo SPP berikutnya (hari ini atau sesudahnya):
+ * kalau tanggal bulan ini sudah lewat, ambil tanggal yang sama bulan depan.
+ */
+function jatuhTempoBerikut(tgl, now = new Date()) {
+  const hariIni = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const padaBulan = (y, m) => new Date(y, m, tanggalJatuhTempoDi(tgl, y, m))
+  let jt = padaBulan(now.getFullYear(), now.getMonth())
+  if (jt < hariIni) {
+    const depan = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+    jt = padaBulan(depan.getFullYear(), depan.getMonth())
+  }
+  return { sisaHari: Math.round((jt - hariIni) / 864e5), indeks: bulanBerjalan(jt), tanggal: jt.getDate() }
+}
 
 export default function Beranda({ onCatat }) {
   const { pengaturan, siswa, pembayaran, petugas, peran, segarkan, toast } = useData()
@@ -16,7 +39,26 @@ export default function Beranda({ onCatat }) {
   const kini = bulanBerjalan()
 
   const lunasBulanIni = siswa.filter((s) => (s.spp[kini] || 0) >= pengaturan.sppNominal).length
-  const masuk = pembayaran.reduce((t, p) => t + p.nominal, 0)
+  // Uang yang benar-benar MASUK bulan kalender ini (menurut tanggal bayar),
+  // bukan total semua pembayaran sejak awal.
+  const sekarang = new Date()
+  const masuk = pembayaran
+    .filter((p) => {
+      const d = new Date(p.tanggal)
+      return d.getMonth() === sekarang.getMonth() && d.getFullYear() === sekarang.getFullYear()
+    })
+    .reduce((t, p) => t + p.nominal, 0)
+  // Siswa yang SPP-nya jatuh tempo dalam 7 hari ke depan & belum lunas.
+  const jt = jatuhTempoBerikut(pengaturan.tanggalJatuhTempo)
+  const segeraJt = jt.sisaHari <= 7
+    ? siswa.filter((s) => (s.spp[jt.indeks] || 0) < pengaturan.sppNominal).length
+    : 0
+  const kakiJt = jt.sisaHari === 0
+    ? `Hari ini, ${jt.tanggal} ${BULAN[jt.indeks]}`
+    : jt.sisaHari <= 7
+      ? `${jt.sisaHari} hari lagi · ${jt.tanggal} ${BULAN[jt.indeks]}`
+      : `Berikutnya ${jt.tanggal} ${BULAN[jt.indeks]}`
+  const salam = salamWaktu()
   const menunggak = siswa.filter((s) => perluDitagihSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini))
   const nilaiTunggakan = menunggak.reduce((t, s) => t + sppPerluSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini), 0)
   const persen = siswa.length ? Math.round((lunasBulanIni / siswa.length) * 100) : 0
@@ -42,13 +84,13 @@ export default function Beranda({ onCatat }) {
       <div className="relative pb-1.5 pt-3.5 lg:hidden">
         <div className="absolute -right-1.5 top-1 text-[64px] leading-none drop-shadow">🧕</div>
         <h1 className="max-w-[66%] text-[23px] font-extrabold tracking-tight">
-          Selamat pagi{petugas ? `, ${petugas}` : ''} 👋
+          {salam}{petugas ? `, ${petugas}` : ''} 👋
         </h1>
         <p className="mt-1 max-w-[64%] text-sm text-muted">Kelola pembayaran siswa dengan mudah</p>
       </div>
 
       <PageHead
-        judul={`Selamat pagi${petugas ? `, ${petugas}` : ''} 👋`}
+        judul={`${salam}${petugas ? `, ${petugas}` : ''} 👋`}
         sub={kepala ? `Ringkasan sekolah ${pengaturan.namaSekolah}` : `Ringkasan pembayaran ${pengaturan.namaSekolah}`}
         aksi={
           <>
@@ -65,9 +107,9 @@ export default function Beranda({ onCatat }) {
 
       <div className="noscroll -mx-[18px] mt-2 flex snap-x gap-3 overflow-x-auto px-[18px] pb-1.5 pt-1 lg:mx-0 lg:grid lg:grid-cols-4 lg:gap-4 lg:overflow-visible lg:px-0">
         <Stat warna="blue" ikon={<Ikon.siswa size={21} />} label="Total siswa" nilai={siswa.length} kaki="Siswa aktif" titik="#3B6EF6" />
-        <Stat warna="green" ikon={<Ikon.dompet size={21} />} label="Pembayaran bulan ini" nilai={rp(masuk)} kaki={`${persen}% dari target`} bar={persen} />
+        <Stat warna="green" ikon={<Ikon.dompet size={21} />} label="Pembayaran bulan ini" nilai={rp(masuk)} kaki={`${lunasBulanIni} dari ${siswa.length} siswa lunas SPP ${BULAN[kini]}`} bar={persen} />
         <Stat warna="amber" ikon={<Ikon.jam size={21} />} label="Tunggakan" nilai={rp(nilaiTunggakan)} kaki={`${menunggak.length} siswa`} titik="#F5A524" />
-        <Stat warna="grape" ikon={<Ikon.kalender size={21} />} label="Jatuh tempo" nilai={menunggak.length} kaki="Dalam 7 hari" titik="#8B5CF6" />
+        <Stat warna="grape" ikon={<Ikon.kalender size={21} />} label="Jatuh tempo ≤ 7 hari" nilai={`${segeraJt} siswa`} kaki={kakiJt} titik="#8B5CF6" />
       </div>
 
       <div className="seghead"><h2>Aksi cepat</h2></div>
@@ -101,12 +143,12 @@ export default function Beranda({ onCatat }) {
       <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
        <div>
       <div className="seghead">
-        <h2>Akan jatuh tempo</h2>
+        <h2>Perlu ditagih</h2>
         <button className="text-[13px] font-bold text-brand" onClick={() => nav('/guru/siswa')}>Lihat semua</button>
       </div>
       <div className="card">
         {menunggak.length === 0 ? (
-          <Kosong>Tidak ada tagihan yang mendekati jatuh tempo.</Kosong>
+          <Kosong>Tidak ada SPP yang lewat jatuh tempo. 🎉</Kosong>
         ) : (
           menunggak.slice(0, 3).map((s) => {
             const label = labelTunggakan(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)
@@ -129,7 +171,7 @@ export default function Beranda({ onCatat }) {
         )}
       </div>
 
-      <Sheet buka={menu} tutup={() => setMenu(false)} judul={pengaturan.namaSekolah} lead={`Tahun ajaran ${pengaturan.tahunAjaran}`}>
+      <Sheet buka={menu} tutup={() => setMenu(false)} judul={pengaturan.namaSekolah} lead={pengaturan.alamat || `Tahun ajaran ${pengaturan.tahunAjaran}`}>
         <button
           className="bigbtn-ghost mb-2.5"
           onClick={() => { setMenu(false); nav(kepala ? '/guru/profil-sekolah' : '/guru/biaya') }}

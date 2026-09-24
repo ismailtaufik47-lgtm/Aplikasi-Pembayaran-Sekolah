@@ -2,7 +2,7 @@ import { useState } from 'react'
 import Avatar from '../components/Avatar.jsx'
 import { Chip, Kosong, Segment, Track } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
-import { BULAN, bulanBerjalan, dibayarKegiatan, dibayarSpp, persenBayar, rp, statusSpp } from '../lib/format.js'
+import { BULAN, bulanBerjalan, dibayarKegiatan, labelJatuhTempoPeriode, dibayarSpp, persenBayar, rp, statusSpp } from '../lib/format.js'
 
 export default function Tagihan({ aktif, bukaCaraBayar }) {
   const { pengaturan, biaya } = useData()
@@ -36,9 +36,9 @@ export default function Tagihan({ aktif, bukaCaraBayar }) {
                   judul={b}
                   catatan={
                     status === 'lunas' ? 'Sudah dibayar penuh'
-                    : status === 'sebagian' ? `Sisa ${rp(target - dibayar)}`
-                    : status === 'nunggak' ? 'Sudah lewat bulan ini'
-                    : status === 'belum-bayar' ? `Jatuh tempo tgl ${pengaturan.tanggalJatuhTempo} sudah lewat`
+                    : status === 'sebagian' ? `Baru dibayar sebagian · kurang ${rp(target - dibayar)}`
+                    : status === 'nunggak' ? `Terlambat · jatuh tempo ${labelJatuhTempoPeriode(pengaturan.tanggalJatuhTempo, i)}`
+                    : status === 'belum-bayar' ? `Jatuh tempo ${labelJatuhTempoPeriode(pengaturan.tanggalJatuhTempo, i)} sudah lewat`
                     : 'Belum jatuh tempo'
                   }
                   dibayar={dibayar}
@@ -65,7 +65,7 @@ export default function Tagihan({ aktif, bukaCaraBayar }) {
                   nomor={i + 1}
                   status={lunas ? 'ok' : sebagian ? 'sebagian' : ''}
                   judul={b.nama}
-                  catatan={lunas ? 'Sudah dibayar penuh' : sebagian ? `Sisa ${rp(b.nominal - dibayar)}` : 'Belum dibayar'}
+                  catatan={lunas ? 'Sudah dibayar penuh' : sebagian ? `Baru dibayar sebagian · kurang ${rp(b.nominal - dibayar)}` : 'Belum dibayar'}
                   dibayar={dibayar}
                   target={b.nominal}
                   chip={

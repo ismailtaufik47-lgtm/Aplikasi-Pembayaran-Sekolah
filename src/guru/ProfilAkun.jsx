@@ -114,7 +114,7 @@ export default function ProfilAkun() {
           <span className="tile bg-brand-soft text-brand"><Ikon.rumah size={20} /></span>
           <div className="min-w-0 flex-1">
             <div className="truncate text-[14.5px] font-bold">{pengaturan?.namaSekolah}</div>
-            <div className="text-xs text-muted">Tahun ajaran {pengaturan?.tahunAjaran}</div>
+            <div className="truncate text-xs text-muted">{pengaturan?.alamat || `Tahun ajaran ${pengaturan?.tahunAjaran}`}</div>
           </div>
         </div>
       </div>

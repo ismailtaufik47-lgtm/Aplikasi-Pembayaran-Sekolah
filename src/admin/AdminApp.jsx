@@ -10,7 +10,7 @@
  */
 import { useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { Ikon, Muat, NavItem, NavLabel, Shell, Sidebar, Toast } from '../components/ui.jsx'
+import { Muat, NavItem, NavLabel, Shell, Sidebar, TabEmoji, Toast } from '../components/ui.jsx'
 import MasukPin from '../components/MasukPin.jsx'
 import { useAuth } from '../lib/auth.jsx'
 import { useData } from '../lib/store.jsx'
@@ -75,9 +75,9 @@ function Panel({ email, keluar }) {
   if (galat) return <Muat aksi={muat}>Gagal memuat data: {galat}</Muat>
 
   const MENU = [
-    { id: 'ringkasan', label: 'Ringkasan', ikon: Ikon.grafik, ke: '/admin' },
-    { id: 'sekolah', label: 'Sekolah', ikon: Ikon.rumah, ke: '/admin/sekolah' },
-    { id: 'riwayat', label: 'Riwayat', ikon: Ikon.nota, ke: '/admin/riwayat' },
+    { id: 'ringkasan', label: 'Ringkasan', ke: '/admin' },
+    { id: 'sekolah', label: 'Sekolah', ke: '/admin/sekolah' },
+    { id: 'riwayat', label: 'Riwayat', ke: '/admin/riwayat' },
   ]
 
   return (
@@ -93,7 +93,7 @@ function Panel({ email, keluar }) {
           </div>
           <NavLabel>Menu</NavLabel>
           {MENU.map((m) => (
-            <NavItem key={m.id} aktif={tab === m.id} onClick={() => nav(m.ke)} ikon={m.ikon}>
+            <NavItem key={m.id} aktif={tab === m.id} onClick={() => nav(m.ke)} emoji={m.id}>
               {m.label}
             </NavItem>
           ))}
@@ -118,28 +118,18 @@ function Panel({ email, keluar }) {
         </Sidebar>
       }
       tabbar={
-        <nav className="flex shrink-0 items-stretch border-t border-line bg-white px-1 pb-[calc(9px+env(safe-area-inset-bottom))] pt-2 lg:hidden">
-          {MENU.map((m) => {
-            const on = tab === m.id
-            return (
-              <button key={m.id} onClick={() => nav(m.ke)} className="flex flex-1 flex-col items-center justify-center gap-1 py-1.5">
-                <span className={`grid h-8 w-8 place-items-center rounded-full transition ${on ? 'bg-brand-soft text-brand' : 'text-muted'}`}>
-                  <m.ikon size={19} />
-                </span>
-                <span className={`text-[10.5px] font-bold ${on ? 'text-brand' : 'text-muted'}`}>{m.label}</span>
-              </button>
-            )
-          })}
-          <button onClick={keluar} className="flex flex-1 flex-col items-center justify-center gap-1 py-1.5">
-            <span className="grid h-8 w-8 place-items-center rounded-full text-danger">
-              <Ikon.kembali size={19} />
-            </span>
+        <nav className="flex shrink-0 items-stretch border-t border-line bg-white px-1 pb-[calc(8px+env(safe-area-inset-bottom))] pt-1.5 lg:hidden">
+          {MENU.map((m) => (
+            <TabEmoji key={m.id} id={m.id} label={m.label} aktif={tab === m.id} onClick={() => nav(m.ke)} />
+          ))}
+          <button onClick={keluar} className="flex flex-1 flex-col items-center justify-center gap-[3px] py-1">
+            <span className="grid h-8 w-[46px] place-items-center text-[19px]" aria-hidden="true">🚪</span>
             <span className="text-[10.5px] font-bold text-danger">Keluar</span>
           </button>
         </nav>
       }
     >
-      <div className="noscroll flex-1 overflow-y-auto overscroll-contain px-[18px] pb-32 lg:px-8 lg:pb-10">
+      <div className="noscroll flex-1 overflow-y-auto overscroll-contain px-[18px] pb-6 lg:px-8 lg:pb-10">
         <div className="mx-auto w-full lg:max-w-[1180px] 2xl:max-w-[1320px]">
           <Routes>
             <Route index element={<Ringkasan />} />

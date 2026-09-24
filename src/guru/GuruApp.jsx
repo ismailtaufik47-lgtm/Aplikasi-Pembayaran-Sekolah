@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
-import { Shell, Toast, Ikon, Muat, Sidebar, SidebarBrand, NavLabel, NavItem } from '../components/ui.jsx'
+import { Shell, Toast, Ikon, Muat, Sidebar, SidebarBrand, NavLabel, NavItem, TabEmoji } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import { useAuth } from '../lib/auth.jsx'
 import Masuk from '../components/Masuk.jsx'
@@ -77,12 +77,17 @@ export default function GuruApp() {
     : pathname.includes('/langganan') ? 'lainnya'
     : 'beranda'
 
+  // Sidebar desktop menampilkan semua menu, jadi butuh penanda halaman
+  // yang lebih rinci daripada tab bar mobile (yang merangkum ke "Lainnya").
+  const halaman = ['kode-aktivasi', 'biaya', 'profil-sekolah', 'profil-akun', 'langganan']
+    .find((h) => pathname.includes('/' + h)) || tabAktif
+
   return (
     <Shell
-      sidebar={<SisiKiri aktif={tabAktif} nav={nav} buka={() => bukaCatat()} terkunci={terkunci} kepala={kepala} bisaUndang={bisaUndang} />}
-      tabbar={<TabBar aktif={tabAktif} nav={nav} buka={() => bukaCatat()} kepala={kepala} />}
+      sidebar={<SisiKiri aktif={halaman} nav={nav} buka={() => bukaCatat()} terkunci={terkunci} kepala={kepala} bisaUndang={bisaUndang} />}
+      tabbar={<TabBar aktif={tabAktif} nav={nav} buka={() => bukaCatat()} kepala={kepala} terkunci={terkunci} />}
     >
-      <div className="noscroll flex-1 overflow-y-auto overscroll-contain px-[18px] pb-32 lg:px-8 lg:pb-10">
+      <div className="noscroll flex-1 overflow-y-auto overscroll-contain px-[18px] pb-6 lg:px-8 lg:pb-10">
        <div className="mx-auto w-full lg:max-w-[1180px] 2xl:max-w-[1320px]">
         <SpandukLangganan pengaturan={pengaturan} />
         <Routes>
@@ -136,45 +141,45 @@ function SisiKiri({ aktif, nav, buka, terkunci, kepala, bisaUndang }) {
   const { keluar } = useAuth()
   return (
     <Sidebar>
-      <SidebarBrand nama={pengaturan.namaSekolah} sub={`Tahun ajaran ${pengaturan.tahunAjaran}`} />
+      <SidebarBrand nama={pengaturan.namaSekolah} sub={pengaturan.alamat || (kepala ? 'Lengkapi alamat di Profil sekolah' : 'Panel sekolah')} />
 
       <NavLabel>Menu</NavLabel>
-      <NavItem aktif={aktif === 'beranda'} onClick={() => nav('/guru')} ikon={Ikon.rumah}>Beranda</NavItem>
-      <NavItem aktif={aktif === 'siswa'} onClick={() => nav('/guru/siswa')} ikon={Ikon.siswa}>Siswa</NavItem>
+      <NavItem aktif={aktif === 'beranda'} onClick={() => nav('/guru')} emoji="beranda">Beranda</NavItem>
+      <NavItem aktif={aktif === 'siswa'} onClick={() => nav('/guru/siswa')} emoji="siswa">Siswa</NavItem>
       {!kepala && (
-        <NavItem aktif={aktif === 'tagihan'} onClick={() => nav('/guru/tagihan')} ikon={Ikon.nota}>
+        <NavItem aktif={aktif === 'tagihan'} onClick={() => nav('/guru/tagihan')} emoji="tagihan">
           Tagihan
         </NavItem>
       )}
       {!kepala && (
-        <NavItem aktif={aktif === 'pembayaran'} onClick={() => nav('/guru/pembayaran')} ikon={Ikon.dompet}>
+        <NavItem aktif={aktif === 'pembayaran'} onClick={() => nav('/guru/pembayaran')} emoji="pembayaran">
           Pembayaran
         </NavItem>
       )}
-      <NavItem aktif={aktif === 'laporan'} onClick={() => nav('/guru/laporan')} ikon={Ikon.grafik}>Laporan</NavItem>
+      <NavItem aktif={aktif === 'laporan'} onClick={() => nav('/guru/laporan')} emoji="laporan">Laporan</NavItem>
 
       <NavLabel>{kepala ? 'Sekolah' : 'Pengaturan'}</NavLabel>
       {!kepala && (
-        <NavItem aktif={aktif === 'biaya'} onClick={() => nav('/guru/biaya')} ikon={Ikon.dokumen}>
+        <NavItem aktif={aktif === 'biaya'} onClick={() => nav('/guru/biaya')} emoji="biaya">
           Jenis biaya
         </NavItem>
       )}
       {bisaUndang && (
-        <NavItem aktif={aktif === 'kode-aktivasi'} onClick={() => nav('/guru/kode-aktivasi')} ikon={Ikon.info}>
+        <NavItem aktif={aktif === 'kode-aktivasi'} onClick={() => nav('/guru/kode-aktivasi')} emoji="kode">
           Kode aktivasi
         </NavItem>
       )}
       {kepala && (
-        <NavItem aktif={aktif === 'profil-sekolah'} onClick={() => nav('/guru/profil-sekolah')} ikon={Ikon.rumah}>
+        <NavItem aktif={aktif === 'profil-sekolah'} onClick={() => nav('/guru/profil-sekolah')} emoji="sekolah">
           Profil sekolah
         </NavItem>
       )}
       {bisaUndang && (
-        <NavItem aktif={false} onClick={() => nav('/guru/langganan')} ikon={Ikon.dompet}>
+        <NavItem aktif={aktif === 'langganan'} onClick={() => nav('/guru/langganan')} emoji="langganan">
           Langganan
         </NavItem>
       )}
-      <NavItem aktif={aktif === 'profil-akun'} onClick={() => nav('/guru/profil-akun')} ikon={Ikon.orang}>
+      <NavItem aktif={aktif === 'profil-akun'} onClick={() => nav('/guru/profil-akun')} emoji="akun">
         Profil akun
       </NavItem>
 
@@ -216,27 +221,16 @@ function SisiKiri({ aktif, nav, buka, terkunci, kepala, bisaUndang }) {
  * terjadi). "Catat pembayaran" untuk guru/admin jadi salah satu item
  * biasa, sejajar dengan tab lain.
  */
-function TabBar({ aktif, nav, buka, kepala }) {
-  const item = (id, label, Icon, onClick) => {
-    const on = aktif === id
-    return (
-      <button onClick={onClick} className="flex flex-1 flex-col items-center justify-center gap-1 py-1.5">
-        <span className={`grid h-8 w-8 place-items-center rounded-full transition ${on ? 'bg-brand-soft text-brand' : 'text-muted'}`}>
-          <Icon size={19} />
-        </span>
-        <span className={`text-[10.5px] font-bold ${on ? 'text-brand' : 'text-muted'}`}>{label}</span>
-      </button>
-    )
-  }
+function TabBar({ aktif, nav, buka, kepala, terkunci }) {
   return (
-    <nav className="flex shrink-0 items-stretch border-t border-line bg-white px-1 pb-[calc(9px+env(safe-area-inset-bottom))] pt-2 lg:hidden">
-      {item('beranda', 'Beranda', Ikon.rumah, () => nav('/guru'))}
-      {item('siswa', 'Siswa', Ikon.siswa, () => nav('/guru/siswa'))}
-      {!kepala && item('bayar', 'Bayar', Ikon.plus, buka)}
+    <nav className="flex shrink-0 items-stretch border-t border-line bg-white px-1 pb-[calc(8px+env(safe-area-inset-bottom))] pt-1.5 lg:hidden">
+      <TabEmoji id="beranda" label="Beranda" aktif={aktif === 'beranda'} onClick={() => nav('/guru')} />
+      <TabEmoji id="siswa" label="Siswa" aktif={aktif === 'siswa'} onClick={() => nav('/guru/siswa')} />
+      {!kepala && <TabEmoji id="bayar" label="Bayar" onClick={buka} redup={terkunci} />}
       {kepala
-        ? item('laporan', 'Laporan', Ikon.grafik, () => nav('/guru/laporan'))
-        : item('pembayaran', 'Riwayat', Ikon.dompet, () => nav('/guru/pembayaran'))}
-      {item('lainnya', 'Lainnya', Ikon.menu, () => nav('/guru/lainnya'))}
+        ? <TabEmoji id="laporan" label="Laporan" aktif={aktif === 'laporan'} onClick={() => nav('/guru/laporan')} />
+        : <TabEmoji id="pembayaran" label="Riwayat" aktif={aktif === 'pembayaran'} onClick={() => nav('/guru/pembayaran')} />}
+      <TabEmoji id="lainnya" label="Lainnya" aktif={aktif === 'lainnya'} onClick={() => nav('/guru/lainnya')} />
     </nav>
   )
 }

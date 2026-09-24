@@ -9,6 +9,16 @@ export function bulanBerjalan(d = new Date()) {
   return m >= 6 ? m - 6 : m + 6
 }
 
+/**
+ * Tahun ajaran berjalan, dihitung otomatis dari tanggal (Juli–Juni):
+ * 23 Sep 2026 → '2026/2027', 10 Feb 2027 → '2026/2027', 1 Jul 2027 → '2027/2028'.
+ * Tidak disimpan di database, jadi tidak perlu diubah manual tiap tahun.
+ */
+export function tahunAjaranBerjalan(d = new Date()) {
+  const y = d.getFullYear()
+  return d.getMonth() >= 6 ? `${y}/${y + 1}` : `${y - 1}/${y}`
+}
+
 export const rp = (n) => 'Rp' + Number(n || 0).toLocaleString('id-ID')
 
 export const tanggalPanjang = (d = new Date()) =>
@@ -74,9 +84,38 @@ export function waktuTampil(iso) {
  * disimpan, melainkan diturunkan: dibayar >= target.
  * ===================================================================== */
 
+/* ---------------- tanggal jatuh tempo SPP ----------------
+ * Disimpan sebagai angka 1–28, atau 31 yang berarti "AKHIR BULAN".
+ * Nilai 31 otomatis menyesuaikan jumlah hari tiap bulan:
+ * 30 September, 31 Oktober, 28/29 Februari, dst.
+ */
+export const AKHIR_BULAN = 31
+
+export const jatuhTempoAkhirBulan = (tgl) => Number(tgl) >= 29
+
+/** Jumlah hari dalam bulan (bulan: 0 = Januari). */
+export const jumlahHariBulan = (tahun, bulan) => new Date(tahun, bulan + 1, 0).getDate()
+
+/** Tanggal jatuh tempo yang berlaku di bulan kalender tertentu (bulan: 0 = Januari). */
+export const tanggalJatuhTempoDi = (tgl, tahun, bulan) => Math.min(Number(tgl) || 10, jumlahHariBulan(tahun, bulan))
+
+/** Teks singkat aturan jatuh tempo: "tanggal 10" atau "akhir bulan". */
+export const teksJatuhTempo = (tgl) => (jatuhTempoAkhirBulan(tgl) ? 'akhir bulan' : `tanggal ${tgl}`)
+
+/**
+ * Tanggal jatuh tempo SPP untuk periode tahun ajaran ke-i (0 = Juli),
+ * contoh: "10 Agustus", "30 September" (akhir bulan).
+ */
+export function labelJatuhTempoPeriode(tgl, i, now = new Date()) {
+  const [awal] = tahunAjaranBerjalan(now).split('/').map(Number)
+  const tahun = i < 6 ? awal : awal + 1
+  const bulan = (i + 6) % 12
+  return `${tanggalJatuhTempoDi(tgl, tahun, bulan)} ${BULAN[i]}`
+}
+
 /** Hari ini sudah lewat tanggal jatuh tempo bulan berjalan? */
 export function sudahLewatJatuhTempo(tanggalJatuhTempo, hariIni = new Date()) {
-  return hariIni.getDate() > tanggalJatuhTempo
+  return hariIni.getDate() > tanggalJatuhTempoDi(tanggalJatuhTempo, hariIni.getFullYear(), hariIni.getMonth())
 }
 
 /**

@@ -157,7 +157,6 @@ function FormKode({ kembali, onSelesai }) {
 
 function FormDaftar({ kembali, onSelesai }) {
   const [nama, setNama] = useState('')
-  const [tahun, setTahun] = useState('2026/2027')
   const [sibuk, setSibuk] = useState(false)
   const [galat, setGalat] = useState('')
 
@@ -166,7 +165,7 @@ function FormDaftar({ kembali, onSelesai }) {
     setSibuk(true)
     setGalat('')
     try {
-      await api.daftarkanSekolah({ nama: nama.trim(), tahunAjaran: tahun.trim() })
+      await api.daftarkanSekolah({ nama: nama.trim() })
       onSelesai?.()
     } catch (e) {
       setGalat(e.message)
@@ -186,19 +185,15 @@ function FormDaftar({ kembali, onSelesai }) {
 
       <label className="mb-1.5 block text-[13px] font-bold">Nama sekolah</label>
       <input
-        className="field-input mb-3.5"
+        className="field-input mb-2"
         placeholder="contoh: TK Islam Al-Falah"
         value={nama}
         onChange={(e) => setNama(e.target.value)}
         autoFocus
       />
-      <label className="mb-1.5 block text-[13px] font-bold">Tahun ajaran</label>
-      <input
-        className="field-input mb-4"
-        placeholder="contoh: 2026/2027"
-        value={tahun}
-        onChange={(e) => setTahun(e.target.value)}
-      />
+      <p className="mb-4 text-xs leading-relaxed text-muted">
+        Nama kepala sekolah & alamat bisa dilengkapi nanti di menu Profil sekolah.
+      </p>
 
       {galat && (
         <p className="mb-3 rounded-xl bg-danger-soft px-3.5 py-2.5 text-[13px] font-semibold text-danger">

@@ -8,7 +8,8 @@ const idSekolah = 'demo-sekolah'
 export const sekolah = {
   id: idSekolah,
   nama: 'TK Tunas Ceria',
-  tahun_ajaran: '2026/2027',
+  kepala_sekolah: 'Ibu Hj. Siti Aminah, S.Pd',
+  alamat: 'Jl. Melati No. 12, Bandung',
   spp_nominal: 150000,
   tanggal_jatuh_tempo: 10,
   rekening: [

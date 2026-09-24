@@ -17,7 +17,7 @@ import Avatar from '../components/Avatar.jsx'
 import { Chip, Ikon, IkonWhatsapp, IkonWhatsappPolos, Kosong, PageHead, Sheet } from '../components/ui.jsx'
 import SheetPeriode from './SheetPeriode.jsx'
 import { useData } from '../lib/store.jsx'
-import { BULAN, bulanBerjalan, dibayarKegiatan, dibayarSpp, rp, statusSpp, tanggalPanjang } from '../lib/format.js'
+import { BULAN, bulanBerjalan, dibayarKegiatan, dibayarSpp, labelJatuhTempoPeriode, rp, statusSpp, tanggalPanjang } from '../lib/format.js'
 
 /** Status kegiatan sederhana: lunas / sebagian / belum (tidak ada konsep jatuh tempo). */
 function statusKegiatanItem(dibayar, target) {
@@ -70,17 +70,19 @@ const BADGE = {
  *  - 'Belum bayar'    : bulan tagihan itu sendiri, sudah lewat tanggal
  *                       tagih tapi bulannya belum berakhir
  *  - 'Nunggak N bulan': bulan tagihan itu SUDAH BERLALU (i < kini) dan
- *                       belum lunas. N = berapa bulan berturut sejak
- *                       tunggakan itu sampai bulan berjalan, jadi guru
- *                       langsung tahu seberapa lama menunggaknya.
+ *                       belum lunas. N = jumlah bulan yang sudah LEWAT
+ *                       PENUH sejak bulan tagihan itu, TANPA menghitung
+ *                       bulan berjalan (bulan berjalan belum selesai).
+ *                       Contoh sekarang September: SPP Agustus → 1 bulan,
+ *                       SPP Juli → 2 bulan. Sama dengan hitungan Beranda.
  */
 function labelStatusSpp(status, indeksBulan, kini) {
   if (status === 'lunas') return { teks: 'Lunas', warna: 'green' }
   if (status === 'sebagian') return { teks: 'Sebagian', warna: 'amber' }
   if (status === 'nunggak') {
-    // berapa bulan lewat dari bulan tagihan ini sampai bulan berjalan
-    const nBulan = kini - indeksBulan + 1
-    return { teks: nBulan > 1 ? `Nunggak ${nBulan} bulan` : 'Nunggak', warna: 'red' }
+    // bulan tagihan ini s/d bulan terakhir yang sudah lewat (bulan berjalan tidak dihitung)
+    const nBulan = Math.max(1, kini - indeksBulan)
+    return { teks: `Nunggak ${nBulan} bulan`, warna: 'red' }
   }
   // belum-bayar / menunggu
   return { teks: 'Belum bayar', warna: 'amber' }
@@ -118,7 +120,7 @@ export default function Tagihan() {
           siswaId: s.id, nama: s.nama, kelas: s.kelas, jenis: 'spp', indeks: i,
           hp: s.hp, wali: s.wali, avatar: s.avatar, jenisKelamin: s.jenis, foto: s.foto,
           labelJenis: `SPP ${BULAN[i]}`,
-          jatuhTempo: `${pengaturan.tanggalJatuhTempo} ${BULAN[i]}`,
+          jatuhTempo: labelJatuhTempoPeriode(pengaturan.tanggalJatuhTempo, i),
           target: pengaturan.sppNominal, dibayar, sisa: Math.max(0, pengaturan.sppNominal - dibayar),
           status,
           badge: labelStatusSpp(status, i, kini),
@@ -287,16 +289,15 @@ export default function Tagihan() {
             <div className="overflow-x-auto">
               <table className="hidden w-full min-w-[980px] border-collapse text-left text-sm lg:table">
               <thead>
-                <tr className="border-b border-line text-[11px] font-bold uppercase tracking-wide text-muted">
-                  <th className="px-4 py-3">No. Tagihan</th>
-                  <th className="px-3 py-3">Nama Siswa</th>
-                  <th className="px-3 py-3">Kelas</th>
-                  <th className="px-3 py-3">Jenis Biaya</th>
-                  <th className="px-3 py-3">Jatuh Tempo</th>
-                  <th className="px-3 py-3">Total</th>
-                  <th className="px-3 py-3">Sisa</th>
-                  <th className="px-3 py-3">Status</th>
-                  <th className="px-4 py-3">Aksi</th>
+                <tr className="whitespace-nowrap border-b border-line text-[11px] font-bold uppercase tracking-wide text-muted">
+                  <th className="px-3.5 py-3">No. Tagihan</th>
+                  <th className="px-2.5 py-3">Nama Siswa</th>
+                  <th className="px-2.5 py-3">Jenis Biaya</th>
+                  <th className="px-2.5 py-3">Jatuh Tempo</th>
+                  <th className="px-2.5 py-3">Total</th>
+                  <th className="px-2.5 py-3">Sisa</th>
+                  <th className="px-2.5 py-3">Status</th>
+                  <th className="px-3.5 py-3">Aksi</th>
                 </tr>
               </thead>
               <tbody>
@@ -348,25 +349,27 @@ function BarisDesktop({ t, nav, kirimWa, onCatat }) {
   const b = t.badge
   return (
     <tr className={`border-b border-line last:border-b-0 hover:bg-[#FAFBFF] ${t.status === 'nunggak' ? 'border-l-4 border-l-danger' : ''}`}>
-      <td className="px-4 py-3 font-mono text-xs text-muted">{t.no}</td>
-      <td className="px-3 py-3">
+      <td className="whitespace-nowrap px-3.5 py-3 font-mono text-xs text-muted">{t.no}</td>
+      <td className="px-2.5 py-3">
         <div className="flex items-center gap-2.5">
           <Avatar nama={t.nama} jenis={t.jenisKelamin} avatar={t.avatar} foto={t.foto} size={32} />
-          <span className="font-bold text-ink">{t.nama}</span>
+          <span className="min-w-0">
+            <span className="block font-bold leading-tight text-ink">{t.nama}</span>
+            <span className="block text-xs text-muted">Kelas {t.kelas}</span>
+          </span>
         </div>
       </td>
-      <td className="px-3 py-3 text-muted">{t.kelas}</td>
-      <td className="px-3 py-3">{t.labelJenis}</td>
-      <td className="px-3 py-3 text-muted">{t.jatuhTempo || '—'}</td>
-      <td className="px-3 py-3 font-semibold">{rp(t.target)}</td>
-      <td className={`px-3 py-3 font-semibold ${t.sisa > 0 ? 'text-danger' : 'text-muted'}`}>{rp(t.sisa)}</td>
-      <td className="px-3 py-3"><Chip warna={b.warna}>{b.teks}</Chip></td>
-      <td className="px-4 py-3">
-        <div className="flex items-center gap-3">
+      <td className="whitespace-nowrap px-2.5 py-3">{t.labelJenis}</td>
+      <td className="whitespace-nowrap px-2.5 py-3 text-muted">{t.jatuhTempo || '—'}</td>
+      <td className="whitespace-nowrap px-2.5 py-3 font-semibold">{rp(t.target)}</td>
+      <td className={`whitespace-nowrap px-2.5 py-3 font-semibold ${t.sisa > 0 ? 'text-danger' : 'text-muted'}`}>{rp(t.sisa)}</td>
+      <td className="whitespace-nowrap px-2.5 py-3"><Chip warna={b.warna}>{b.teks}</Chip></td>
+      <td className="px-3.5 py-3">
+        <div className="flex items-center gap-2.5">
           <button className="font-bold text-brand hover:underline" onClick={() => nav(`/guru/siswa/${t.siswaId}`)}>Lihat</button>
           {t.sisa > 0 && (
-            <button className="flex items-center gap-1.5 font-bold text-ok-deep hover:underline" onClick={() => kirimWa(t)} title="Kirim pengingat via WhatsApp">
-              <IkonWhatsapp size={17} /> WhatsApp
+            <button className="flex items-center gap-1.5 whitespace-nowrap font-bold text-ok-deep hover:underline" onClick={() => kirimWa(t)} title="Kirim pengingat via WhatsApp">
+              <IkonWhatsapp size={17} /> <span className="hidden 2xl:inline">WhatsApp</span><span className="2xl:hidden">WA</span>
             </button>
           )}
           <button className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-[#F1F4F9]" onClick={onCatat} aria-label="Catat pembayaran">

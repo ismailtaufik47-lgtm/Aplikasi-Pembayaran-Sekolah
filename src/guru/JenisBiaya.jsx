@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { BtnKecil, Ikon, Kosong, PageHead, Sheet, Tile } from '../components/ui.jsx'
 import InputNominal from '../components/InputNominal.jsx'
 import { useData } from '../lib/store.jsx'
-import { rp } from '../lib/format.js'
+import { AKHIR_BULAN, jatuhTempoAkhirBulan, rp } from '../lib/format.js'
 
 export default function JenisBiaya() {
   const { biaya, pengaturan, tambahBiaya, hapusBiaya, ubahPengaturan, toast } = useData()
@@ -51,12 +51,44 @@ export default function JenisBiaya() {
         </div>
         <label className="mb-1.5 block text-[13px] font-bold">Nominal per bulan</label>
         <InputNominal className="mb-3.5" value={spp} onChange={setSpp} placeholder="150.000" />
-        <label className="mb-1.5 block text-[13px] font-bold">Jatuh tempo setiap tanggal</label>
-        <input type="number" min="1" max="28" className="field-input mb-4" value={tempo} onChange={(e) => setTempo(e.target.value)} />
+        <label className="mb-1.5 block text-[13px] font-bold">Jatuh tempo setiap bulan</label>
+        <div className="mb-2.5 grid grid-cols-2 gap-1 rounded-2xl border border-line bg-[#F5F7FB] p-1" role="radiogroup">
+          {[
+            { akhir: false, label: '📅 Tanggal tertentu' },
+            { akhir: true, label: '🗓️ Akhir bulan' },
+          ].map((o) => {
+            const on = jatuhTempoAkhirBulan(tempo) === o.akhir
+            return (
+              <button
+                key={o.label}
+                role="radio"
+                aria-checked={on}
+                onClick={() => setTempo(o.akhir ? AKHIR_BULAN : 10)}
+                className={`rounded-xl py-2.5 text-[13px] font-extrabold transition ${on ? 'bg-white text-brand shadow-soft' : 'text-muted'}`}
+              >
+                {o.label}
+              </button>
+            )
+          })}
+        </div>
+        {jatuhTempoAkhirBulan(tempo) ? (
+          <p className="mb-4 rounded-xl bg-brand-soft px-3.5 py-2.5 text-[12.5px] font-semibold leading-relaxed text-brand">
+            Otomatis mengikuti hari terakhir tiap bulan — 30 September, 31 Oktober, 28/29 Februari, dan seterusnya.
+          </p>
+        ) : (
+          <>
+            <select className="field-input mb-1.5" value={tempo} onChange={(e) => setTempo(Number(e.target.value))}>
+              {Array.from({ length: 28 }, (_, i) => i + 1).map((t) => (
+                <option key={t} value={t}>Tanggal {t}</option>
+              ))}
+            </select>
+            <p className="mb-4 text-xs text-muted">Maksimal tanggal 28 supaya berlaku di semua bulan. Untuk tanggal 30/31 pilih "Akhir bulan".</p>
+          </>
+        )}
         <button
           className="bigbtn"
           onClick={async () => {
-            await ubahPengaturan({ sppNominal: Number(spp) || 0, tanggalJatuhTempo: Number(tempo) || 10 })
+            await ubahPengaturan({ sppNominal: Number(spp) || 0, tanggalJatuhTempo: jatuhTempoAkhirBulan(tempo) ? AKHIR_BULAN : Math.min(28, Math.max(1, Number(tempo) || 10)) })
             toast('Pengaturan SPP disimpan')
           }}
         >

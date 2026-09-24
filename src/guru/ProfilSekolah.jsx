@@ -1,6 +1,6 @@
 /**
  * Profil sekolah — khusus kepala sekolah. Identitas sekolah (nama,
- * tahun ajaran) dan daftar rekening yang ditampilkan ke orang tua di
+ * kepala sekolah, alamat) dan daftar rekening yang ditampilkan ke orang tua di
  * portal. Berbeda dari "Jenis biaya" (nominal SPP & kegiatan), yang
  * tetap jadi urusan guru/admin operasional.
  */
@@ -14,7 +14,8 @@ export default function ProfilSekolah() {
   const { pengaturan, ubahPengaturan, toast } = useData()
   const nav = useNavigate()
   const [nama, setNama] = useState(pengaturan.namaSekolah)
-  const [tahun, setTahun] = useState(pengaturan.tahunAjaran)
+  const [kepala, setKepala] = useState(pengaturan.kepalaSekolah || '')
+  const [alamat, setAlamat] = useState(pengaturan.alamat || '')
   const [rekening, setRekening] = useState(pengaturan.rekening || [])
   const [sibuk, setSibuk] = useState(false)
   const [stafTerkunci, setStafTerkunci] = useState([])
@@ -23,7 +24,8 @@ export default function ProfilSekolah() {
 
   useEffect(() => {
     setNama(pengaturan.namaSekolah)
-    setTahun(pengaturan.tahunAjaran)
+    setKepala(pengaturan.kepalaSekolah || '')
+    setAlamat(pengaturan.alamat || '')
     setRekening(pengaturan.rekening || [])
   }, [pengaturan])
 
@@ -58,7 +60,8 @@ export default function ProfilSekolah() {
     try {
       await ubahPengaturan({
         namaSekolah: nama.trim(),
-        tahunAjaran: tahun.trim(),
+        kepalaSekolah: kepala.trim(),
+        alamat: alamat.trim(),
         rekening: rekening.filter((r) => r.bank.trim() || r.nomor.trim()),
       })
       toast('Profil sekolah disimpan')
@@ -79,9 +82,26 @@ export default function ProfilSekolah() {
 
       <div className="card mb-4 lg:mt-4 lg:max-w-lg">
         <label className="mb-1.5 block text-[13px] font-bold">Nama sekolah</label>
-        <input className="field-input mb-3.5" value={nama} onChange={(e) => setNama(e.target.value)} />
-        <label className="mb-1.5 block text-[13px] font-bold">Tahun ajaran</label>
-        <input className="field-input" value={tahun} onChange={(e) => setTahun(e.target.value)} placeholder="2026/2027" />
+        <input className="field-input mb-3.5" value={nama} onChange={(e) => setNama(e.target.value)} placeholder="contoh: TK Islam Al-Falah" />
+        <label className="mb-1.5 block text-[13px] font-bold">Nama kepala sekolah</label>
+        <input
+          className="field-input mb-3.5"
+          value={kepala}
+          onChange={(e) => setKepala(e.target.value)}
+          placeholder="contoh: Ibu Hj. Siti Aminah, S.Pd"
+        />
+        <label className="mb-1.5 block text-[13px] font-bold">Alamat sekolah</label>
+        <textarea
+          className="field-input min-h-[84px] resize-y leading-relaxed"
+          value={alamat}
+          onChange={(e) => setAlamat(e.target.value)}
+          placeholder="contoh: Jl. Melati No. 12, Kel. Sukajadi, Kec. Sukasari, Kota Bandung"
+          rows={3}
+        />
+        <p className="mt-2.5 text-xs leading-relaxed text-muted">
+          Tahun ajaran tidak perlu diisi — aplikasi otomatis memakai tahun ajaran berjalan
+          (sekarang <b className="text-ink">{pengaturan.tahunAjaran}</b>) dan berganti sendiri tiap Juli.
+        </p>
       </div>
 
       {!memuatTerkunci && stafTerkunci.length > 0 && (

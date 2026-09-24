@@ -12,7 +12,7 @@
  */
 import { supabase, modeDemo } from './supabase.js'
 import * as mock from './mock.js'
-import { waktuTampil, tanggalKeTimestamp } from './format.js'
+import { waktuTampil, tanggalKeTimestamp, tahunAjaranBerjalan } from './format.js'
 
 export { modeDemo }
 
@@ -73,7 +73,10 @@ function bentuk({ sekolah, biaya, siswa, pembayaran, wali }) {
     pengaturan: {
       id: sekolah.id,
       namaSekolah: sekolah.nama,
-      tahunAjaran: sekolah.tahun_ajaran,
+      // Tahun ajaran tidak lagi disimpan per sekolah — dihitung dari tanggal hari ini.
+      tahunAjaran: tahunAjaranBerjalan(),
+      kepalaSekolah: sekolah.kepala_sekolah || '',
+      alamat: sekolah.alamat || '',
       sppNominal: sekolah.spp_nominal,
       tanggalJatuhTempo: sekolah.tanggal_jatuh_tempo,
       rekening: sekolah.rekening || [],
@@ -382,11 +385,12 @@ export async function nonaktifkanBiaya(id) {
 
 /** Dipakai baik dari form SPP/kegiatan (guru) maupun Profil Sekolah (kepala) —
  *  field yang tidak dikirim (undefined) tidak ikut diubah. */
-export async function simpanPengaturan({ id, namaSekolah, tahunAjaran, sppNominal, tanggalJatuhTempo, rekening }) {
+export async function simpanPengaturan({ id, namaSekolah, kepalaSekolah, alamat, sppNominal, tanggalJatuhTempo, rekening }) {
   if (modeDemo) return true
   const patch = {}
   if (namaSekolah !== undefined) patch.nama = namaSekolah
-  if (tahunAjaran !== undefined) patch.tahun_ajaran = tahunAjaran
+  if (kepalaSekolah !== undefined) patch.kepala_sekolah = kepalaSekolah || null
+  if (alamat !== undefined) patch.alamat = alamat || null
   if (sppNominal !== undefined) patch.spp_nominal = sppNominal
   if (tanggalJatuhTempo !== undefined) patch.tanggal_jatuh_tempo = tanggalJatuhTempo
   if (rekening !== undefined) patch.rekening = rekening
@@ -625,12 +629,9 @@ function pesanAuth(pesan) {
  * Dipanggil saat akun Google baru memilih "Saya kepala sekolah/admin".
  * Membuat sekolah baru dan menghubungkan akun ke situ sebagai kepala.
  */
-export async function daftarkanSekolah({ nama, tahunAjaran }) {
+export async function daftarkanSekolah({ nama }) {
   if (modeDemo) return { sekolahId: 'demo', nama, peran: 'kepala' }
-  const { data, error } = await supabase.rpc('daftarkan_sekolah', {
-    p_nama: nama,
-    p_tahun_ajaran: tahunAjaran || null,
-  })
+  const { data, error } = await supabase.rpc('daftarkan_sekolah', { p_nama: nama })
   if (error) throw new Error(pesanOnboarding(error.message))
   return data
 }

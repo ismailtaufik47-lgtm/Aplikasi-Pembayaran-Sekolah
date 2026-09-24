@@ -36,7 +36,7 @@ export const SidebarBrand = ({ nama, sub }) => (
     <span className="grid h-[42px] w-[42px] place-items-center rounded-[13px] bg-brand-soft text-xl">🏫</span>
     <span className="min-w-0">
       <b className="block truncate text-[14.5px] font-extrabold leading-tight">{nama}</b>
-      <span className="text-[11.5px] font-semibold text-muted">{sub}</span>
+      <span className="block truncate text-[11.5px] font-semibold text-muted" title={sub}>{sub}</span>
     </span>
   </div>
 )
@@ -47,15 +47,75 @@ export const NavLabel = ({ children }) => (
   </div>
 )
 
-export const NavItem = ({ aktif, onClick, ikon: Icon, children }) => (
+/**
+ * Emoji berwarna untuk menu navigasi. Tiap menu punya emoji + warna
+ * latar pastelnya sendiri, dipakai sama di sidebar desktop, tab bar
+ * mobile, dan halaman "Lainnya" supaya orang cepat mengenali menunya.
+ */
+export const EMOJI_MENU = {
+  beranda: { e: '🏠', bg: '#E4EEFF' },
+  siswa: { e: '🧒', bg: '#FFEFD9' },
+  tagihan: { e: '🧾', bg: '#FFF4CC' },
+  pembayaran: { e: '💳', bg: '#DFF6E9' },
+  bayar: { e: '💵', bg: '#DFF6E9' },
+  laporan: { e: '📊', bg: '#EEE6FF' },
+  lainnya: { e: '🧩', bg: '#FFE6EE' },
+  biaya: { e: '🏷️', bg: '#FFE6EE' },
+  kode: { e: '🔑', bg: '#FFF4CC' },
+  sekolah: { e: '🏫', bg: '#DDF4F6' },
+  langganan: { e: '💎', bg: '#E4EEFF' },
+  akun: { e: '🙋', bg: '#FFEADF' },
+  ringkasan: { e: '📈', bg: '#EEE6FF' },
+  riwayat: { e: '🗂️', bg: '#FFF4CC' },
+}
+
+const FONT_EMOJI = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', lineHeight: 1 }
+
+/** Kotak emoji menu. `latar=false` → tanpa kotak pastel (emoji saja). */
+export const EmojiMenu = ({ id, size = 34, latar = true, className = '' }) => {
+  const m = EMOJI_MENU[id] || { e: '•', bg: '#F1F4F9' }
+  return (
+    <span
+      aria-hidden="true"
+      className={`grid shrink-0 place-items-center rounded-[11px] transition ${className}`}
+      style={{ width: size, height: size, background: latar ? m.bg : 'transparent', fontSize: Math.round(size * 0.52), ...FONT_EMOJI }}
+    >
+      {m.e}
+    </span>
+  )
+}
+
+export const NavItem = ({ aktif, onClick, ikon: Icon, emoji, children }) => (
   <button
     onClick={onClick}
-    className={`flex w-full items-center gap-3 rounded-[13px] px-3 py-2.5 text-left text-sm font-bold transition ${
-      aktif ? 'bg-brand-soft text-brand' : 'text-muted hover:bg-[#F7F8FC] hover:text-ink'
-    }`}
+    aria-current={aktif ? 'page' : undefined}
+    className={`flex w-full items-center gap-3 rounded-[14px] text-left text-sm font-bold transition ${
+      emoji ? 'px-2 py-[7px]' : 'px-3 py-2.5'
+    } ${aktif ? 'bg-brand-soft text-brand' : 'text-[#556070] hover:bg-[#F7F8FC] hover:text-ink'}`}
   >
-    <Icon size={19} />
+    {emoji ? (
+      <EmojiMenu id={emoji} size={34} className={aktif ? 'bg-white shadow-[0_2px_8px_rgba(59,110,246,.18)]' : ''} />
+    ) : (
+      <Icon size={19} />
+    )}
     {children}
+  </button>
+)
+
+/** Satu item tab bar bawah (mobile) dengan emoji berwarna. */
+export const TabEmoji = ({ id, label, aktif, onClick, redup }) => (
+  <button
+    onClick={onClick}
+    aria-current={aktif ? 'page' : undefined}
+    className="flex flex-1 flex-col items-center justify-center gap-[3px] py-1"
+  >
+    <span
+      className={`grid h-8 w-[46px] place-items-center rounded-full transition ${aktif ? 'scale-105' : ''} ${redup ? 'opacity-45 grayscale' : ''}`}
+      style={{ background: aktif ? EMOJI_MENU[id]?.bg : 'transparent' }}
+    >
+      <span style={{ fontSize: aktif ? 20 : 19, ...FONT_EMOJI }} aria-hidden="true">{EMOJI_MENU[id]?.e}</span>
+    </span>
+    <span className={`text-[10.5px] ${aktif ? 'font-extrabold text-brand' : 'font-bold text-muted'}`}>{label}</span>
   </button>
 )
 
