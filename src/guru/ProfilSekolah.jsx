@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom'
 import { Ikon, Kosong, PageHead } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import * as api from '../lib/api.js'
-import EditorTtd from '../components/EditorTtd.jsx'
+import EditorTtd from '../components/Editorttd.jsx'
 
 export default function ProfilSekolah() {
   const { pengaturan, ubahPengaturan, toast, pembayaran, siswa } = useData()
