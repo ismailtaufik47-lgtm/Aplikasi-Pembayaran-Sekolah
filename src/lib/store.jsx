@@ -24,6 +24,7 @@ export function DataProvider({ children }) {
   const [petugas, setPetugas] = useState('')
   const [peran, setPeran] = useState('')
   const [pinAktif, setPinAktif] = useState(false)
+  const [avatarSaya, setAvatarSaya] = useState(null)
   const [pesan, setPesan] = useState('')
   const sedang = useRef('')
 
@@ -42,6 +43,7 @@ export function DataProvider({ children }) {
     setPetugas(d.petugas || '')
     setPeran(d.peran || '')
     setPinAktif(!!d.pinAktif)
+    setAvatarSaya(Number.isInteger(d.avatarSaya) ? d.avatarSaya : null)
     setSiap(true)
     setGalat('')
   }
@@ -214,18 +216,45 @@ export function DataProvider({ children }) {
     }
   }
 
-  async function tambahBiaya({ nama, nominal }) {
+  async function tambahBiaya({ nama, nominal, emoji = null }) {
     try {
       const baris = await api.tambahBiaya({
         sekolahId: pengaturan.id,
         nama,
         nominal,
+        emoji,
         urutan: biaya.length + 1,
       })
-      setBiaya((lama) => [...lama, { id: baris.id, nama, nominal }])
+      setBiaya((lama) => [...lama, { id: baris.id, nama, nominal, emoji }])
       setSiswa((lama) => lama.map((s) => ({ ...s, kegiatan: [...s.kegiatan, 0] })))
     } catch (e) {
       toast('Gagal menambah biaya: ' + e.message)
+      throw e
+    }
+  }
+
+  /** Ganti emoji jenis kegiatan ke-i. null = otomatis dari nama. */
+  async function ubahEmojiBiaya(i, emoji) {
+    const target = biaya[i]
+    setBiaya((lama) => lama.map((b, idx) => (idx === i ? { ...b, emoji } : b)))
+    try {
+      await api.ubahEmojiBiaya(target.id, emoji)
+    } catch (e) {
+      setBiaya((lama) => lama.map((b, idx) => (idx === i ? target : b)))
+      toast('Gagal menyimpan emoji: ' + e.message)
+      throw e
+    }
+  }
+
+  /** Ganti avatar akun yang sedang login. */
+  async function ubahAvatarSaya(avatar) {
+    const lama = avatarSaya
+    setAvatarSaya(avatar)
+    try {
+      await api.ubahAvatarSaya(avatar)
+    } catch (e) {
+      setAvatarSaya(lama)
+      toast('Gagal menyimpan avatar: ' + e.message)
       throw e
     }
   }
@@ -315,12 +344,15 @@ export function DataProvider({ children }) {
       hapusSiswa,
       tambahBiaya,
       hapusBiaya,
+      ubahEmojiBiaya,
+      avatarSaya,
+      ubahAvatarSaya,
       ubahPengaturan,
       ubahNamaSaya,
       aturPinAkun,
       matikanPinAkun,
     }),
-    [siap, galat, pengaturan, biaya, siswa, pembayaran, wali, petugas, peran, pinAktif, pesan, muat, segarkan]
+    [siap, galat, pengaturan, biaya, siswa, pembayaran, wali, petugas, peran, pinAktif, avatarSaya, pesan, muat, segarkan]
   )
 
   return <Ctx.Provider value={nilai}>{children}</Ctx.Provider>

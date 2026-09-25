@@ -41,9 +41,9 @@ export default function OrtuApp() {
   const layar = { akar, anak, aktif, pilihAnak: setAnakId, bukaStruk: setStruk, bukaCaraBayar: () => setCaraBayar(true), bukaPengumuman: () => setPengumuman(true) }
 
   return (
-    // .portal-ortu: semua teks abu-abu (text-muted) di portal orang tua
-    // dibuat hitam supaya lebih jelas dibaca — lihat src/index.css.
-    <div className="portal-ortu">
+    // .teks-jelas: semua teks abu-abu (text-muted) dibuat hitam supaya
+    // lebih jelas dibaca — lihat src/index.css.
+    <div className="teks-jelas">
     <Shell
       topbar={<NavAtas aktif={tab} nav={nav} akar={akar} wali={wali} />}
       tabbar={<TabBar aktif={tab} nav={nav} akar={akar} />}

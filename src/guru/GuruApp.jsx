@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import { Shell, Toast, Ikon, Muat, Sidebar, SidebarBrand, NavLabel, NavItem, TabEmoji } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
+import { AvatarStaf } from '../components/Avatar.jsx'
 import { useAuth } from '../lib/auth.jsx'
 import Masuk from '../components/Masuk.jsx'
 import DaftarPeran from '../components/DaftarPeran.jsx'
@@ -20,6 +21,7 @@ import Lainnya from './Lainnya.jsx'
 import ProfilAkun from './ProfilAkun.jsx'
 import ProfilSekolah from './ProfilSekolah.jsx'
 import Langganan from './Langganan.jsx'
+import TanyaAI from './TanyaAI.jsx'
 import SpandukLangganan from '../components/SpandukLangganan.jsx'
 import { hitungLangganan, pesanKunci } from '../lib/langganan.js'
 
@@ -65,8 +67,11 @@ export default function GuruApp() {
 
   const kepala = peran === 'kepala'
   const bisaUndang = kepala || peran === 'admin'
+  const bisaAI = kepala || peran === 'admin' // Tanya AI: kepala sekolah & admin sekolah
 
-  const tabAktif = pathname.includes('/siswa') ? 'siswa'
+  // admin sekolah tidak punya tab Tanya AI (masuk lewat Lainnya)
+  const tabAktif = pathname.includes('/tanya-ai') ? (kepala ? 'ai' : 'lainnya')
+    : pathname.includes('/siswa') ? 'siswa'
     : pathname.includes('/tagihan') ? 'tagihan'
     : pathname.includes('/pembayaran') ? 'pembayaran'
     : pathname.includes('/laporan') ? 'laporan'
@@ -80,13 +85,20 @@ export default function GuruApp() {
   // Sidebar desktop menampilkan semua menu, jadi butuh penanda halaman
   // yang lebih rinci daripada tab bar mobile (yang merangkum ke "Lainnya").
   const halaman = ['kode-aktivasi', 'biaya', 'profil-sekolah', 'profil-akun', 'langganan']
-    .find((h) => pathname.includes('/' + h)) || tabAktif
+    .find((h) => pathname.includes('/' + h)) || (pathname.includes('/tanya-ai') ? 'ai' : tabAktif)
+
+  // Tanya AI punya tata letak sendiri (kolom ketik menempel di bawah),
+  // jadi tidak dibungkus area gulir biasa. Kepala sekolah & admin sekolah.
+  const halamanAI = bisaAI && /\/tanya-ai\/?$/.test(pathname)
 
   return (
+    // .teks-jelas: teks keterangan abu-abu dibuat hitam (lihat src/index.css)
+    <div className="teks-jelas">
     <Shell
-      sidebar={<SisiKiri aktif={halaman} nav={nav} buka={() => bukaCatat()} terkunci={terkunci} kepala={kepala} bisaUndang={bisaUndang} />}
+      sidebar={<SisiKiri aktif={halaman} nav={nav} buka={() => bukaCatat()} terkunci={terkunci} kepala={kepala} bisaUndang={bisaUndang} bisaAI={bisaAI} />}
       tabbar={<TabBar aktif={tabAktif} nav={nav} buka={() => bukaCatat()} kepala={kepala} terkunci={terkunci} />}
     >
+      {halamanAI ? <TanyaAI /> : (
       <div className="noscroll flex-1 overflow-y-auto overscroll-contain px-[18px] pb-6 lg:px-8 lg:pb-10">
        <div className="mx-auto w-full lg:max-w-[1180px] 2xl:max-w-[1320px]">
         <SpandukLangganan pengaturan={pengaturan} />
@@ -121,6 +133,7 @@ export default function GuruApp() {
         </Routes>
        </div>
       </div>
+      )}
       {!kepala && <SheetCatat buka={!!catat} awal={catat} tutup={() => setCatat(null)} />}
       {!kepala && (
         <SheetSiswa
@@ -132,12 +145,13 @@ export default function GuruApp() {
       )}
       <Toast pesan={pesan} />
     </Shell>
+    </div>
   )
 }
 
 /** Navigasi kiri, hanya tampil mulai lebar 1024px. */
-function SisiKiri({ aktif, nav, buka, terkunci, kepala, bisaUndang }) {
-  const { pengaturan, petugas, modeDemo } = useData()
+function SisiKiri({ aktif, nav, buka, terkunci, kepala, bisaUndang, bisaAI }) {
+  const { pengaturan, petugas, avatarSaya, modeDemo } = useData()
   const { keluar } = useAuth()
   return (
     <Sidebar>
@@ -157,6 +171,11 @@ function SisiKiri({ aktif, nav, buka, terkunci, kepala, bisaUndang }) {
         </NavItem>
       )}
       <NavItem aktif={aktif === 'laporan'} onClick={() => nav('/guru/laporan')} emoji="laporan">Laporan</NavItem>
+      {bisaAI && (
+        <NavItem aktif={aktif === 'ai'} onClick={() => nav('/guru/tanya-ai')} emoji="ai">
+          Tanya AI
+        </NavItem>
+      )}
 
       <NavLabel>{kepala ? 'Sekolah' : 'Pengaturan'}</NavLabel>
       {!kepala && (
@@ -197,9 +216,9 @@ function SisiKiri({ aktif, nav, buka, terkunci, kepala, bisaUndang }) {
       )}
 
       <div className="mt-auto flex items-center gap-3 border-t border-line px-2 pt-3">
-        <span className="grid h-[38px] w-[38px] place-items-center rounded-full bg-rose-soft text-[13px] font-extrabold text-rose">
-          {(petugas || 'G')[0]}
-        </span>
+        <button onClick={() => nav('/guru/profil-akun')} title="Profil akun" className="rounded-full">
+          <AvatarStaf nama={petugas} avatar={avatarSaya} size={38} />
+        </button>
         <span className="min-w-0 flex-1">
           <b className="block truncate text-[13.5px] font-extrabold">{petugas || 'Guru'}</b>
           <span className="text-[11.5px] font-semibold text-muted">{kepala ? 'Kepala sekolah' : modeDemo ? 'Mode demo' : 'Staf sekolah'}</span>
@@ -227,8 +246,9 @@ function TabBar({ aktif, nav, buka, kepala, terkunci }) {
       <TabEmoji id="beranda" label="Beranda" aktif={aktif === 'beranda'} onClick={() => nav('/guru')} />
       <TabEmoji id="siswa" label="Siswa" aktif={aktif === 'siswa'} onClick={() => nav('/guru/siswa')} />
       {!kepala && <TabEmoji id="bayar" label="Bayar" onClick={buka} redup={terkunci} />}
+      {kepala && <TabEmoji id="laporan" label="Laporan" aktif={aktif === 'laporan'} onClick={() => nav('/guru/laporan')} />}
       {kepala
-        ? <TabEmoji id="laporan" label="Laporan" aktif={aktif === 'laporan'} onClick={() => nav('/guru/laporan')} />
+        ? <TabEmoji id="ai" label="Tanya AI" aktif={aktif === 'ai'} onClick={() => nav('/guru/tanya-ai')} />
         : <TabEmoji id="pembayaran" label="Riwayat" aktif={aktif === 'pembayaran'} onClick={() => nav('/guru/pembayaran')} />}
       <TabEmoji id="lainnya" label="Lainnya" aktif={aktif === 'lainnya'} onClick={() => nav('/guru/lainnya')} />
     </nav>

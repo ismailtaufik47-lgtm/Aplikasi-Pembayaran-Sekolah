@@ -90,7 +90,7 @@ function bentuk({ sekolah, biaya, siswa, pembayaran, wali }) {
       // TRUE = dinonaktifkan paksa oleh admin aplikasi (lihat 0018_panel_admin.sql).
       dinonaktifkanAdmin: !!sekolah.dinonaktifkan_admin,
     },
-    biaya: biaya.map((b) => ({ id: b.id, nama: b.nama, nominal: b.nominal })),
+    biaya: biaya.map((b) => ({ id: b.id, nama: b.nama, nominal: b.nominal, emoji: b.emoji || null })),
     siswa: daftarSiswa,
     pembayaran: daftarBayar,
     wali: wali || null,
@@ -104,12 +104,12 @@ export async function muatDataGuru() {
   // 'admin' dipilih supaya mode demo menunjukkan kemampuan paling lengkap
   // (catat pembayaran + kode aktivasi). Untuk mencoba tampilan kepala
   // sekolah yang lebih terbatas, ganti sementara jadi 'kepala' di sini.
-  if (modeDemo) return { ...bentuk(mock.bentukDemo()), petugas: 'Bu Rina', peran: 'admin', pinAktif: false }
+  if (modeDemo) return { ...bentuk(mock.bentukDemo()), petugas: 'Bu Rina', peran: 'admin', pinAktif: false, avatarSaya: null }
 
   const { data: pengguna } = await supabase.auth.getUser()
   const { data: profil, error: eProfil } = await supabase
     .from('profil')
-    .select('nama, peran, pin_aktif, sekolah:sekolah_id (*)')
+    .select('nama, peran, pin_aktif, avatar, sekolah:sekolah_id (*)')
     .eq('id', pengguna.user.id)
     .single()
 
@@ -135,6 +135,7 @@ export async function muatDataGuru() {
     petugas: profil.nama,
     peran: profil.peran,
     pinAktif: profil.pin_aktif,
+    avatarSaya: Number.isInteger(profil.avatar) ? profil.avatar : null,
   }
 }
 
@@ -360,15 +361,23 @@ function pesanSiswa(error) {
   return error.message
 }
 
-export async function tambahBiaya({ sekolahId, nama, nominal, urutan }) {
-  if (modeDemo) return { id: 'demo-' + Date.now(), nama, nominal }
+export async function tambahBiaya({ sekolahId, nama, nominal, urutan, emoji = null }) {
+  if (modeDemo) return { id: 'demo-' + Date.now(), nama, nominal, emoji }
   const { data, error } = await supabase
     .from('biaya')
-    .insert({ sekolah_id: sekolahId, nama, nominal, urutan })
+    .insert({ sekolah_id: sekolahId, nama, nominal, urutan, emoji })
     .select()
     .single()
   if (error) throw new Error(error.message)
   return data
+}
+
+/** Ganti emoji satu jenis kegiatan. null = kembali ditebak otomatis dari nama. */
+export async function ubahEmojiBiaya(id, emoji) {
+  if (modeDemo) return true
+  const { error } = await supabase.from('biaya').update({ emoji: emoji || null }).eq('id', id)
+  if (error) throw new Error(error.message)
+  return true
 }
 
 /**
@@ -437,6 +446,14 @@ export async function buatLinkWali({ sekolahId, siswaId, nama, hp }) {
 export async function ubahNamaSaya(nama) {
   if (modeDemo) return true
   const { error } = await supabase.rpc('ubah_nama_saya', { p_nama: nama })
+  if (error) throw new Error(error.message)
+  return true
+}
+
+/** Ganti avatar akun sendiri (0–11), null = huruf depan nama. */
+export async function ubahAvatarSaya(avatar) {
+  if (modeDemo) return true
+  const { error } = await supabase.rpc('ubah_avatar_saya', { p_avatar: avatar })
   if (error) throw new Error(error.message)
   return true
 }
@@ -698,6 +715,115 @@ export async function ubahHargaPerSiswa(sekolahId, hargaPerSiswa) {
     p_harga: hargaPerSiswa,
   })
   if (error) throw new Error(error.message)
+  return data
+}
+
+/* ===================== kuitansi & dokumen ===================== */
+
+async function panggil(nama, param) {
+  const { data, error } = await supabase.rpc(nama, param)
+  if (error) throw new Error(error.message)
+  return data
+}
+
+/**
+ * Isi kuitansi versi mode demo — dibentuk dari data di layar (tanpa TTD),
+ * supaya tombol unduh tetap bisa dicoba tanpa database.
+ */
+function kuitansiDemo({ p, s, pengaturan }) {
+  return {
+    id: 'demo-' + p.id,
+    nomor: 'KW-DEMO-' + String(p.id).slice(-6).toUpperCase(),
+    dibayarPada: p.tanggal,
+    jenis: p.jenis,
+    keterangan: p.ket,
+    nominal: p.nominal,
+    metode: p.metode,
+    petugas: p.petugas,
+    target: p.nominal,
+    terbayarSampaiIni: p.nominal,
+    siswa: { nama: s.nama, kelas: s.kelas, nis: s.nis, wali: s.wali },
+    sekolah: { nama: pengaturan.namaSekolah, alamat: pengaturan.alamat, kepalaSekolah: pengaturan.kepalaSekolah },
+    ttd: { nama: pengaturan.kepalaSekolah || '', jabatan: 'Kepala Sekolah', gambar: null, stempel: null },
+  }
+}
+
+/** Data kuitansi untuk staf sekolah (panel guru). */
+export async function kuitansiStaf(id, demo) {
+  if (modeDemo) return kuitansiDemo(demo)
+  return panggil('kuitansi_staf', { p_id: id })
+}
+
+/** Data kuitansi untuk portal orang tua — dicek lewat token tautan. */
+export async function kuitansiPortal(token, id, demo) {
+  if (modeDemo || !token) return kuitansiDemo(demo)
+  return panggil('kuitansi_portal', { p_token: token, p_id: id })
+}
+
+/** Tanda tangan & stempel kuitansi sekolah (null kalau belum pernah diatur). */
+export async function muatTtdSekolah(sekolahId) {
+  if (modeDemo) return null
+  const { data, error } = await supabase
+    .from('sekolah_ttd')
+    .select('nama_penandatangan, jabatan, ttd, stempel')
+    .eq('sekolah_id', sekolahId)
+    .maybeSingle()
+  if (error) throw new Error(error.message)
+  return data && { nama: data.nama_penandatangan || '', jabatan: data.jabatan || 'Bendahara', ttd: data.ttd, stempel: data.stempel }
+}
+
+export async function simpanTtdSekolah({ nama, jabatan, ttd, stempel }) {
+  if (modeDemo) return { ok: true }
+  return panggil('simpan_ttd_sekolah', { p_nama: nama, p_jabatan: jabatan, p_ttd: ttd || null, p_stempel: stempel || null })
+}
+
+/** Riwayat pembayaran sewa aplikasi milik sekolah sendiri. */
+export async function riwayatSewaSaya() {
+  if (modeDemo) return []
+  return (await panggil('riwayat_langganan_saya')) || []
+}
+
+export async function kuitansiSewa(id) {
+  return panggil('kuitansi_sewa', { p_id: id })
+}
+
+/** Identitas penerbit invoice (nama usaha, rekening, TTD) dari panel admin. */
+export async function dataPenerbit() {
+  if (modeDemo) return null
+  return panggil('data_penerbit')
+}
+
+/** Cek keaslian kuitansi dari kode QR — tanpa login. */
+export async function verifikasiDokumen(kode) {
+  if (modeDemo) return { sah: false, demo: true }
+  return panggil('verifikasi_dokumen', { p_kode: kode })
+}
+
+/* ===================== Tanya AI (khusus kepala sekolah) ===================== */
+
+/**
+ * Kirim pertanyaan ke Edge Function "tanya-ai" (supabase/functions/tanya-ai).
+ * API key AI tidak pernah ada di browser — semuanya lewat server.
+ * `riwayat` = beberapa pesan terakhir [{ peran: 'user'|'assistant', teks }]
+ * supaya pertanyaan lanjutan ("kalau kelas B?") nyambung.
+ * Hasil: { jawaban, data: [{ alat, hasil }], kuota: { terpakai, batas } }
+ */
+export async function tanyaAI(pesan, riwayat = []) {
+  const { data, error } = await supabase.functions.invoke('tanya-ai', { body: { pesan, riwayat } })
+  if (error) {
+    // Detail lengkap untuk dicek di DevTools (F12 → Console).
+    console.error('[Tanya AI]', error.name, error.context || error)
+    const status = error.context?.status
+    if (status === 404) throw new Error('Tanya AI belum aktif: fungsi "tanya-ai" belum di-deploy ke Supabase (lihat supabase/README.md bagian 6).')
+    if (status === 401) throw new Error('Sesi login habis. Silakan keluar lalu masuk lagi.')
+    if (error.name === 'FunctionsFetchError') {
+      // Fungsi yang belum di-deploy juga jatuh ke sini: browser memblokir
+      // jawaban 404 tanpa header CORS, jadi terlihat seperti gagal koneksi.
+      throw new Error('Tidak bisa menghubungi fungsi Tanya AI di Supabase. Paling sering karena fungsi "tanya-ai" belum di-deploy (lihat supabase/README.md bagian 6). Kalau sudah, cek koneksi internet.')
+    }
+    throw new Error(`Server Tanya AI bermasalah (kode ${status || error.name}). Cek log di Dashboard Supabase → Edge Functions → tanya-ai → Logs.`)
+  }
+  if (data?.galat) throw new Error(data.galat)
   return data
 }
 

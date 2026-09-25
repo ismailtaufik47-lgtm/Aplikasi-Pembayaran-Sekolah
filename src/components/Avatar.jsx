@@ -71,3 +71,35 @@ export default function Avatar({
     </span>
   )
 }
+
+/* ===================== avatar akun staf ===================== */
+
+/** Pilihan avatar untuk guru / TU / kepala sekolah (profil.avatar 0–11). */
+export const AVATAR_STAF = [
+  '🧕🏻', '🧕🏽', '👩🏻‍🏫', '👩🏽‍🏫', '👱🏻‍♀️', '👩🏻‍💼',
+  '👨🏻‍🏫', '👨🏽‍🏫', '🧔🏻', '👳🏻‍♂️', '👨🏻‍💼', '🧑🏽‍💼',
+]
+
+/**
+ * Avatar akun staf. Kalau belum memilih avatar, tampil huruf depan nama
+ * di lingkaran berwarna (seperti sebelumnya).
+ */
+export function AvatarStaf({ nama = '', avatar = null, size = 38, className = '' }) {
+  const punya = Number.isInteger(avatar) && avatar >= 0 && avatar < AVATAR_STAF.length
+  return (
+    <span
+      role="img"
+      aria-label={`Avatar ${nama}`}
+      style={{
+        width: size,
+        height: size,
+        background: punya ? latarAvatar(avatar) : '#FFE6EF',
+        fontSize: punya ? Math.round(size * 0.58) : Math.round(size * 0.36),
+        lineHeight: 1,
+      }}
+      className={`grid shrink-0 select-none place-items-center rounded-full ${punya ? '' : 'font-extrabold text-rose'} ${className}`}
+    >
+      {punya ? AVATAR_STAF[avatar] : (nama || 'G')[0].toUpperCase()}
+    </span>
+  )
+}

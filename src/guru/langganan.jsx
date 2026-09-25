@@ -14,10 +14,11 @@
  * Pembayaran TIDAK otomatis: sekolah menekan tombol WhatsApp, transfer,
  * lalu pengembang mengaktifkan langganannya secara manual.
  */
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { PageHead, Ikon } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import { useAuth } from '../lib/auth.jsx'
+import * as api from '../lib/api.js'
 import {
   hitungLangganan,
   tagihanPerBulan,
@@ -37,10 +38,18 @@ export default function Langganan({ terkunci = false }) {
   const { keluar } = useAuth()
   const l = hitungLangganan(pengaturan)
 
+  // Identitas penerbit (rekening, WA, TTD) diatur di panel admin aplikasi.
+  // Kalau belum diisi, halaman memakai konstanta di lib/langganan.js.
+  const [penerbit, setPenerbit] = useState(null)
+  useEffect(() => {
+    api.dataPenerbit().then(setPenerbit).catch(() => {})
+  }, [])
+
   const isi = (
     <>
       <KartuStatus l={l} pengaturan={pengaturan} terkunci={terkunci} />
-      <PembayaranLangganan pengaturan={pengaturan} siswa={siswa} />
+      <PembayaranLangganan pengaturan={pengaturan} siswa={siswa} penerbit={penerbit} />
+      <DokumenSewa pengaturan={pengaturan} siswa={siswa} penerbit={penerbit} l={l} />
       <CatatanPortal />
 
       {terkunci && (
@@ -156,7 +165,8 @@ function KartuStatus({ l, pengaturan, terkunci }) {
 }
 
 /* ---------- pembayaran: rincian tagihan + rekening bank + konfirmasi WA ---------- */
-function PembayaranLangganan({ pengaturan, siswa }) {
+function PembayaranLangganan({ pengaturan, siswa, penerbit }) {
+  const rekening = penerbit?.rekening?.filter((r) => r.nomor)?.length ? penerbit.rekening.filter((r) => r.nomor) : REKENING_BANK
   const n = jumlahSiswaAktif(siswa)
   const tarif = tarifPerSiswa(pengaturan)
   const total = tagihanPerBulan(pengaturan, siswa)
@@ -189,7 +199,7 @@ function PembayaranLangganan({ pengaturan, siswa }) {
         Transfer Bank
       </h4>
       <div className="mb-3 grid gap-2.5">
-        {REKENING_BANK.map((r) => (
+        {rekening.map((r) => (
           <KartuRekening key={r.bank + r.nomor} rekening={r} />
         ))}
       </div>
@@ -205,7 +215,7 @@ function PembayaranLangganan({ pengaturan, siswa }) {
       </div>
 
       <a
-        href={pesanWaLangganan(pengaturan, siswa)}
+        href={pesanWaLangganan(pengaturan, siswa, penerbit?.wa)}
         target="_blank"
         rel="noreferrer"
         className="bigbtn-wa flex items-center justify-center gap-2"
@@ -254,6 +264,108 @@ function KartuRekening({ rekening }) {
       >
         {disalin ? 'Tersalin' : 'Salin'}
       </button>
+    </div>
+  )
+}
+
+/* ---------- invoice & kuitansi sewa ---------- */
+const ymd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+
+function DokumenSewa({ pengaturan, siswa, penerbit, l }) {
+  const { toast, modeDemo } = useData()
+  const [riwayat, setRiwayat] = useState(null)
+  const [sibuk, setSibuk] = useState(null) // 'invoice' | id riwayat
+
+  useEffect(() => {
+    api.riwayatSewaSaya().then(setRiwayat).catch(() => setRiwayat([]))
+  }, [])
+
+  const jalankan = async (kunci, fn) => {
+    if (sibuk) return
+    setSibuk(kunci)
+    try {
+      await fn()
+    } catch (e) {
+      toast('Gagal membuat dokumen: ' + e.message)
+    } finally {
+      setSibuk(null)
+    }
+  }
+
+  const invoice = () =>
+    jalankan('invoice', async () => {
+      const { unduhInvoiceSewa, periodeBerikut } = await import('../lib/dokumen.js')
+      const per = periodeBerikut(ymd(l.aktifSampai), 1)
+      // rekening di invoice = rekening yang tampil di halaman ini
+      const rek = penerbit?.rekening?.filter((r) => r.nomor)
+      unduhInvoiceSewa({
+        penerbit: { ...(penerbit || {}), rekening: rek?.length ? rek : REKENING_BANK },
+        sekolah: { id: pengaturan.id, nama: pengaturan.namaSekolah, alamat: pengaturan.alamat, kepalaSekolah: pengaturan.kepalaSekolah },
+        jumlahSiswa: jumlahSiswaAktif(siswa),
+        tarif: tarifPerSiswa(pengaturan),
+        bulan: 1,
+        periodeMulai: per.mulai,
+        periodeSampai: per.sampai,
+        jatuhTempo: per.jatuhTempo,
+      })
+    })
+
+  const kuitansi = (r) =>
+    jalankan(r.id, async () => {
+      const [d, { unduhKuitansiSewa }] = await Promise.all([api.kuitansiSewa(r.id), import('../lib/dokumen.js')])
+      await unduhKuitansiSewa(d)
+    })
+
+  return (
+    <div className="mb-4">
+      <h3 className="mb-2.5 ml-0.5 text-[15px] font-extrabold">Dokumen sewa</h3>
+      <div className="card mb-3 flex items-center gap-3">
+        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] bg-brand-soft text-[20px]" aria-hidden="true">🧾</span>
+        <span className="min-w-0 flex-1">
+          <b className="block text-[14px] font-extrabold">Invoice bulan berikutnya</b>
+          <span className="block text-[12px] font-semibold text-muted">
+            Untuk arsip / pengajuan dana ke yayasan · {rp(tagihanPerBulan(pengaturan, siswa))}
+          </span>
+        </span>
+        <button
+          onClick={invoice}
+          disabled={!!sibuk}
+          className="shrink-0 rounded-xl bg-brand px-3.5 py-2.5 text-[12.5px] font-extrabold text-white disabled:opacity-60"
+        >
+          {sibuk === 'invoice' ? 'Menyiapkan…' : 'Unduh PDF'}
+        </button>
+      </div>
+
+      <div className="card">
+        <div className="mb-1 text-[13px] font-extrabold">Bukti pembayaran sewa</div>
+        {riwayat === null ? (
+          <p className="py-3 text-[12.5px] text-muted">Memuat…</p>
+        ) : riwayat.length === 0 ? (
+          <p className="py-3 text-[12.5px] leading-relaxed text-muted">
+            {modeDemo
+              ? 'Mode demo — kuitansi sewa muncul di sini setelah terhubung ke database.'
+              : 'Belum ada pembayaran sewa. Kuitansi muncul di sini setelah pembayaran dikonfirmasi admin aplikasi.'}
+          </p>
+        ) : (
+          riwayat.map((r) => (
+            <div key={r.id} className="flex items-center gap-3 border-t border-line py-3 first:border-0">
+              <span className="min-w-0 flex-1">
+                <b className="block text-[13.5px] font-extrabold">{rp(r.nominal)} · {r.bulan} bulan</b>
+                <span className="block text-[11.5px] font-semibold text-muted">
+                  {r.nomor} · aktif {tanggalPanjangLokal(new Date(r.periodeMulai + 'T00:00:00'))} – {tanggalPanjangLokal(new Date(r.sampaiBaru + 'T00:00:00'))}
+                </span>
+              </span>
+              <button
+                onClick={() => kuitansi(r)}
+                disabled={!!sibuk}
+                className="shrink-0 rounded-xl border border-line bg-white px-3 py-2 text-[12px] font-extrabold disabled:opacity-60"
+              >
+                {sibuk === r.id ? '…' : '📄 Kuitansi'}
+              </button>
+            </div>
+          ))
+        )}
+      </div>
     </div>
   )
 }

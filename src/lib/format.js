@@ -241,3 +241,11 @@ export function sisaTagihan(s, biaya, sppNominal) {
   const sisaSppTotal = s.spp.reduce((t, v) => t + Math.max(0, sppNominal - (v || 0)), 0)
   return sisaSppTotal + kegiatanBelum(s, biaya)
 }
+/**
+ * Nomor kuitansi yang tampil di layar — rumusnya SAMA dengan nomor_dokumen()
+ * di database (0024): KW-<tahun><bulan WIB>-<8 huruf pertama id>.
+ */
+export function nomorKuitansi(id, waktu) {
+  const t = new Date(waktu).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }) // YYYY-MM-DD
+  return `KW-${t.slice(2, 4)}${t.slice(5, 7)}-${String(id).replace(/-/g, '').slice(0, 8).toUpperCase()}`
+}

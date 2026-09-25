@@ -1,7 +1,10 @@
+import { useState } from 'react'
+import { useParams } from 'react-router-dom'
 import Avatar from '../components/Avatar.jsx'
 import { Ikon, Sheet, Tile } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
-import { BULAN, bulanBerjalan, rp, statusSpp, teksJatuhTempo } from '../lib/format.js'
+import * as api from '../lib/api.js'
+import { BULAN, bulanBerjalan, nomorKuitansi, rp, statusSpp, teksJatuhTempo } from '../lib/format.js'
 
 const gabungBulan = (xs) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} dan ${xs[xs.length - 1]}`)
 
@@ -59,9 +62,30 @@ export function daftarPemberitahuan(anak, pengaturan, biaya, kini = bulanBerjala
 /* ---------- bukti pembayaran ---------- */
 export function SheetStruk({ id, tutup }) {
   const { pembayaran, siswa, pengaturan, toast } = useData()
+  const { token } = useParams()
+  const [unduh, setUnduh] = useState(false)
   const p = pembayaran.find((x) => x.id === id)
   const s = p && siswa.find((x) => x.id === p.siswaId)
   if (!p || !s) return null
+
+  // Kuitansi PDF resmi: data diambil ulang dari database (lewat token
+  // tautan portal) supaya berisi TTD & stempel sekolah + QR verifikasi.
+  const unduhKuitansi = async () => {
+    if (unduh) return
+    setUnduh(true)
+    try {
+      const [d, { unduhKuitansiBayar }] = await Promise.all([
+        api.kuitansiPortal(token, p.id, { p, s, pengaturan }),
+        import('../lib/dokumen.js'),
+      ])
+      await unduhKuitansiBayar(d)
+      toast('Kuitansi berhasil diunduh')
+    } catch (e) {
+      toast('Gagal membuat kuitansi: ' + e.message)
+    } finally {
+      setUnduh(false)
+    }
+  }
 
   return (
     <Sheet buka={!!id} tutup={tutup} judul="Bukti pembayaran" lead="Dicatat oleh pihak sekolah">
@@ -70,7 +94,7 @@ export function SheetStruk({ id, tutup }) {
           <Ikon.cek size={30} />
         </div>
         <div className="text-center text-[16px] font-extrabold">Pembayaran diterima</div>
-        <div className="mb-4 mt-0.5 text-center text-[12.5px] text-muted">{pengaturan.namaSekolah} · {p.id}</div>
+        <div className="mb-4 mt-0.5 text-center text-[12.5px] text-muted">{pengaturan.namaSekolah} · {nomorKuitansi(p.id, p.tanggal)}</div>
 
         <Sobek />
         <div className="flex items-center gap-3 py-2">
@@ -95,7 +119,13 @@ export function SheetStruk({ id, tutup }) {
       </div>
 
       <div className="h-3.5" />
-      <button className="bigbtn" onClick={() => { tutup(); toast('Bukti pembayaran disimpan sebagai gambar') }}>Simpan bukti</button>
+      <button className="bigbtn flex items-center justify-center gap-2 disabled:opacity-60" onClick={unduhKuitansi} disabled={unduh}>
+        <span aria-hidden="true">📄</span>
+        {unduh ? 'Menyiapkan kuitansi…' : 'Unduh kuitansi (PDF)'}
+      </button>
+      <p className="mt-2 text-center text-[11.5px] font-semibold text-muted">
+        Kuitansi resmi bertanda tangan sekolah, dengan kode QR untuk cek keasliannya.
+      </p>
       <div className="h-2.5" />
       <button className="bigbtn-ghost" onClick={tutup}>Tutup</button>
     </Sheet>

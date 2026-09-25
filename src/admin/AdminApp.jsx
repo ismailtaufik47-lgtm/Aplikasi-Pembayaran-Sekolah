@@ -19,6 +19,7 @@ import { AdminProvider, useAdmin } from './storeAdmin.jsx'
 import Ringkasan from './Ringkasan.jsx'
 import DaftarSekolah from './DaftarSekolah.jsx'
 import Riwayat from './Riwayat.jsx'
+import Pengaturan from './Pengaturan.jsx'
 
 export default function AdminApp() {
   const { sesi, siap, masukPin, keluar } = useAuth()
@@ -69,7 +70,10 @@ function Panel({ email, keluar }) {
   const { pesan } = useData()
   const nav = useNavigate()
   const { pathname } = useLocation()
-  const tab = pathname.includes('/sekolah') ? 'sekolah' : pathname.includes('/riwayat') ? 'riwayat' : 'ringkasan'
+  const tab = pathname.includes('/sekolah') ? 'sekolah'
+    : pathname.includes('/riwayat') ? 'riwayat'
+    : pathname.includes('/pengaturan') ? 'pengaturan'
+    : 'ringkasan'
 
   if (!siap) return <Muat>Memuat data sekolah…</Muat>
   if (galat) return <Muat aksi={muat}>Gagal memuat data: {galat}</Muat>
@@ -78,6 +82,7 @@ function Panel({ email, keluar }) {
     { id: 'ringkasan', label: 'Ringkasan', ke: '/admin' },
     { id: 'sekolah', label: 'Sekolah', ke: '/admin/sekolah' },
     { id: 'riwayat', label: 'Riwayat', ke: '/admin/riwayat' },
+    { id: 'pengaturan', label: 'Pengaturan', ke: '/admin/pengaturan' },
   ]
 
   return (
@@ -135,6 +140,7 @@ function Panel({ email, keluar }) {
             <Route index element={<Ringkasan />} />
             <Route path="sekolah" element={<DaftarSekolah />} />
             <Route path="riwayat" element={<Riwayat />} />
+            <Route path="pengaturan" element={<Pengaturan />} />
             <Route path="*" element={<Navigate to="/admin" replace />} />
           </Routes>
         </div>

@@ -43,6 +43,17 @@ export const batalkan = (riwayatId) => rpc('admin_batalkan_perpanjang', { p_riwa
 export const setNonaktif = (sekolahId, nonaktif) =>
   rpc('admin_set_nonaktif', { p_sekolah_id: sekolahId, p_nonaktif: nonaktif })
 
+/** Kuota Tanya AI per hari untuk satu sekolah. null = default, 0 = matikan. */
+export const ubahKuotaAI = (sekolahId, batas) =>
+  rpc('admin_ubah_kuota_ai', { p_sekolah_id: sekolahId, p_batas: batas })
+
+/** Identitas penerbit invoice & kuitansi sewa (nama usaha, rekening, TTD). */
+export const dataPenerbit = () => rpc('data_penerbit')
+export const simpanPenerbit = (p) => rpc('admin_simpan_pengaturan', { p })
+
+/** Isi kuitansi satu transaksi sewa (untuk PDF). */
+export const kuitansiSewa = (id) => rpc('kuitansi_sewa', { p_id: id })
+
 /** Tarif khusus per siswa. null = kembali ke tarif default aplikasi. */
 export const ubahTarif = (sekolahId, harga) =>
   rpc('ubah_harga_per_siswa', { p_sekolah_id: sekolahId, p_harga: harga })

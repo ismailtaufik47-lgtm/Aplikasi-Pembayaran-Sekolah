@@ -10,8 +10,9 @@ import { useEffect, useState } from 'react'
 import { Chip, Sheet } from '../components/ui.jsx'
 import InputNominal from '../components/InputNominal.jsx'
 import { rp } from '../lib/format.js'
-import { HARGA_PER_SISWA_DEFAULT } from '../lib/langganan.js'
+import { AI_BATAS_DEFAULT, HARGA_PER_SISWA_DEFAULT } from '../lib/langganan.js'
 import { labelStatus, perkiraanPerpanjang, tglPendek, useAdmin } from './storeAdmin.jsx'
+import * as api from './apiAdmin.js'
 
 export default function AksiSekolah({ aksi, setAksi }) {
   const tutup = () => setAksi(null)
@@ -22,6 +23,7 @@ export default function AksiSekolah({ aksi, setAksi }) {
       <SheetMenu s={aksi?.jenis === 'menu' ? s : null} tutup={tutup} buka={(jenis) => setAksi({ jenis, s })} />
       <SheetNonaktif s={aksi?.jenis === 'nonaktif' ? s : null} tutup={tutup} />
       <SheetTarif s={aksi?.jenis === 'tarif' ? s : null} tutup={tutup} />
+      <SheetKuotaAI s={aksi?.jenis === 'kuota' ? s : null} tutup={tutup} />
     </>
   )
 }
@@ -101,11 +103,40 @@ function SheetPerpanjang({ s, tutup }) {
 
 /* ---------- menu ⋯ ---------- */
 function SheetMenu({ s, tutup, buka }) {
+  const { unduhDokumen } = useAdmin()
+  const [sibuk, setSibuk] = useState(false)
   if (!s) return null
+  const kuota = s.aiBatasHarian == null ? `${AI_BATAS_DEFAULT}/hari (default)` : s.aiBatasHarian === 0 ? 'dimatikan' : `${s.aiBatasHarian}/hari`
+
+  // Invoice sewa bulan berikutnya — periode dihitung sama seperti tombol Perpanjang.
+  const invoice = () =>
+    unduhDokumen(async () => {
+      setSibuk(true)
+      try {
+        const [penerbit, { unduhInvoiceSewa }] = await Promise.all([api.dataPenerbit(), import('../lib/dokumen.js')])
+        const p = perkiraanPerpanjang(s, 1)
+        unduhInvoiceSewa({
+          penerbit,
+          sekolah: { id: s.id, nama: s.nama, alamat: s.alamat, kepalaSekolah: s.kepalaSekolah },
+          jumlahSiswa: s.jumlahSiswaAktif, tarif: s.tarif, bulan: 1,
+          periodeMulai: p.mulai, periodeSampai: p.sampai,
+          jatuhTempo: s.sisaHari >= 0 && s.jatuhTempo ? s.jatuhTempo : p.mulai,
+        })
+      } finally {
+        setSibuk(false)
+      }
+    })
+
   return (
     <Sheet buka tutup={tutup} judul={s.nama} lead={s.kontak ? `${s.kontak.nama} · ${s.kontak.email}` : 'Belum ada kontak staf'}>
+      <button className="bigbtn mb-2.5 disabled:opacity-60" onClick={invoice} disabled={sibuk}>
+        {sibuk ? 'Menyiapkan invoice…' : `🧾 Unduh invoice · ${rp(s.tagihanBulanan)}`}
+      </button>
       <button className="bigbtn-ghost mb-2.5" onClick={() => buka('tarif')}>
         Ubah tarif per siswa
+      </button>
+      <button className="bigbtn-ghost mb-2.5" onClick={() => buka('kuota')}>
+        🤖 Kuota Tanya AI · {kuota}
       </button>
       {s.dinonaktifkanAdmin ? (
         <button className="w-full rounded-2xl bg-ok-soft py-3.5 text-[15px] font-extrabold text-ok-deep" onClick={() => buka('nonaktif')}>
@@ -159,6 +190,56 @@ function SheetNonaktif({ s, tutup }) {
       </button>
       <div className="h-2.5" />
       <button className="bigbtn-ghost" onClick={tutup}>Batal</button>
+    </Sheet>
+  )
+}
+
+/* ---------- kuota Tanya AI per sekolah ---------- */
+function SheetKuotaAI({ s, tutup }) {
+  const { ubahKuotaAI, sibuk } = useAdmin()
+  const [batas, setBatas] = useState('')
+
+  useEffect(() => {
+    if (s) setBatas(s.aiBatasHarian == null ? '' : String(s.aiBatasHarian))
+  }, [s])
+
+  if (!s) return null
+  const simpan = async (nilai) => {
+    try {
+      await ubahKuotaAI(s, nilai)
+      tutup()
+    } catch {
+      /* toast galat sudah ditampilkan store */
+    }
+  }
+  const angka = batas === '' ? null : Math.max(0, Math.min(500, Number(batas) || 0))
+
+  return (
+    <Sheet buka tutup={tutup} judul="Kuota Tanya AI" lead={`${s.nama} · terpakai hari ini ${s.aiTerpakaiHariIni || 0} pertanyaan`}>
+      <label className="mb-1.5 block text-[12.5px] font-bold text-muted">
+        Pertanyaan per hari (kosongkan = default {AI_BATAS_DEFAULT}, isi 0 = matikan)
+      </label>
+      <input
+        className="field-input mb-3"
+        inputMode="numeric"
+        value={batas}
+        onChange={(e) => setBatas(e.target.value.replace(/\D/g, '').slice(0, 3))}
+        placeholder={String(AI_BATAS_DEFAULT)}
+      />
+      <div className="mb-4 flex flex-wrap gap-2">
+        {[10, 30, 50, 100].map((n) => (
+          <button key={n} onClick={() => setBatas(String(n))} className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-bold">
+            {n}/hari
+          </button>
+        ))}
+      </div>
+      <p className="mb-4 rounded-xl bg-[#F5F6FA] px-3.5 py-2.5 text-[12.5px] font-semibold text-muted">
+        Kuota dihitung per sekolah (kepala sekolah + admin sekolah digabung), direset setiap tengah malam WIB.
+        Setiap pertanyaan memakai saldo API AI Anda.
+      </p>
+      <button className="bigbtn disabled:opacity-60" onClick={() => simpan(angka)} disabled={sibuk}>
+        {sibuk ? 'Menyimpan…' : angka === 0 ? 'Matikan Tanya AI' : `Simpan · ${angka ?? AI_BATAS_DEFAULT}/hari`}
+      </button>
     </Sheet>
   )
 }

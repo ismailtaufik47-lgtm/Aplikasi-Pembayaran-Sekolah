@@ -9,9 +9,10 @@ import { useNavigate } from 'react-router-dom'
 import { Ikon, Kosong, PageHead } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import * as api from '../lib/api.js'
+import EditorTtd from '../components/EditorTtd.jsx'
 
 export default function ProfilSekolah() {
-  const { pengaturan, ubahPengaturan, toast } = useData()
+  const { pengaturan, ubahPengaturan, toast, pembayaran, siswa } = useData()
   const nav = useNavigate()
   const [nama, setNama] = useState(pengaturan.namaSekolah)
   const [kepala, setKepala] = useState(pengaturan.kepalaSekolah || '')
@@ -53,6 +54,51 @@ export default function ProfilSekolah() {
     setRekening((lama) => lama.map((r, idx) => (idx === i ? { ...r, [kunci]: nilai } : r)))
   const tambahRek = () => setRekening((lama) => [...lama, { bank: '', nomor: '', atasNama: '' }])
   const hapusRek = (i) => setRekening((lama) => lama.filter((_, idx) => idx !== i))
+
+  /* ---------- tanda tangan kuitansi ---------- */
+  const [ttd, setTtd] = useState({ nama: '', jabatan: 'Bendahara', ttd: null, stempel: null })
+  const [ttdSiap, setTtdSiap] = useState(false)
+  const [simpanTtd, setSimpanTtd] = useState(false)
+
+  useEffect(() => {
+    api.muatTtdSekolah(pengaturan.id)
+      .then((d) => d && setTtd(d))
+      .catch(() => {})
+      .finally(() => setTtdSiap(true))
+  }, [pengaturan.id])
+
+  const simpanTandaTangan = async () => {
+    setSimpanTtd(true)
+    try {
+      await api.simpanTtdSekolah(ttd)
+      toast('Tanda tangan kuitansi disimpan')
+    } catch (e) {
+      toast('Gagal menyimpan: ' + e.message)
+    } finally {
+      setSimpanTtd(false)
+    }
+  }
+
+  /** Contoh kuitansi dengan data transaksi terakhir (atau data contoh). */
+  const contohKuitansi = async () => {
+    const p = pembayaran[0]
+    const s = p && siswa.find((x) => x.id === p.siswaId)
+    const { buatKuitansiBayar } = await import('../lib/dokumen.js')
+    const doc = await buatKuitansiBayar({
+      id: 'demo', nomor: 'KW-CONTOH', dibayarPada: p?.tanggal || new Date().toISOString(),
+      jenis: 'spp', keterangan: p?.ket || 'SPP Juli', nominal: p?.nominal || pengaturan.sppNominal,
+      metode: p?.metode || 'Tunai', petugas: p?.petugas || '-', target: 1, terbayarSampaiIni: 1,
+      siswa: { nama: s?.nama || 'Nama Siswa', kelas: s?.kelas || 'A', nis: s?.nis || '', wali: s?.wali || '' },
+      sekolah: { nama: nama || pengaturan.namaSekolah, alamat, kepalaSekolah: kepala },
+      ttd: {
+        nama: ttd.nama || kepala,
+        jabatan: ttd.nama ? ttd.jabatan || 'Bendahara' : 'Kepala Sekolah',
+        gambar: ttd.ttd, stempel: ttd.stempel,
+      },
+    })
+    const url = doc.output('bloburl')
+    if (!window.open(url, '_blank')) doc.save('Contoh-kuitansi.pdf')
+  }
 
   const simpan = async () => {
     if (!nama.trim()) return toast('Nama sekolah belum diisi')
@@ -183,6 +229,48 @@ export default function ProfilSekolah() {
       <button className="bigbtn disabled:opacity-60 lg:max-w-lg" onClick={simpan} disabled={sibuk}>
         {sibuk ? 'Menyimpan…' : 'Simpan profil sekolah'}
       </button>
+
+      {/* ---------- tanda tangan kuitansi ---------- */}
+      <div className="seghead mt-8 lg:max-w-2xl">
+        <h2>Tanda tangan kuitansi</h2>
+      </div>
+      <p className="-mt-1 mb-3 text-[12.5px] leading-relaxed text-muted lg:max-w-2xl">
+        Dicetak di kuitansi pembayaran yang bisa diunduh orang tua dari portal. Kalau nama penanda tangan
+        dikosongkan, kuitansi memakai nama kepala sekolah.
+      </p>
+      <div className="card mb-3 lg:max-w-2xl">
+        <div className="mb-4 grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1.5 block text-[13px] font-bold">Nama penanda tangan</label>
+            <input
+              className="field-input"
+              value={ttd.nama}
+              onChange={(e) => setTtd((t) => ({ ...t, nama: e.target.value }))}
+              placeholder={kepala || 'contoh: Rina Marlina, S.Pd'}
+            />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-[13px] font-bold">Jabatan</label>
+            <input
+              className="field-input"
+              value={ttd.jabatan}
+              onChange={(e) => setTtd((t) => ({ ...t, jabatan: e.target.value }))}
+              placeholder="Bendahara"
+            />
+          </div>
+        </div>
+        {ttdSiap ? (
+          <EditorTtd nilai={ttd} ubah={(u) => setTtd((t) => ({ ...t, ...u }))} toast={toast} />
+        ) : (
+          <p className="py-6 text-center text-[13px] text-muted">Memuat tanda tangan…</p>
+        )}
+      </div>
+      <div className="flex flex-col-reverse gap-2.5 sm:flex-row lg:max-w-2xl">
+        <button className="bigbtn-ghost flex-1" onClick={contohKuitansi}>Lihat contoh kuitansi</button>
+        <button className="bigbtn flex-1 disabled:opacity-60" onClick={simpanTandaTangan} disabled={simpanTtd || !ttdSiap}>
+          {simpanTtd ? 'Menyimpan…' : 'Simpan tanda tangan'}
+        </button>
+      </div>
     </>
   )
 }

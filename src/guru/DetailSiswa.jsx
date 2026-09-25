@@ -4,6 +4,7 @@ import Avatar from '../components/Avatar.jsx'
 import { Chip, Ikon, Kosong, Segment, Sheet, Track } from '../components/ui.jsx'
 import SheetPeriode from './SheetPeriode.jsx'
 import { useData } from '../lib/store.jsx'
+import { emojiKegiatan } from '../lib/emojiKegiatan.js'
 import * as api from '../lib/api.js'
 import {
   BULAN,
@@ -174,7 +175,7 @@ export default function DetailSiswa({ onCatat, onUbah }) {
             />
           </div>
 
-          <div className="lg:grid lg:grid-cols-2 lg:gap-3.5 xl:grid-cols-3">
+          <div className="lg:grid lg:grid-cols-2 lg:gap-3.5 2xl:grid-cols-3">
             {seg === 'spp'
               ? BULAN.map((b, i) => {
                   const jml = dibayarSpp(s, i)
@@ -199,6 +200,7 @@ export default function DetailSiswa({ onCatat, onUbah }) {
                       key={b.id}
                       nomor={i + 1}
                       judul={b.nama}
+                      ikon={emojiKegiatan(b)}
                       dibayar={jml}
                       target={b.nominal}
                       status={statusKartu('kegiatan', i, jml, b.nominal)}
@@ -249,7 +251,7 @@ export default function DetailSiswa({ onCatat, onUbah }) {
  * terbayar, jadi kartu yang baru dicicil terlihat beda dari yang lunas
  * atau yang sama sekali belum disentuh.
  */
-function Kartu({ nomor, judul, dibayar, target, status, onClick }) {
+function Kartu({ nomor, ikon, judul, dibayar, target, status, onClick }) {
   const warnaBadge =
     status.warna === 'green' ? 'bg-ok-soft text-ok'
     : status.warna === 'red' ? 'bg-danger-soft text-danger'
@@ -267,8 +269,8 @@ function Kartu({ nomor, judul, dibayar, target, status, onClick }) {
       className="mb-2.5 w-full rounded-2xl border border-line bg-white px-3.5 py-3 text-left shadow-soft transition hover:-translate-y-[1px] hover:border-transparent hover:shadow-[0_6px_16px_rgba(21,26,38,.1)] lg:mb-0 lg:p-4"
     >
       <div className="flex items-center gap-3">
-        <span className={`grid h-[38px] w-[38px] shrink-0 place-items-center rounded-xl text-xs font-extrabold ${warnaBadge}`}>
-          {status.label === 'Lunas' ? '✓' : String(nomor).padStart(2, '0')}
+        <span className={`grid h-[38px] w-[38px] shrink-0 place-items-center rounded-xl font-extrabold ${ikon ? 'text-[19px]' : 'text-xs'} ${warnaBadge}`}>
+          {ikon || (status.label === 'Lunas' ? '✓' : String(nomor).padStart(2, '0'))}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[14.5px] font-bold">{judul}</span>

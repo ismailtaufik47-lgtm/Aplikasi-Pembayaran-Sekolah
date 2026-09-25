@@ -9,17 +9,29 @@ import { Ikon, PageHead, Sheet } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import { useAuth } from '../lib/auth.jsx'
 import { pinLemah } from '../lib/api.js'
+import { AVATAR_STAF, AvatarStaf } from '../components/Avatar.jsx'
 
 const labelPeran = { kepala: 'Kepala sekolah', admin: 'Admin', guru: 'Guru' }
 
 export default function ProfilAkun() {
-  const { petugas, peran, pengaturan, pinAktif, modeDemo, ubahNamaSaya, aturPinAkun, matikanPinAkun, toast } = useData()
+  const { petugas, peran, pengaturan, pinAktif, modeDemo, ubahNamaSaya, aturPinAkun, matikanPinAkun, avatarSaya, ubahAvatarSaya, toast } = useData()
   const { keluar } = useAuth()
   const nav = useNavigate()
   const [nama, setNama] = useState(petugas)
   const [sibuk, setSibuk] = useState(false)
   const [formPin, setFormPin] = useState(false)
   const [mematikan, setMematikan] = useState(false)
+  const [pilihAvatar, setPilihAvatar] = useState(false)
+
+  const gantiAvatar = async (i) => {
+    try {
+      await ubahAvatarSaya(i)
+      setPilihAvatar(false)
+      toast(i === null ? 'Avatar dihapus' : 'Avatar disimpan')
+    } catch {
+      /* pesan galat sudah ditangani store */
+    }
+  }
 
   useEffect(() => setNama(petugas), [petugas])
   const berubah = nama.trim() && nama.trim() !== petugas
@@ -60,15 +72,23 @@ export default function ProfilAkun() {
       <PageHead judul="Profil akun" sub="Nama tampilan yang muncul di kartu pembayaran dan struk" />
 
       <div className="card mb-4 flex items-center gap-3.5 lg:mt-4 lg:max-w-md">
-        <span className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-rose-soft text-xl font-extrabold text-rose">
-          {(petugas || 'G')[0]}
-        </span>
-        <div className="min-w-0">
+        <button
+          className="relative shrink-0 rounded-full active:scale-95"
+          onClick={() => setPilihAvatar(true)}
+          aria-label="Ganti avatar"
+        >
+          <AvatarStaf nama={petugas} avatar={avatarSaya} size={64} />
+          <span className="absolute -bottom-0.5 -right-0.5 grid h-6 w-6 place-items-center rounded-full border-2 border-white bg-brand text-[11px] text-white">✏️</span>
+        </button>
+        <div className="min-w-0 flex-1">
           <div className="truncate text-[15px] font-extrabold">{petugas || '—'}</div>
           <div className="mt-1">
             <span className="inline-block rounded-pill bg-brand-soft px-2.5 py-1 text-[11px] font-bold text-brand">
               {labelPeran[peran] || peran}
             </span>
+            <button className="ml-2.5 text-[12.5px] font-bold text-brand" onClick={() => setPilihAvatar(true)}>
+              Ganti avatar
+            </button>
           </div>
         </div>
       </div>
@@ -135,6 +155,25 @@ export default function ProfilAkun() {
         aturPinAkun={aturPinAkun}
         toast={toast}
       />
+      <Sheet buka={pilihAvatar} tutup={() => setPilihAvatar(false)} judul="Pilih avatar" lead="Tampil di menu samping dan profil akun Anda">
+        <div className="grid grid-cols-4 gap-2.5 sm:grid-cols-6">
+          {AVATAR_STAF.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => gantiAvatar(i)}
+              aria-pressed={avatarSaya === i}
+              className={`grid place-items-center rounded-2xl p-1.5 transition ${avatarSaya === i ? 'bg-brand-soft ring-2 ring-brand' : 'hover:bg-line'}`}
+            >
+              <AvatarStaf nama={petugas} avatar={i} size={56} />
+            </button>
+          ))}
+        </div>
+        <div className="h-4" />
+        {avatarSaya !== null && (
+          <button className="bigbtn-ghost mb-2.5" onClick={() => gantiAvatar(null)}>Pakai huruf depan nama saja</button>
+        )}
+        <button className="bigbtn-ghost" onClick={() => setPilihAvatar(false)}>Tutup</button>
+      </Sheet>
     </>
   )
 }

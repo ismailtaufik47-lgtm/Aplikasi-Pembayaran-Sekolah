@@ -1,13 +1,31 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Avatar from '../components/Avatar.jsx'
-import { Chip, Chevron, Ikon, Kosong, PageHead, Tile } from '../components/ui.jsx'
+import { Chip, Ikon, Kosong, PageHead, Tile } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
+import * as api from '../lib/api.js'
 import { hariTampil, rp, tanggalISO, tanggalKunci, tanggalPanjang } from '../lib/format.js'
 
 export default function RiwayatBayar() {
-  const { pembayaran, siswa } = useData()
+  const { pembayaran, siswa, pengaturan, toast } = useData()
   const nav = useNavigate()
+  const [unduh, setUnduh] = useState(null) // id transaksi yang kuitansinya sedang dibuat
+
+  const unduhKuitansi = async (p, s) => {
+    if (unduh) return
+    setUnduh(p.id)
+    try {
+      const [d, { unduhKuitansiBayar }] = await Promise.all([
+        api.kuitansiStaf(p.id, { p, s, pengaturan }),
+        import('../lib/dokumen.js'),
+      ])
+      await unduhKuitansiBayar(d)
+    } catch (e) {
+      toast('Gagal membuat kuitansi: ' + e.message)
+    } finally {
+      setUnduh(null)
+    }
+  }
   const [tglFilter, setTglFilter] = useState('') // '' = semua tanggal, atau 'YYYY-MM-DD'
 
   const kunciHariIni = tanggalKunci(new Date().toISOString())
@@ -112,18 +130,28 @@ export default function RiwayatBayar() {
                   const s = siswa.find((x) => x.id === p.siswaId)
                   if (!s) return null
                   return (
-                    <button key={p.id} className="row w-full text-left lg:rounded-xl lg:px-4 lg:hover:bg-[#FAFBFF]" onClick={() => nav(`/guru/siswa/${s.id}`)}>
-                      <Avatar nama={s.nama} jenis={s.jenis} avatar={s.avatar} foto={s.foto} />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-[14.5px] font-bold">{s.nama}</span>
-                        <span className="block truncate text-[12.5px] text-muted">{p.ket} · {p.waktu}</span>
-                      </span>
-                      <span className="grid shrink-0 justify-items-end gap-1.5 text-right">
-                        <span className="text-sm font-extrabold text-ok-deep">{rp(p.nominal)}</span>
-                        <Chip warna={p.metode === 'Tunai' ? 'green' : 'blue'}>{p.metode}</Chip>
-                      </span>
-                      <Chevron />
-                    </button>
+                    <div key={p.id} className="row lg:rounded-xl lg:px-4 lg:hover:bg-[#FAFBFF]">
+                      <button className="flex min-w-0 flex-1 items-center gap-3 text-left" onClick={() => nav(`/guru/siswa/${s.id}`)}>
+                        <Avatar nama={s.nama} jenis={s.jenis} avatar={s.avatar} foto={s.foto} />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[14.5px] font-bold">{s.nama}</span>
+                          <span className="block truncate text-[12.5px] text-muted">{p.ket} · {p.waktu}</span>
+                        </span>
+                        <span className="grid shrink-0 justify-items-end gap-1.5 text-right">
+                          <span className="text-sm font-extrabold text-ok-deep">{rp(p.nominal)}</span>
+                          <Chip warna={p.metode === 'Tunai' ? 'green' : 'blue'}>{p.metode}</Chip>
+                        </span>
+                      </button>
+                      <button
+                        onClick={() => unduhKuitansi(p, s)}
+                        title="Unduh kuitansi PDF"
+                        aria-label={`Unduh kuitansi ${s.nama}`}
+                        className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line bg-white text-[17px] hover:border-brand disabled:opacity-50"
+                        disabled={!!unduh}
+                      >
+                        {unduh === p.id ? '⏳' : '📄'}
+                      </button>
+                    </div>
                   )
                 })}
               </div>

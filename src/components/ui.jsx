@@ -67,6 +67,8 @@ export const EMOJI_MENU = {
   akun: { e: '🙋', bg: '#FFEADF' },
   ringkasan: { e: '📈', bg: '#EEE6FF' },
   riwayat: { e: '🗂️', bg: '#FFF4CC' },
+  ai: { e: '🤖', bg: '#E4F1FF' },
+  pengaturan: { e: '⚙️', bg: '#F1F2F6' },
 }
 
 const FONT_EMOJI = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', lineHeight: 1 }
@@ -91,7 +93,7 @@ export const NavItem = ({ aktif, onClick, ikon: Icon, emoji, children }) => (
     aria-current={aktif ? 'page' : undefined}
     className={`flex w-full items-center gap-3 rounded-[14px] text-left text-sm font-bold transition ${
       emoji ? 'px-2 py-[7px]' : 'px-3 py-2.5'
-    } ${aktif ? 'bg-brand-soft text-brand' : 'text-[#556070] hover:bg-[#F7F8FC] hover:text-ink'}`}
+    } ${aktif ? 'bg-brand-soft text-brand' : 'text-ink hover:bg-[#F7F8FC]'}`}
   >
     {emoji ? (
       <EmojiMenu id={emoji} size={34} className={aktif ? 'bg-white shadow-[0_2px_8px_rgba(59,110,246,.18)]' : ''} />

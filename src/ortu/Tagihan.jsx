@@ -2,6 +2,7 @@ import { useState } from 'react'
 import Avatar from '../components/Avatar.jsx'
 import { Chip, Kosong, Segment, Track } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
+import { emojiKegiatan } from '../lib/emojiKegiatan.js'
 import { BULAN, bulanBerjalan, dibayarKegiatan, labelJatuhTempoPeriode, dibayarSpp, persenBayar, rp, statusSpp } from '../lib/format.js'
 
 export default function Tagihan({ aktif, bukaCaraBayar }) {
@@ -64,6 +65,7 @@ export default function Tagihan({ aktif, bukaCaraBayar }) {
                   key={b.id}
                   nomor={i + 1}
                   status={lunas ? 'ok' : sebagian ? 'sebagian' : ''}
+                  ikon={emojiKegiatan(b)}
                   judul={b.nama}
                   catatan={lunas ? 'Sudah dibayar penuh' : sebagian ? `Baru dibayar sebagian · kurang ${rp(b.nominal - dibayar)}` : 'Belum dibayar'}
                   dibayar={dibayar}
@@ -82,7 +84,7 @@ export default function Tagihan({ aktif, bukaCaraBayar }) {
   )
 }
 
-const Baris = ({ nomor, status, judul, catatan, dibayar, target, chip }) => {
+const Baris = ({ nomor, ikon, status, judul, catatan, dibayar, target, chip }) => {
   const warnaNo =
     status === 'ok' ? 'bg-ok-soft text-ok'
     : status === 'late' ? 'bg-danger-soft text-danger'
@@ -95,8 +97,8 @@ const Baris = ({ nomor, status, judul, catatan, dibayar, target, chip }) => {
     : '#C9D0DC'
   return (
     <div className="row items-start py-3.5">
-      <span className={`grid h-[38px] w-[38px] shrink-0 place-items-center rounded-xl text-xs font-extrabold ${warnaNo}`}>
-        {status === 'ok' ? '✓' : status === 'late' ? '!' : String(nomor).padStart(2, '0')}
+      <span className={`grid h-[38px] w-[38px] shrink-0 place-items-center rounded-xl font-extrabold ${ikon ? 'text-[19px]' : 'text-xs'} ${warnaNo}`}>
+        {ikon || (status === 'ok' ? '✓' : status === 'late' ? '!' : String(nomor).padStart(2, '0'))}
       </span>
       <div className="min-w-0 flex-1">
         <div className="flex items-center justify-between gap-2">

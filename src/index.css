@@ -26,6 +26,7 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
-/* Portal orang tua: teks keterangan kecil (text-muted) dibuat hitam,
-   bukan abu-abu, supaya lebih jelas dibaca orang tua di HP. */
-.portal-ortu .text-muted { color: #151A26; }
+/* Aplikasi guru & portal orang tua: teks keterangan kecil (text-muted)
+   dibuat hitam, bukan abu-abu, supaya lebih jelas dibaca.
+   (Panel admin tidak ikut — tidak dibungkus .teks-jelas.) */
+.teks-jelas .text-muted { color: #151A26; }

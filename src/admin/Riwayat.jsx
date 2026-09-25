@@ -7,13 +7,26 @@ import { useMemo, useState } from 'react'
 import { Kosong, PageHead, Sheet } from '../components/ui.jsx'
 import { rp } from '../lib/format.js'
 import { tglPendek, useAdmin } from './storeAdmin.jsx'
+import * as api from './apiAdmin.js'
 
 const judulBulan = (d) => d.toLocaleDateString('id-ID', { month: 'long', year: 'numeric' })
 const jam = (d) => d.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' })
 
 export default function Riwayat() {
-  const { riwayat, batalkan, sibuk } = useAdmin()
+  const { riwayat, batalkan, sibuk, unduhDokumen } = useAdmin()
   const [konfirm, setKonfirm] = useState(null)
+  const [unduh, setUnduh] = useState(null)
+
+  const kuitansi = (r) =>
+    unduhDokumen(async () => {
+      setUnduh(r.id)
+      try {
+        const [d, { unduhKuitansiSewa }] = await Promise.all([api.kuitansiSewa(r.id), import('../lib/dokumen.js')])
+        await unduhKuitansiSewa(d)
+      } finally {
+        setUnduh(null)
+      }
+    })
 
   // id transaksi terakhir per sekolah (riwayat sudah urut terbaru dulu)
   const terakhir = useMemo(() => {
@@ -80,6 +93,9 @@ export default function Riwayat() {
                     </span>
                     <span className="shrink-0 text-right">
                       <b className="block text-[14px] font-extrabold text-ink">{rp(r.nominal)}</b>
+                      <button className="mt-1 block w-full text-right text-[12px] font-bold text-brand disabled:opacity-50" onClick={() => kuitansi(r)} disabled={!!unduh}>
+                        {unduh === r.id ? 'Menyiapkan…' : '📄 Kuitansi'}
+                      </button>
                       {terakhir.has(r.id) && (
                         <button className="mt-1 text-[12px] font-bold text-danger" onClick={() => setKonfirm(r)}>
                           Batalkan

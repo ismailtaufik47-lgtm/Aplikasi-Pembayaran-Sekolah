@@ -90,6 +90,82 @@ Kalau tautan bocor, hapus dan buat ulang tokennya:
 update wali set token = encode(gen_random_bytes(16), 'hex') where nama = 'Ibu Dewi';
 ```
 
+## 6. Tanya AI (khusus kepala sekolah)
+
+Menu **🤖 Tanya AI** muncul otomatis untuk akun kepala sekolah. Supaya
+bisa menjawab, ada tiga hal yang perlu disiapkan satu kali saja:
+
+**a. Jalankan SQL** `supabase/migrations/0023_tanya_ai.sql` di SQL Editor
+(berisi 5 fungsi pengambil data + penghitung kuota harian).
+
+**b. Buat API key Claude** di [console.anthropic.com](https://console.anthropic.com):
+Settings → API Keys → Create Key (diawali `sk-ant-…`), lalu isi saldo di
+menu Billing. Simpan key ini baik-baik — jangan pernah ditaruh di file
+`.env` aplikasi React, karena apa pun di situ bisa dilihat orang di browser.
+
+**c. Pasang Edge Function `tanya-ai`** — pilih salah satu cara:
+
+*Cara 1 — lewat dashboard (tanpa install apa pun):*
+1. Dashboard Supabase → **Edge Functions** → **Deploy a new function** → **Via Editor**.
+2. Beri nama persis `tanya-ai`, hapus contoh kodenya, tempel seluruh isi
+   `supabase/functions/tanya-ai/index.ts`, lalu **Deploy**.
+3. Edge Functions → **Secrets** → tambah `ANTHROPIC_API_KEY` = key dari langkah b.
+
+*Cara 2 — lewat Supabase CLI (dari folder proyek):*
+```bash
+npx supabase login
+npx supabase link --project-ref <kode-proyek>   # kode dari URL dashboard: supabase.com/dashboard/project/<kode-proyek>
+npx supabase secrets set ANTHROPIC_API_KEY=sk-ant-xxxxx
+npx supabase functions deploy tanya-ai
+```
+
+Pengaturan tambahan (opsional, lewat Secrets yang sama):
+
+| Secret | Default | Arti |
+|---|---|---|
+| `AI_BATAS_HARIAN` | `30` | maksimal pertanyaan per sekolah per hari |
+| `AI_MODEL` | `claude-haiku-4-5` | model AI yang dipakai |
+
+Cara kerjanya singkat: AI **tidak pernah menghitung angka sendiri**. AI
+hanya memilih fungsi database mana yang dipanggil (`ai_rekap_bulan`,
+`ai_daftar_tunggakan`, `ai_status_siswa`, `ai_perbandingan_kelas`,
+`ai_transaksi`), fungsi itulah yang menghitung dengan aturan yang sama
+dengan aplikasi, lalu AI merangkai jawabannya. Semua fungsi berjalan atas
+nama akun kepala sekolah, jadi hanya bisa membaca data sekolahnya sendiri.
+Nomor HP dan alamat tidak pernah dikirim ke AI.
+
+Kalau kepala sekolah melihat pesan *"Tanya AI belum aktif: fungsi server
+belum dipasang"*, berarti langkah c belum dilakukan. Kalau *"API key belum
+diisi"*, berarti secret `ANTHROPIC_API_KEY` belum ada.
+
+## 7. Kuitansi digital, invoice sewa & Tanya AI v2
+
+1. Jalankan `supabase/migrations/0024_kuitansi_invoice_ai_v2.sql` di SQL Editor.
+2. Di folder aplikasi jalankan sekali: `npm install qrcode` (untuk kode QR di kuitansi).
+3. Deploy ulang Edge Function `tanya-ai` (tempel lagi isi `index.ts` terbaru) —
+   sekarang admin sekolah juga bisa memakai Tanya AI.
+
+Setelah itu:
+
+| Siapa | Di mana | Apa |
+|---|---|---|
+| Kepala sekolah | Profil sekolah → *Tanda tangan kuitansi* | Nama & jabatan penanda tangan (mis. Bendahara), tanda tangan (gambar di layar / foto), stempel |
+| Orang tua | Portal → ketuk transaksi → *Unduh kuitansi (PDF)* | Kuitansi resmi ber-TTD + QR verifikasi |
+| Guru / admin sekolah | Riwayat pembayaran → ikon 📄 | Kuitansi yang sama, misalnya untuk dikirim lewat WA |
+| Kepala / admin sekolah | Langganan → *Dokumen sewa* | Invoice bulan berikutnya & kuitansi setiap pembayaran sewa |
+| Admin aplikasi | Panel admin → *Pengaturan* | Nama usaha, alamat, WA, rekening, TTD & stempel penerbit invoice |
+| Admin aplikasi | Panel admin → sekolah → ⋯ | Unduh invoice, atur kuota Tanya AI (0 = matikan) |
+| Siapa saja | Pindai QR di kuitansi → `/verifikasi/<kode>` | Cek kuitansi asli atau tidak (tanpa login) |
+
+Rekening & WA yang diisi di panel admin → Pengaturan otomatis dipakai halaman
+Langganan sekolah. Selama belum diisi, halaman itu memakai `REKENING_BANK` dan
+`WA_PENGEMBANG` di `src/lib/langganan.js`.
+
+**Perbaikan keamanan di 0024:** sebelumnya staf sekolah secara teknis bisa
+mengubah sendiri kolom `langganan_sampai` (memperpanjang langganan tanpa bayar)
+lewat API. Sekarang kolom langganan, tarif, dan kuota AI dikunci — hanya admin
+aplikasi atau fungsi resmi yang bisa mengubahnya.
+
 ## Struktur tabel
 
 | Tabel | Isi |

@@ -9,9 +9,10 @@ import { useNavigate } from 'react-router-dom'
 import { EmojiMenu, Ikon, PageHead } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import { useAuth } from '../lib/auth.jsx'
+import { AvatarStaf } from '../components/Avatar.jsx'
 
 export default function Lainnya() {
-  const { peran, petugas, modeDemo } = useData()
+  const { peran, petugas, avatarSaya, modeDemo } = useData()
   const { keluar } = useAuth()
   const nav = useNavigate()
   const bisaUndang = peran === 'kepala' || peran === 'admin'
@@ -21,6 +22,10 @@ export default function Lainnya() {
     { label: 'Laporan', sub: 'Ketertiban bayar & pemasukan', emoji: 'laporan', ke: '/guru/laporan' },
     { label: 'Jenis biaya', sub: 'Nominal SPP & biaya kegiatan', emoji: 'biaya', ke: '/guru/biaya' },
   ]
+  // Kepala sekolah punya tab Tanya AI sendiri di bawah; admin sekolah lewat sini.
+  const menuAI = peran === 'admin'
+    ? [{ label: 'Tanya AI', sub: 'Tanya soal pembayaran, dijawab dari data sekolah', emoji: 'ai', ke: '/guru/tanya-ai' }]
+    : []
   const menuUndang = bisaUndang
     ? [{ label: 'Kode aktivasi', sub: 'Undang guru/admin baru', emoji: 'kode', ke: '/guru/kode-aktivasi' }]
     : []
@@ -33,7 +38,7 @@ export default function Lainnya() {
 
   const daftar = peran === 'kepala'
     ? [...menuUndang, ...menuKepala, ...menuLangganan]
-    : [...menuOperasional, ...menuUndang, ...menuLangganan]
+    : [...menuAI, ...menuOperasional, ...menuUndang, ...menuLangganan]
 
   return (
     <>
@@ -57,9 +62,7 @@ export default function Lainnya() {
       </div>
 
       <button className="card mb-4 flex w-full items-center gap-3.5 text-left lg:max-w-md" onClick={() => nav('/guru/profil-akun')}>
-        <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-rose-soft text-[15px] font-extrabold text-rose">
-          {(petugas || 'G')[0]}
-        </span>
+        <AvatarStaf nama={petugas} avatar={avatarSaya} size={44} />
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[14.5px] font-bold">{petugas || 'Profil akun'}</span>
           <span className="block text-xs text-muted">Lihat & ubah profil akun</span>

@@ -45,6 +45,10 @@ export const HARGA_PER_SISWA_DEFAULT = 5000
  *  siswa tetap wajar ditagih (opsional — set 0 untuk menonaktifkan). */
 export const MINIMUM_TAGIHAN_BULANAN = 0
 
+/** Batas pertanyaan Tanya AI per sekolah per hari kalau admin tidak
+ *  mengatur khusus. Samakan dengan secret AI_BATAS_HARIAN di Edge Function. */
+export const AI_BATAS_DEFAULT = 30
+
 /**
  * Hanya berlaku BULANAN — tanpa pilihan semester/tahunan. Harga dihitung
  * dinamis dari jumlah siswa aktif × tarif/siswa, tanpa diskon durasi.
@@ -146,7 +150,14 @@ export function hitungTagihanDurasi(pengaturan, daftarSiswa, durasi) {
 /** Tautan WhatsApp ke pengembang — HANYA untuk konfirmasi pembayaran &
  *  kirim bukti transfer (cara & rekening sudah tampil di halaman, jadi
  *  pesan ini langsung berisi rincian tagihan, tinggal lampirkan bukti). */
-export function pesanWaLangganan(pengaturan, daftarSiswa) {
+/** Nomor WA ke format wa.me: 0812… → 62812…; kosong → WA_PENGEMBANG. */
+export const nomorWa = (wa) => {
+  const n = String(wa || '').replace(/\D/g, '')
+  if (!n) return WA_PENGEMBANG
+  return n.startsWith('0') ? '62' + n.slice(1) : n
+}
+
+export function pesanWaLangganan(pengaturan, daftarSiswa, wa) {
   const nama = pengaturan?.namaSekolah || 'sekolah kami'
   const n = jumlahSiswaAktif(daftarSiswa)
   const tarif = tarifPerSiswa(pengaturan)
@@ -161,7 +172,7 @@ export function pesanWaLangganan(pengaturan, daftarSiswa) {
     `💳 Total: *${rpSingkat(total)}*\n\n` +
     `📎 Bukti transfernya saya lampirkan di sini\n\n` +
     `Mohon dibantu aktivasinya ya, terima kasih banyak 🙏😊`
-  return `https://wa.me/${WA_PENGEMBANG}?text=${encodeURIComponent(teks)}`
+  return `https://wa.me/${nomorWa(wa)}?text=${encodeURIComponent(teks)}`
 }
 
 /**

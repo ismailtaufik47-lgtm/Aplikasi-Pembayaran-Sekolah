@@ -3,6 +3,7 @@ import Avatar from '../components/Avatar.jsx'
 import { Ikon, Sheet } from '../components/ui.jsx'
 import InputNominal from '../components/InputNominal.jsx'
 import { useData } from '../lib/store.jsx'
+import { emojiKegiatan } from '../lib/emojiKegiatan.js'
 import { BULAN, bulanBerjalan, dibayarKegiatan, dibayarSpp, rp, tanggalISO } from '../lib/format.js'
 
 export default function SheetCatat({ buka, awal, tutup }) {
@@ -121,7 +122,7 @@ export default function SheetCatat({ buka, awal, tutup }) {
       <select className="field-input mb-3.5" value={indeks} onChange={(e) => gantiIndeks(Number(e.target.value))}>
         {jenis === 'spp'
           ? BULAN.map((b, i) => <option key={b} value={i}>{b}</option>)
-          : biaya.map((b, i) => <option key={b.id} value={i}>{b.nama}</option>)}
+          : biaya.map((b, i) => <option key={b.id} value={i}>{emojiKegiatan(b)} {b.nama}</option>)}
       </select>
 
       <label className="mb-1.5 block text-[13px] font-bold">Jumlah dibayar</label>

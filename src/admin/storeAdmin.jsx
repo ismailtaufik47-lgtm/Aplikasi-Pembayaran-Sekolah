@@ -157,6 +157,19 @@ export function AdminProvider({ children }) {
       ),
     ubahTarif: (s, harga) =>
       jalankan(() => api.ubahTarif(s.id, harga), `Tarif ${s.nama} disimpan`),
+    ubahKuotaAI: (s, batas) =>
+      jalankan(
+        () => api.ubahKuotaAI(s.id, batas),
+        batas === 0 ? `Tanya AI ${s.nama} dimatikan` : `Kuota Tanya AI ${s.nama} disimpan`
+      ),
+    /** Unduh PDF (invoice / kuitansi sewa) dengan toast galat bila gagal. */
+    unduhDokumen: async (fn) => {
+      try {
+        await fn()
+      } catch (e) {
+        toast('Gagal membuat dokumen: ' + e.message)
+      }
+    },
   }
 
   return <Ctx.Provider value={nilai}>{children}</Ctx.Provider>

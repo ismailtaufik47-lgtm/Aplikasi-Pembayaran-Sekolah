@@ -17,6 +17,7 @@ import Avatar from '../components/Avatar.jsx'
 import { Chip, Ikon, IkonWhatsapp, IkonWhatsappPolos, Kosong, PageHead, Sheet } from '../components/ui.jsx'
 import SheetPeriode from './SheetPeriode.jsx'
 import { useData } from '../lib/store.jsx'
+import { emojiKegiatan } from '../lib/emojiKegiatan.js'
 import { BULAN, bulanBerjalan, dibayarKegiatan, dibayarSpp, labelJatuhTempoPeriode, rp, statusSpp, tanggalPanjang } from '../lib/format.js'
 
 /** Status kegiatan sederhana: lunas / sebagian / belum (tidak ada konsep jatuh tempo). */
@@ -135,6 +136,7 @@ export default function Tagihan() {
           siswaId: s.id, nama: s.nama, kelas: s.kelas, jenis: 'kegiatan', indeks: i,
           hp: s.hp, wali: s.wali, avatar: s.avatar, jenisKelamin: s.jenis, foto: s.foto,
           labelJenis: b.nama,
+          emoji: emojiKegiatan(b),
           jatuhTempo: null,
           target: b.nominal, dibayar, sisa: Math.max(0, b.nominal - dibayar),
           status: statusKegiatanItem(dibayar, b.nominal),
@@ -359,7 +361,7 @@ function BarisDesktop({ t, nav, kirimWa, onCatat }) {
           </span>
         </div>
       </td>
-      <td className="whitespace-nowrap px-2.5 py-3">{t.labelJenis}</td>
+      <td className="whitespace-nowrap px-2.5 py-3">{t.emoji && <span className="mr-1">{t.emoji}</span>}{t.labelJenis}</td>
       <td className="whitespace-nowrap px-2.5 py-3 text-muted">{t.jatuhTempo || '—'}</td>
       <td className="whitespace-nowrap px-2.5 py-3 font-semibold">{rp(t.target)}</td>
       <td className={`whitespace-nowrap px-2.5 py-3 font-semibold ${t.sisa > 0 ? 'text-danger' : 'text-muted'}`}>{rp(t.sisa)}</td>
@@ -391,7 +393,7 @@ function BarisMobile({ t, nav, kirimWa, onCatat }) {
           <span className="truncate text-[14.5px] font-bold">{t.nama}</span>
           <Chip warna={b.warna}>{b.teks}</Chip>
         </div>
-        <div className="mt-0.5 truncate text-xs text-muted">{t.labelJenis} · {t.kelas} · {t.no}</div>
+        <div className="mt-0.5 truncate text-xs text-muted">{t.emoji ? `${t.emoji} ` : ''}{t.labelJenis} · {t.kelas} · {t.no}</div>
         <div className="mt-1.5 flex items-center justify-between">
           <span className={`text-[13.5px] font-extrabold ${t.sisa > 0 ? 'text-danger' : 'text-ok-deep'}`}>
             {t.sisa > 0 ? `Sisa ${rp(t.sisa)}` : `Dibayar ${rp(t.dibayar)}`}

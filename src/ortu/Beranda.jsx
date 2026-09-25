@@ -3,6 +3,7 @@ import Avatar from '../components/Avatar.jsx'
 import { Chip, Chevron, Ikon, Kosong, Tile, Track } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import { daftarPemberitahuan, kalimatSpp } from './sheets.jsx'
+import { emojiKegiatan } from '../lib/emojiKegiatan.js'
 import { BULAN, bulanBerjalan, kegiatanBelum, labelJatuhTempoPeriode, teksJatuhTempo, lunasSpp, perluDitagihSekarang, rp, sisaTagihan, sppPerluSekarang, statusSpp } from '../lib/format.js'
 
 export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaCaraBayar, bukaPengumuman }) {
@@ -159,6 +160,7 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
             })),
             ...belumKeg.map((x) => ({
               n: x.nama,
+              e: emojiKegiatan(x),
               m: x.dibayar > 0 ? `Biaya kegiatan · baru dibayar ${rp(x.dibayar)}` : 'Biaya kegiatan · belum dibayar',
               v: x.nominal - x.dibayar,
               status: x.dibayar > 0 ? 'sebagian' : 'belum-bayar',
@@ -167,8 +169,8 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
             .slice(0, 4)
             .map((x, i) => (
               <div key={x.n} className="row">
-                <span className={`grid h-[38px] w-[38px] shrink-0 place-items-center rounded-xl text-xs font-extrabold ${x.status === 'sebagian' ? 'bg-warn-soft text-warn' : x.status === 'nunggak' ? 'bg-danger-soft text-danger' : x.status === 'belum-bayar' ? 'bg-warn-soft text-warn' : 'bg-[#F2F4F9] text-muted'}`}>
-                  {x.status === 'sebagian' ? '½' : x.status === 'nunggak' ? '!' : i + 1}
+                <span className={`grid h-[38px] w-[38px] shrink-0 place-items-center rounded-xl font-extrabold ${x.e ? 'text-[19px]' : 'text-xs'} ${x.status === 'sebagian' ? 'bg-warn-soft text-warn' : x.status === 'nunggak' ? 'bg-danger-soft text-danger' : x.status === 'belum-bayar' ? 'bg-warn-soft text-warn' : 'bg-[#F2F4F9] text-muted'}`}>
+                  {x.e || (x.status === 'sebagian' ? '½' : x.status === 'nunggak' ? '!' : i + 1)}
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[14.5px] font-bold">{x.n}</div>
