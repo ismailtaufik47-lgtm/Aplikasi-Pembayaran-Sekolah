@@ -13,7 +13,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { BtnKecil, EmojiMenu, PageHead } from '../components/ui.jsx'
 import TeksAI from '../components/TeksAI.jsx'
-import SpandukLangganan from '../components/SpandukLangganan.jsx'
+import SpandukLangganan from '../components/Spanduklangganan.jsx'
 import { useData } from '../lib/store.jsx'
 import * as api from '../lib/api.js'
 import { BULAN, bulanBerjalan } from '../lib/format.js'

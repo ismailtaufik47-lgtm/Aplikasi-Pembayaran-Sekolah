@@ -22,7 +22,7 @@ import ProfilAkun from './ProfilAkun.jsx'
 import ProfilSekolah from './ProfilSekolah.jsx'
 import Langganan from './langganan.jsx'
 import TanyaAI from './TanyaAI.jsx'
-import SpandukLangganan from '../components/SpandukLangganan.jsx'
+import SpandukLangganan from '../components/Spanduklangganan.jsx'
 import { hitungLangganan, pesanKunci } from '../lib/langganan.js'
 
 export default function GuruApp() {
