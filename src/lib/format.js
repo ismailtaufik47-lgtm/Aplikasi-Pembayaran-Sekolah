@@ -249,3 +249,10 @@ export function nomorKuitansi(id, waktu) {
   const t = new Date(waktu).toLocaleDateString('en-CA', { timeZone: 'Asia/Jakarta' }) // YYYY-MM-DD
   return `KW-${t.slice(2, 4)}${t.slice(5, 7)}-${String(id).replace(/-/g, '').slice(0, 8).toUpperCase()}`
 }
+
+/** Nomor WhatsApp sekolah dalam format wa.me (62…), atau '' kalau belum diisi. */
+export function waSekolah(pengaturan) {
+  const n = String(pengaturan?.waSekolah || '').replace(/[^0-9]/g, '')
+  if (!n) return ''
+  return n.startsWith('0') ? '62' + n.slice(1) : n
+}

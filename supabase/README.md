@@ -166,6 +166,22 @@ mengubah sendiri kolom `langganan_sampai` (memperpanjang langganan tanpa bayar)
 lewat API. Sekarang kolom langganan, tarif, dan kuota AI dikunci — hanya admin
 aplikasi atau fungsi resmi yang bisa mengubahnya.
 
+## 8. Logo, WhatsApp sekolah, mode gelap & perbaikan Tanya AI
+
+1. Jalankan `supabase/migrations/0025_logo_perbaikan_ai.sql` di SQL Editor.
+2. Deploy ulang Edge Function `tanya-ai` (tempel isi `index.ts` terbaru).
+3. Kepala sekolah mengisi di **Profil sekolah**:
+   - **No. WhatsApp sekolah / TU** — tujuan tombol WhatsApp di portal orang tua.
+     Selama kosong, tombol WhatsApp melayang di portal disembunyikan.
+   - **Logo sekolah** — tercetak di kop kuitansi (langsung tersimpan saat dipilih).
+4. Admin aplikasi: logo penerbit untuk invoice & kuitansi sewa ada di
+   **Panel admin → Pengaturan**.
+
+**Mode terang/gelap** tidak butuh database: pilihannya disimpan di perangkat
+masing-masing. Tempatnya: tombol ☀️/🌙 di menu samping (laptop), kartu
+*Tampilan* di Lainnya / Profil akun (guru), Bantuan (portal orang tua), dan
+Pengaturan (panel admin). Default-nya terang.
+
 ## Struktur tabel
 
 | Tabel | Isi |

@@ -10,6 +10,7 @@ export const sekolah = {
   nama: 'TK Tunas Ceria',
   kepala_sekolah: 'Ibu Hj. Siti Aminah, S.Pd',
   alamat: 'Jl. Melati No. 12, Bandung',
+  wa: '081234567890',
   spp_nominal: 150000,
   tanggal_jatuh_tempo: 10,
   rekening: [

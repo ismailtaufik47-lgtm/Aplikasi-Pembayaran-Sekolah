@@ -103,6 +103,38 @@ const TOOLS = [
 ]
 
 type Args = Record<string, unknown>
+
+/**
+ * Hasil tool yang dikirim ke AI dipangkas supaya hemat token: daftar
+ * panjang cukup 40 baris pertama (+ jumlah totalnya). Data LENGKAP tetap
+ * dikirim ke aplikasi untuk tombol Unduh Excel.
+ */
+const MAKS_BARIS_AI = 40
+function ringkasUntukAI(hasil: unknown) {
+  if (!hasil || typeof hasil !== 'object') return hasil
+  const h = { ...(hasil as Record<string, unknown>) }
+  for (const k of ['siswa', 'transaksi']) {
+    const arr = h[k]
+    if (Array.isArray(arr) && arr.length > MAKS_BARIS_AI) {
+      h[k] = arr.slice(0, MAKS_BARIS_AI)
+      h.catatan_untuk_ai = `Hanya ${MAKS_BARIS_AI} dari ${arr.length} baris yang ditampilkan di sini. ` +
+        'Angka total & jumlah di atas tetap mencakup SEMUA baris. Sarankan tombol "Unduh Excel" untuk daftar lengkap.'
+    }
+  }
+  return h
+}
+
+/** Gabungkan pesan berurutan dengan peran sama (mis. pertanyaan yang tadi gagal + pertanyaan baru). */
+function rapikanRiwayat(pesan: { role: string; content: string }[]) {
+  const hasil: { role: string; content: string }[] = []
+  for (const m of pesan) {
+    const akhir = hasil[hasil.length - 1]
+    if (akhir && akhir.role === m.role) akhir.content += '\n\n' + m.content
+    else hasil.push({ ...m })
+  }
+  while (hasil.length && hasil[0].role !== 'user') hasil.shift()
+  return hasil
+}
 const RPC: Record<string, (a: Args) => [string, Record<string, unknown>]> = {
   rekap_bulan: (a) => ['ai_rekap_bulan', { p_bulan: a.bulan ?? null }],
   daftar_tunggakan: (a) => [
@@ -159,7 +191,7 @@ async function claude(apiKey: string, system: string, messages: unknown[]) {
       'anthropic-version': '2023-06-01',
       'content-type': 'application/json',
     },
-    body: JSON.stringify({ model: MODEL, max_tokens: 2000, system, tools: TOOLS, messages }),
+    body: JSON.stringify({ model: MODEL, max_tokens: 3000, system, tools: TOOLS, messages }),
   })
   const data = await r.json()
   if (!r.ok) {
@@ -195,18 +227,30 @@ Deno.serve(async (req) => {
     if (!pesan) return balas({ galat: 'Pertanyaan masih kosong.' })
 
     // Riwayat singkat supaya pertanyaan lanjutan ("kalau kelas B?") nyambung.
-    const riwayat = (Array.isArray(body?.riwayat) ? body.riwayat : [])
+    const riwayatMentah = (Array.isArray(body?.riwayat) ? body.riwayat : [])
       .filter((m: Record<string, unknown>) => (m?.peran === 'user' || m?.peran === 'assistant') && typeof m?.teks === 'string' && m.teks)
       .slice(-8)
       .map((m: Record<string, string>) => ({ role: m.peran, content: m.teks.slice(0, 3000) }))
-    while (riwayat.length && riwayat[0].role !== 'user') riwayat.shift()
 
     // 1. cek peran + langganan + kuota, sekaligus ambil konteks sekolah
     const { data: konteks, error: eMulai } = await db.rpc('ai_mulai', { p_batas: BATAS_HARIAN })
     if (eMulai) return balas({ galat: eMulai.message })
 
+    // Kunci pengembalian kuota: hanya untuk Edge Function, tidak dikirim ke AI maupun browser.
+    const kunci = konteks.kunci_pemakaian
+    delete konteks.kunci_pemakaian
+    const kembalikanKuota = async () => {
+      if (!kunci) return
+      try {
+        await db.rpc('ai_batal_pemakaian', { p_kunci: kunci })
+      } catch {
+        /* gagal mengembalikan kuota tidak perlu menggagalkan balasan */
+      }
+    }
+
+    try {
     const system = instruksi(konteks)
-    const messages: unknown[] = [...riwayat, { role: 'user', content: pesan }]
+    const messages: unknown[] = rapikanRiwayat([...riwayatMentah, { role: 'user', content: pesan }])
     const dataTool: { alat: string; hasil: unknown }[] = []
 
     // 2. putaran tool-calling
@@ -215,8 +259,15 @@ Deno.serve(async (req) => {
       const blok = (res.content || []) as Record<string, unknown>[]
 
       if (res.stop_reason !== 'tool_use') {
-        const jawaban = blok.filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim()
-        return balas({ jawaban: jawaban || 'Maaf, saya belum bisa menjawab itu.', data: dataTool, kuota: konteks.kuota })
+        let jawaban = blok.filter((b) => b.type === 'text').map((b) => b.text).join('\n').trim()
+        if (res.stop_reason === 'max_tokens') {
+          jawaban += '\n\n*(Jawaban terpotong karena terlalu panjang — persempit pertanyaannya, mis. per kelas, atau pakai tombol Unduh Excel.)*'
+        }
+        if (!jawaban) {
+          await kembalikanKuota()
+          return balas({ galat: 'Maaf, AI belum bisa menjawab pertanyaan itu. Coba tanyakan dengan kalimat lain.' })
+        }
+        return balas({ jawaban, data: dataTool, kuota: konteks.kuota })
       }
 
       messages.push({ role: 'assistant', content: blok })
@@ -233,13 +284,19 @@ Deno.serve(async (req) => {
           hasilTool.push({ type: 'tool_result', tool_use_id: b.id, content: error.message, is_error: true })
         } else {
           dataTool.push({ alat: b.name as string, hasil: data })
-          hasilTool.push({ type: 'tool_result', tool_use_id: b.id, content: JSON.stringify(data) })
+          hasilTool.push({ type: 'tool_result', tool_use_id: b.id, content: JSON.stringify(ringkasUntukAI(data)) })
         }
       }
       messages.push({ role: 'user', content: hasilTool })
     }
 
+    await kembalikanKuota()
     return balas({ galat: 'Pertanyaannya terlalu rumit untuk dijawab sekaligus. Coba pecah jadi pertanyaan yang lebih sederhana.' })
+    } catch (e) {
+      // Layanan AI gagal (sibuk / gangguan) → kuota tidak dipotong.
+      await kembalikanKuota()
+      throw e
+    }
   } catch (e) {
     console.error(e)
     return balas({ galat: e instanceof Error ? e.message : 'Terjadi kesalahan.' })

@@ -6,7 +6,7 @@
  * dapat Profil akun & Keluar.
  */
 import { useNavigate } from 'react-router-dom'
-import { EmojiMenu, Ikon, PageHead } from '../components/ui.jsx'
+import { EmojiMenu, Ikon, KartuTema, PageHead } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import { useAuth } from '../lib/auth.jsx'
 import { AvatarStaf } from '../components/Avatar.jsx'
@@ -69,6 +69,8 @@ export default function Lainnya() {
         </span>
         <Ikon.kembali size={16} className="rotate-180 text-[#C3CDDC]" />
       </button>
+
+      <KartuTema className="mb-4 lg:max-w-md" />
 
       {!modeDemo && (
         <button

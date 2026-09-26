@@ -77,6 +77,8 @@ function bentuk({ sekolah, biaya, siswa, pembayaran, wali }) {
       tahunAjaran: tahunAjaranBerjalan(),
       kepalaSekolah: sekolah.kepala_sekolah || '',
       alamat: sekolah.alamat || '',
+      // Nomor WhatsApp sekolah/TU — tujuan tombol WhatsApp di portal orang tua.
+      waSekolah: sekolah.wa || '',
       sppNominal: sekolah.spp_nominal,
       tanggalJatuhTempo: sekolah.tanggal_jatuh_tempo,
       rekening: sekolah.rekening || [],
@@ -394,12 +396,13 @@ export async function nonaktifkanBiaya(id) {
 
 /** Dipakai baik dari form SPP/kegiatan (guru) maupun Profil Sekolah (kepala) —
  *  field yang tidak dikirim (undefined) tidak ikut diubah. */
-export async function simpanPengaturan({ id, namaSekolah, kepalaSekolah, alamat, sppNominal, tanggalJatuhTempo, rekening }) {
+export async function simpanPengaturan({ id, namaSekolah, kepalaSekolah, alamat, waSekolah, sppNominal, tanggalJatuhTempo, rekening }) {
   if (modeDemo) return true
   const patch = {}
   if (namaSekolah !== undefined) patch.nama = namaSekolah
   if (kepalaSekolah !== undefined) patch.kepala_sekolah = kepalaSekolah || null
   if (alamat !== undefined) patch.alamat = alamat || null
+  if (waSekolah !== undefined) patch.wa = waSekolah || null
   if (sppNominal !== undefined) patch.spp_nominal = sppNominal
   if (tanggalJatuhTempo !== undefined) patch.tanggal_jatuh_tempo = tanggalJatuhTempo
   if (rekening !== undefined) patch.rekening = rekening
@@ -765,11 +768,17 @@ export async function muatTtdSekolah(sekolahId) {
   if (modeDemo) return null
   const { data, error } = await supabase
     .from('sekolah_ttd')
-    .select('nama_penandatangan, jabatan, ttd, stempel')
+    .select('nama_penandatangan, jabatan, ttd, stempel, logo')
     .eq('sekolah_id', sekolahId)
     .maybeSingle()
   if (error) throw new Error(error.message)
-  return data && { nama: data.nama_penandatangan || '', jabatan: data.jabatan || 'Bendahara', ttd: data.ttd, stempel: data.stempel }
+  return data && { nama: data.nama_penandatangan || '', jabatan: data.jabatan || 'Bendahara', ttd: data.ttd, stempel: data.stempel, logo: data.logo }
+}
+
+/** Logo sekolah untuk kop kuitansi (null = hapus). Khusus kepala sekolah. */
+export async function simpanLogoSekolah(logo) {
+  if (modeDemo) return { ok: true }
+  return panggil('simpan_logo_sekolah', { p_logo: logo || null })
 }
 
 export async function simpanTtdSekolah({ nama, jabatan, ttd, stempel }) {

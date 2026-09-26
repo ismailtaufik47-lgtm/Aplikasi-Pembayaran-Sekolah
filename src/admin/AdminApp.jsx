@@ -10,7 +10,7 @@
  */
 import { useEffect, useState } from 'react'
 import { Navigate, Route, Routes, useLocation, useNavigate } from 'react-router-dom'
-import { Muat, NavItem, NavLabel, Shell, Sidebar, TabEmoji, Toast } from '../components/ui.jsx'
+import { Muat, NavItem, NavLabel, Shell, Sidebar, TabEmoji, Toast, TombolTema } from '../components/ui.jsx'
 import MasukPin from '../components/MasukPin.jsx'
 import { useAuth } from '../lib/auth.jsx'
 import { useData } from '../lib/store.jsx'
@@ -116,6 +116,7 @@ function Panel({ email, keluar }) {
               <b className="block truncate text-[13px] font-extrabold">{email}</b>
               <span className="text-[11.5px] font-semibold text-muted">Admin</span>
             </span>
+            <TombolTema />
             <button className="rounded-lg px-2 py-1.5 text-[11.5px] font-bold text-danger" onClick={keluar}>
               Keluar
             </button>

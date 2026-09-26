@@ -1,4 +1,5 @@
-import { Ikon, Tile } from '../components/ui.jsx'
+import { Ikon, KartuTema, Tile } from '../components/ui.jsx'
+import { waSekolah } from '../lib/format.js'
 import { useData } from '../lib/store.jsx'
 
 const TANYA = [
@@ -48,7 +49,23 @@ export default function Bantuan({ aktif }) {
       </div>
 
       <div className="h-4" />
-      <button className="bigbtn-wa" onClick={() => toast(`Membuka WhatsApp ${aktif.guru}`)}>Hubungi Petugas TU/Admin</button>
+      {waSekolah(pengaturan) ? (
+        <a
+          className="bigbtn-wa block text-center"
+          href={`https://wa.me/${waSekolah(pengaturan)}?text=${encodeURIComponent(
+            `Assalamu'alaikum, saya orang tua ${aktif.nama} (Kelas ${aktif.kelas}). Saya ingin bertanya tentang pembayaran.`
+          )}`}
+          target="_blank"
+          rel="noreferrer"
+        >
+          Hubungi Petugas TU/Admin
+        </a>
+      ) : (
+        <button className="bigbtn-wa opacity-60" onClick={() => toast('Nomor WhatsApp sekolah belum diisi. Silakan hubungi sekolah langsung.')}>
+          Hubungi Petugas TU/Admin
+        </button>
+      )}
+      <KartuTema className="mt-6" />
        </div>
       </div>
     </>

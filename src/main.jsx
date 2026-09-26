@@ -8,6 +8,7 @@ import Verifikasi from './Verifikasi.jsx'
 import { DataProvider } from './lib/store.jsx'
 import { AuthProvider } from './lib/auth.jsx'
 import './index.css'
+import './lib/tema.js' // pasang mode terang/gelap sedini mungkin
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

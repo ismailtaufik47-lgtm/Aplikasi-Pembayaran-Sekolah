@@ -5,7 +5,7 @@
  */
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Ikon, PageHead, Sheet } from '../components/ui.jsx'
+import { Ikon, KartuTema, PageHead, Sheet } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import { useAuth } from '../lib/auth.jsx'
 import { pinLemah } from '../lib/api.js'
@@ -148,6 +148,8 @@ export default function ProfilAkun() {
         </button>
       )}
       {modeDemo && <p className="text-center text-[12px] text-muted">Mode demo — belum tersambung ke Supabase.</p>}
+
+      <KartuTema className="mt-4 lg:max-w-lg" />
 
       <SheetAturPin
         buka={formPin}

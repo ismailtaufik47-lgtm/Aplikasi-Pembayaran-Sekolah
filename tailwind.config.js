@@ -1,22 +1,30 @@
+const v = (nama) => `rgb(var(--${nama}) / <alpha-value>)`
+
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: ['./index.html', './src/**/*.{js,jsx}'],
   theme: {
     extend: {
       fontFamily: {
         sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
       },
+      // Warna yang berubah di mode gelap diambil dari variabel CSS
+      // (lihat :root dan .dark di src/index.css). Format "r g b" supaya
+      // tetap bisa dipakai dengan transparansi, mis. bg-brand-soft/50.
       colors: {
-        canvas: '#F5F6FA',
-        ink: '#151A26',
-        muted: '#8A93A6',
-        line: '#EEF0F5',
-        brand: { DEFAULT: '#3B6EF6', soft: '#EAF0FE', deep: '#2A55CC' },
-        ok: { DEFAULT: '#22C55E', soft: '#E8F8EE', deep: '#177C40' },
-        warn: { DEFAULT: '#F5A524', soft: '#FEF4E4', deep: '#8A5A08' },
-        danger: { DEFAULT: '#EF4444', soft: '#FDECEC' },
-        grape: { DEFAULT: '#8B5CF6', soft: '#F1ECFE' },
-        rose: { DEFAULT: '#EC4899', soft: '#FDECF4' },
+        canvas: v('canvas'),
+        kartu: v('kartu'),
+        isi: v('isi'),
+        ink: v('ink'),
+        muted: v('muted'),
+        line: v('line'),
+        brand: { DEFAULT: '#3B6EF6', soft: v('brand-soft'), deep: '#2A55CC' },
+        ok: { DEFAULT: '#22C55E', soft: v('ok-soft'), deep: v('ok-deep') },
+        warn: { DEFAULT: '#F5A524', soft: v('warn-soft'), deep: v('warn-deep') },
+        danger: { DEFAULT: '#EF4444', soft: v('danger-soft') },
+        grape: { DEFAULT: '#8B5CF6', soft: v('grape-soft') },
+        rose: { DEFAULT: '#EC4899', soft: v('rose-soft') },
       },
       borderRadius: { card: '20px', pill: '999px' },
       boxShadow: {

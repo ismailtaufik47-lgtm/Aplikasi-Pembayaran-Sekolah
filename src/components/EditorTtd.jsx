@@ -81,6 +81,72 @@ export async function bersihkanFoto(file, maks = 700) {
   }
 }
 
+/**
+ * Logo: warna asli dipertahankan (TIDAK dihapus latarnya seperti TTD),
+ * hanya diperkecil ke maks 400px dan sisi transparan dipotong.
+ * PNG transparan tetap transparan; JPG tetap berlatar seperti aslinya.
+ */
+export async function siapkanLogo(file, maks = 400) {
+  if (!/^image\/(png|jpeg)$/.test(file.type)) throw new Error('Logo harus berupa gambar PNG atau JPG.')
+  const url = URL.createObjectURL(file)
+  try {
+    const img = await new Promise((ok, gagal) => {
+      const i = new Image()
+      i.onload = () => ok(i)
+      i.onerror = () => gagal(new Error('Gambar tidak bisa dibaca.'))
+      i.src = url
+    })
+    const skala = Math.min(1, maks / Math.max(img.width, img.height))
+    const c = document.createElement('canvas')
+    c.width = Math.max(1, Math.round(img.width * skala))
+    c.height = Math.max(1, Math.round(img.height * skala))
+    c.getContext('2d').drawImage(img, 0, 0, c.width, c.height)
+    if (file.type === 'image/jpeg') return c.toDataURL('image/jpeg', 0.9)
+    return (potongKosong(c, 2) || c).toDataURL('image/png')
+  } finally {
+    URL.revokeObjectURL(url)
+  }
+}
+
+/** Pengunggah logo kecil dengan pratinjau. */
+export function EditorLogo({ logo, ubah, toast }) {
+  const [proses, setProses] = useState(false)
+  const olah = async (file) => {
+    setProses(true)
+    try {
+      ubah(await siapkanLogo(file))
+    } catch (e) {
+      toast?.(e.message)
+    } finally {
+      setProses(false)
+    }
+  }
+  return (
+    <div className="flex items-center gap-4">
+      <div className="grid h-[84px] w-[84px] shrink-0 place-items-center overflow-hidden rounded-2xl border border-line bg-[repeating-conic-gradient(#F4F6FA_0%_25%,#fff_0%_50%)] bg-[length:14px_14px]">
+        {logo ? (
+          <img src={logo} alt="Logo" className="max-h-[72px] max-w-[72px] object-contain" />
+        ) : (
+          <span className="px-2 text-center text-[11px] font-semibold text-[#6B7385]">{proses ? 'Memproses…' : 'Belum ada logo'}</span>
+        )}
+      </div>
+      <div className="min-w-0">
+        <div className="flex flex-wrap gap-2">
+          <TombolUpload label={logo ? '🔄 Ganti logo' : '📷 Upload logo'} onFile={olah} />
+          {logo && (
+            <button type="button" onClick={() => ubah(null)} className="px-2 text-[13px] font-bold text-danger">
+              Hapus
+            </button>
+          )}
+        </div>
+        <p className="mt-1.5 text-[11.5px] leading-relaxed text-muted">
+          PNG berlatar transparan hasilnya paling rapi. Otomatis diperkecil, warna tidak diubah.
+        </p>
+      </div>
+    </div>
+  )
+}
+
 /* ===================== pad tanda tangan ===================== */
 
 function PadTtd({ onSelesai, onBatal }) {
@@ -149,7 +215,8 @@ function PadTtd({ onSelesai, onBatal }) {
 
   return (
     <div>
-      <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-[#CBD3E6] bg-white">
+      {/* sengaja selalu putih (juga di mode gelap): seperti kertas, supaya tinta biru tua terlihat */}
+      <div className="relative overflow-hidden rounded-2xl border-2 border-dashed border-[#CBD3E6]" style={{ background: '#fff' }}>
         <canvas
           ref={ref}
           className="block h-[180px] w-full touch-none"
@@ -161,7 +228,7 @@ function PadTtd({ onSelesai, onBatal }) {
         />
         <div className="pointer-events-none absolute inset-x-6 bottom-9 border-b border-[#DDE3F0]" />
         {!ada && (
-          <span className="pointer-events-none absolute inset-0 grid place-items-center text-[13px] font-semibold text-muted">
+          <span className="pointer-events-none absolute inset-0 grid place-items-center text-[13px] font-semibold text-[#6B7385]">
             Tanda tangan di sini dengan jari atau mouse
           </span>
         )}
@@ -190,7 +257,7 @@ function KotakGambar({ src, kosong, tinggi = 110 }) {
       style={{ height: tinggi }}
     >
       {src ? <img src={src} alt="" className="object-contain" style={{ maxHeight: tinggi - 16, maxWidth: '88%' }} /> : (
-        <span className="px-4 text-center text-[12.5px] font-semibold text-muted">{kosong}</span>
+        <span className="px-4 text-center text-[12.5px] font-semibold text-[#6B7385]">{kosong}</span>
       )}
     </div>
   )

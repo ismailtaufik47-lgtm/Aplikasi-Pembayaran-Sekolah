@@ -13,7 +13,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { BtnKecil, EmojiMenu, PageHead } from '../components/ui.jsx'
 import TeksAI from '../components/TeksAI.jsx'
-import SpandukLangganan from '../components/Spanduklangganan.jsx'
+import SpandukLangganan from '../components/SpandukLangganan.jsx'
 import { useData } from '../lib/store.jsx'
 import * as api from '../lib/api.js'
 import { BULAN, bulanBerjalan } from '../lib/format.js'
@@ -123,6 +123,9 @@ export default function TanyaAI() {
   }
 
   const baru = () => {
+    // jangan hapus percakapan saat jawaban masih diproses (jawabannya
+    // nanti masuk ke percakapan kosong yang tidak nyambung)
+    if (sibuk) return
     setPesan([])
     setTeks('')
     input.current?.focus()
@@ -173,7 +176,7 @@ export default function TanyaAI() {
                 <div className="min-w-0">
                   <b className="block text-[17px] font-extrabold lg:text-[19px]">Halo, {petugas || 'Bapak/Ibu'}!</b>
                   <p className="mt-1 text-[13.5px] leading-relaxed text-muted">
-                    Saya asisten laporan sekolah {pengaturan.namaSekolah}. Ketik pertanyaan dengan bahasa sehari-hari,
+                    Saya asisten laporan {pengaturan.namaSekolah}. Ketik pertanyaan dengan bahasa sehari-hari,
                     atau ketuk salah satu contoh di bawah.
                   </p>
                 </div>

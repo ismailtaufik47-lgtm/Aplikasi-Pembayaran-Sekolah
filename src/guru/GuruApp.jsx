@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
-import { Shell, Toast, Ikon, Muat, Sidebar, SidebarBrand, NavLabel, NavItem, TabEmoji } from '../components/ui.jsx'
+import { Shell, Toast, Ikon, Muat, Sidebar, SidebarBrand, NavLabel, NavItem, TabEmoji, TombolTema } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import { AvatarStaf } from '../components/Avatar.jsx'
 import { useAuth } from '../lib/auth.jsx'
@@ -20,9 +20,9 @@ import KodeAktivasi from './KodeAktivasi.jsx'
 import Lainnya from './Lainnya.jsx'
 import ProfilAkun from './ProfilAkun.jsx'
 import ProfilSekolah from './ProfilSekolah.jsx'
-import Langganan from './langganan.jsx'
+import Langganan from './Langganan.jsx'
 import TanyaAI from './TanyaAI.jsx'
-import SpandukLangganan from '../components/Spanduklangganan.jsx'
+import SpandukLangganan from '../components/SpandukLangganan.jsx'
 import { hitungLangganan, pesanKunci } from '../lib/langganan.js'
 
 export default function GuruApp() {
@@ -223,6 +223,7 @@ function SisiKiri({ aktif, nav, buka, terkunci, kepala, bisaUndang, bisaAI }) {
           <b className="block truncate text-[13.5px] font-extrabold">{petugas || 'Guru'}</b>
           <span className="text-[11.5px] font-semibold text-muted">{kepala ? 'Kepala sekolah' : modeDemo ? 'Mode demo' : 'Staf sekolah'}</span>
         </span>
+        <TombolTema />
         {!modeDemo && (
           <button className="rounded-lg px-2 py-1.5 text-[11.5px] font-bold text-danger" onClick={keluar}>
             Keluar

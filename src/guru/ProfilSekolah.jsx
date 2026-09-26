@@ -9,7 +9,7 @@ import { useNavigate } from 'react-router-dom'
 import { Ikon, Kosong, PageHead } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import * as api from '../lib/api.js'
-import EditorTtd from '../components/Editorttd.jsx'
+import EditorTtd, { EditorLogo } from '../components/EditorTtd.jsx'
 
 export default function ProfilSekolah() {
   const { pengaturan, ubahPengaturan, toast, pembayaran, siswa } = useData()
@@ -17,6 +17,7 @@ export default function ProfilSekolah() {
   const [nama, setNama] = useState(pengaturan.namaSekolah)
   const [kepala, setKepala] = useState(pengaturan.kepalaSekolah || '')
   const [alamat, setAlamat] = useState(pengaturan.alamat || '')
+  const [wa, setWa] = useState(pengaturan.waSekolah || '')
   const [rekening, setRekening] = useState(pengaturan.rekening || [])
   const [sibuk, setSibuk] = useState(false)
   const [stafTerkunci, setStafTerkunci] = useState([])
@@ -27,6 +28,7 @@ export default function ProfilSekolah() {
     setNama(pengaturan.namaSekolah)
     setKepala(pengaturan.kepalaSekolah || '')
     setAlamat(pengaturan.alamat || '')
+    setWa(pengaturan.waSekolah || '')
     setRekening(pengaturan.rekening || [])
   }, [pengaturan])
 
@@ -56,7 +58,7 @@ export default function ProfilSekolah() {
   const hapusRek = (i) => setRekening((lama) => lama.filter((_, idx) => idx !== i))
 
   /* ---------- tanda tangan kuitansi ---------- */
-  const [ttd, setTtd] = useState({ nama: '', jabatan: 'Bendahara', ttd: null, stempel: null })
+  const [ttd, setTtd] = useState({ nama: '', jabatan: 'Bendahara', ttd: null, stempel: null, logo: null })
   const [ttdSiap, setTtdSiap] = useState(false)
   const [simpanTtd, setSimpanTtd] = useState(false)
 
@@ -79,6 +81,19 @@ export default function ProfilSekolah() {
     }
   }
 
+  /** Logo langsung disimpan begitu dipilih / dihapus. */
+  const gantiLogo = async (logo) => {
+    const lama = ttd.logo
+    setTtd((t) => ({ ...t, logo }))
+    try {
+      await api.simpanLogoSekolah(logo)
+      toast(logo ? 'Logo sekolah disimpan' : 'Logo sekolah dihapus')
+    } catch (e) {
+      setTtd((t) => ({ ...t, logo: lama }))
+      toast('Gagal menyimpan logo: ' + e.message)
+    }
+  }
+
   /** Contoh kuitansi dengan data transaksi terakhir (atau data contoh). */
   const contohKuitansi = async () => {
     const p = pembayaran[0]
@@ -89,7 +104,7 @@ export default function ProfilSekolah() {
       jenis: 'spp', keterangan: p?.ket || 'SPP Juli', nominal: p?.nominal || pengaturan.sppNominal,
       metode: p?.metode || 'Tunai', petugas: p?.petugas || '-', target: 1, terbayarSampaiIni: 1,
       siswa: { nama: s?.nama || 'Nama Siswa', kelas: s?.kelas || 'A', nis: s?.nis || '', wali: s?.wali || '' },
-      sekolah: { nama: nama || pengaturan.namaSekolah, alamat, kepalaSekolah: kepala },
+      sekolah: { nama: nama || pengaturan.namaSekolah, alamat, kepalaSekolah: kepala, logo: ttd.logo },
       ttd: {
         nama: ttd.nama || kepala,
         jabatan: ttd.nama ? ttd.jabatan || 'Bendahara' : 'Kepala Sekolah',
@@ -108,6 +123,7 @@ export default function ProfilSekolah() {
         namaSekolah: nama.trim(),
         kepalaSekolah: kepala.trim(),
         alamat: alamat.trim(),
+        waSekolah: wa.replace(/[^0-9+]/g, ''),
         rekening: rekening.filter((r) => r.bank.trim() || r.nomor.trim()),
       })
       toast('Profil sekolah disimpan')
@@ -144,6 +160,17 @@ export default function ProfilSekolah() {
           placeholder="contoh: Jl. Melati No. 12, Kel. Sukajadi, Kec. Sukasari, Kota Bandung"
           rows={3}
         />
+        <label className="mb-1.5 mt-3.5 block text-[13px] font-bold">No. WhatsApp sekolah / TU</label>
+        <input
+          className="field-input"
+          inputMode="tel"
+          value={wa}
+          onChange={(e) => setWa(e.target.value)}
+          placeholder="contoh: 0812 3456 7890"
+        />
+        <p className="mt-1.5 text-xs leading-relaxed text-muted">
+          Tujuan tombol WhatsApp di portal orang tua (konfirmasi pembayaran & pertanyaan).
+        </p>
         <p className="mt-2.5 text-xs leading-relaxed text-muted">
           Tahun ajaran tidak perlu diisi — aplikasi otomatis memakai tahun ajaran berjalan
           (sekarang <b className="text-ink">{pengaturan.tahunAjaran}</b>) dan berganti sendiri tiap Juli.
@@ -232,12 +259,21 @@ export default function ProfilSekolah() {
 
       {/* ---------- tanda tangan kuitansi ---------- */}
       <div className="seghead mt-8 lg:max-w-2xl">
-        <h2>Tanda tangan kuitansi</h2>
+        <h2>Logo &amp; tanda tangan kuitansi</h2>
       </div>
       <p className="-mt-1 mb-3 text-[12.5px] leading-relaxed text-muted lg:max-w-2xl">
         Dicetak di kuitansi pembayaran yang bisa diunduh orang tua dari portal. Kalau nama penanda tangan
         dikosongkan, kuitansi memakai nama kepala sekolah.
       </p>
+      <div className="card mb-3 lg:max-w-2xl">
+        <div className="mb-2 text-[13px] font-bold">Logo sekolah</div>
+        {ttdSiap ? (
+          <EditorLogo logo={ttd.logo} ubah={gantiLogo} toast={toast} />
+        ) : (
+          <p className="py-4 text-[13px] text-muted">Memuat…</p>
+        )}
+        <p className="mt-2 text-[11.5px] font-semibold text-muted">Dicetak di kop kuitansi, di sebelah kiri nama sekolah. Langsung tersimpan.</p>
+      </div>
       <div className="card mb-3 lg:max-w-2xl">
         <div className="mb-4 grid gap-3 sm:grid-cols-2">
           <div>

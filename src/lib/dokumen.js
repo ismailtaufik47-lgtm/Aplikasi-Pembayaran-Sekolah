@@ -99,18 +99,25 @@ async function kuitansiPdf(k) {
   doc.setLineWidth(0.3)
   doc.roundedRect(6, 6, L - 12, 148 - 12, 3, 3, 'S')
 
-  // ---------- kop ----------
-  doc.setFillColor(...W.brand)
-  doc.rect(M, 12, 2.2, 15, 'F')
+  // ---------- kop: logo (kalau ada) atau garis biru, lalu nama & alamat ----------
+  let tx = M + 5
+  if (k.penerbit.logo) {
+    gambarMuat(doc, k.penerbit.logo, M, 10.5, 17, 17)
+    tx = M + 20
+  } else {
+    doc.setFillColor(...W.brand)
+    doc.rect(M, 12, 2.2, 15, 'F')
+  }
+  const lebarKop = 128 - (tx - M)
   doc.setTextColor(...W.teks)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(14)
-  doc.text(doc.splitTextToSize(k.penerbit.nama || '-', 118)[0], M + 5, 17.5)
+  doc.text(doc.splitTextToSize(k.penerbit.nama || '-', lebarKop)[0], tx, 17.5)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(8)
   doc.setTextColor(...W.abu)
   const kop = [k.penerbit.alamat, k.penerbit.kontak].filter(Boolean).join(' · ')
-  doc.text(doc.splitTextToSize(kop || ' ', 118).slice(0, 2), M + 5, 22)
+  doc.text(doc.splitTextToSize(kop || ' ', lebarKop).slice(0, 2), tx, 22)
 
   doc.setTextColor(...W.brand)
   doc.setFont('helvetica', 'bold')
@@ -231,7 +238,7 @@ export function isiKuitansiBayar(d) {
   const sisa = Math.max(0, (d.target || 0) - (d.terbayarSampaiIni || 0))
   const lunas = sisa === 0
   return {
-    penerbit: { nama: d.sekolah.nama, alamat: d.sekolah.alamat },
+    penerbit: { nama: d.sekolah.nama, alamat: d.sekolah.alamat, logo: d.sekolah.logo },
     nomor: d.nomor,
     tanggal: d.dibayarPada,
     baris: [
@@ -272,7 +279,7 @@ const kontakPenerbit = (p) =>
 export async function buatKuitansiSewa(d) {
   const p = d.penerbit || {}
   return kuitansiPdf({
-    penerbit: { nama: p.namaUsaha || NAMA_APLIKASI, alamat: p.alamat, kontak: kontakPenerbit(p) },
+    penerbit: { nama: p.namaUsaha || NAMA_APLIKASI, alamat: p.alamat, kontak: kontakPenerbit(p), logo: p.logo },
     nomor: d.nomor,
     tanggal: d.dibuatPada,
     baris: [
@@ -313,16 +320,21 @@ export function buatInvoiceSewa(d) {
   doc.setFillColor(...W.brand)
   doc.rect(0, 0, L, 5, 'F')
 
-  // penerbit
+  // penerbit (logo di kiri kalau ada)
+  let px = M
+  if (p.logo) {
+    gambarMuat(doc, p.logo, M, 13, 20, 20)
+    px = M + 24
+  }
   doc.setTextColor(...W.teks)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(16)
-  doc.text(p.namaUsaha || NAMA_APLIKASI, M, 22)
+  doc.text(p.namaUsaha || NAMA_APLIKASI, px, 22)
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(9)
   doc.setTextColor(...W.abu)
   const kontak = [p.alamat, kontakPenerbit(p)].filter(Boolean)
-  doc.text(doc.splitTextToSize(kontak.join('\n') || ' ', 100), M, 28)
+  doc.text(doc.splitTextToSize(kontak.join('\n') || ' ', 100 - (px - M)), px, 28)
 
   // judul
   doc.setTextColor(...W.brand)

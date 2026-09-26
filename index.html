@@ -9,6 +9,21 @@
          padahal kodenya tetap biru. Baris ini memberi tahu browser: halaman
          ini memang dirancang untuk mode terang, jangan diubah. -->
     <meta name="color-scheme" content="light" />
+    <!-- Pasang mode gelap SEBELUM aplikasi dimuat supaya tidak berkedip putih.
+         Logikanya sama dengan src/lib/tema.js (kunci localStorage 'tema'). -->
+    <script>
+      (function () {
+        try {
+          var t = localStorage.getItem('tema') || 'terang'
+          var gelap = t === 'gelap' || (t === 'otomatis' && window.matchMedia('(prefers-color-scheme: dark)').matches)
+          if (gelap) {
+            document.documentElement.classList.add('dark')
+            document.querySelector('meta[name="color-scheme"]').setAttribute('content', 'dark')
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0F131B')
+          }
+        } catch (e) {}
+      })()
+    </script>
     <title>Pembayaran TK — SPP & Biaya Kegiatan</title>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

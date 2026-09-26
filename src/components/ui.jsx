@@ -1,5 +1,6 @@
 /** Komponen tampilan yang dipakai bersama panel guru dan portal orang tua. */
 import { useEffect, useRef } from 'react'
+import { useTema } from '../lib/tema.js'
 
 /**
  * Kerangka aplikasi.
@@ -79,8 +80,8 @@ export const EmojiMenu = ({ id, size = 34, latar = true, className = '' }) => {
   return (
     <span
       aria-hidden="true"
-      className={`grid shrink-0 place-items-center rounded-[11px] transition ${className}`}
-      style={{ width: size, height: size, background: latar ? m.bg : 'transparent', fontSize: Math.round(size * 0.52), ...FONT_EMOJI }}
+      className={`kotak-emoji grid shrink-0 place-items-center rounded-[11px] transition ${className}`}
+      style={{ width: size, height: size, '--latar-emoji': latar ? m.bg : 'transparent', fontSize: Math.round(size * 0.52), ...FONT_EMOJI }}
     >
       {m.e}
     </span>
@@ -112,8 +113,8 @@ export const TabEmoji = ({ id, label, aktif, onClick, redup }) => (
     className="flex flex-1 flex-col items-center justify-center gap-[3px] py-1"
   >
     <span
-      className={`grid h-8 w-[46px] place-items-center rounded-full transition ${aktif ? 'scale-105' : ''} ${redup ? 'opacity-45 grayscale' : ''}`}
-      style={{ background: aktif ? EMOJI_MENU[id]?.bg : 'transparent' }}
+      className={`kotak-emoji grid h-8 w-[46px] place-items-center rounded-full transition ${aktif ? 'scale-105' : ''} ${redup ? 'opacity-45 grayscale' : ''}`}
+      style={{ '--latar-emoji': aktif ? EMOJI_MENU[id]?.bg : 'transparent' }}
     >
       <span style={{ fontSize: aktif ? 20 : 19, ...FONT_EMOJI }} aria-hidden="true">{EMOJI_MENU[id]?.e}</span>
     </span>
@@ -327,4 +328,58 @@ export const Ikon = {
   menu: P(<path d="M4 7h16M4 12h16M4 17h16" />),
   orang: P(<><circle cx="12" cy="8" r="3.4" /><path d="M5 20c1-3.6 3.8-5.2 7-5.2s6 1.6 7 5.2" /></>),
   titikTiga: P(<><circle cx="12" cy="5" r="1.3" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="12" cy="19" r="1.3" fill="currentColor" stroke="none" /></>),
+}
+/* ---------- mode terang / gelap ---------- */
+
+/** Pilihan tema lengkap: Terang · Gelap · Otomatis (ikut HP/laptop). */
+export function PilihTema({ className = '' }) {
+  const { pilihan, setTema } = useTema()
+  const opsi = [
+    { id: 'terang', e: '☀️', label: 'Terang' },
+    { id: 'gelap', e: '🌙', label: 'Gelap' },
+    { id: 'otomatis', e: '📱', label: 'Otomatis' },
+  ]
+  return (
+    <div role="radiogroup" aria-label="Mode tampilan" className={`flex rounded-[14px] bg-isi p-1 ${className}`}>
+      {opsi.map((o) => (
+        <button
+          key={o.id}
+          role="radio"
+          aria-checked={pilihan === o.id}
+          onClick={() => setTema(o.id)}
+          className={`flex flex-1 items-center justify-center gap-1.5 rounded-[11px] py-2 text-[13px] font-bold transition ${
+            pilihan === o.id ? 'bg-kartu text-ink shadow-[0_1px_4px_rgba(0,0,0,.12)]' : 'text-muted'
+          }`}
+        >
+          <span style={FONT_EMOJI} aria-hidden="true">{o.e}</span>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Kartu "Tampilan" siap pakai untuk halaman pengaturan/menu. */
+export const KartuTema = ({ className = '' }) => (
+  <div className={`card ${className}`}>
+    <div className="mb-1 text-[14px] font-extrabold">Tampilan</div>
+    <p className="mb-3 text-[12.5px] text-muted">Mode gelap lebih nyaman di malam hari. Pilihan ini hanya berlaku di perangkat ini.</p>
+    <PilihTema />
+  </div>
+)
+
+/** Tombol ikon kecil: ganti cepat terang ↔ gelap. */
+export function TombolTema({ className = '' }) {
+  const { aktif, alihTema } = useTema()
+  const gelap = aktif === 'gelap'
+  return (
+    <button
+      onClick={alihTema}
+      title={gelap ? 'Ganti ke mode terang' : 'Ganti ke mode gelap'}
+      aria-label={gelap ? 'Ganti ke mode terang' : 'Ganti ke mode gelap'}
+      className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl border border-line bg-kartu text-[16px] transition hover:border-brand ${className}`}
+    >
+      <span style={FONT_EMOJI} aria-hidden="true">{gelap ? '☀️' : '🌙'}</span>
+    </button>
+  )
 }

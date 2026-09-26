@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom'
-import { Shell, Toast, Muat } from '../components/ui.jsx'
-import { bulanBerjalan, kegiatanBelum, rp, sppPerluSekarang } from '../lib/format.js'
+import { Shell, Toast, Muat, TombolTema } from '../components/ui.jsx'
+import { bulanBerjalan, kegiatanBelum, rp, sppPerluSekarang, waSekolah } from '../lib/format.js'
 import { useData } from '../lib/store.jsx'
 import Beranda from './Beranda.jsx'
 import Tagihan from './Tagihan.jsx'
@@ -95,11 +95,14 @@ function NavAtas({ aktif, nav, akar, wali }) {
         {item('riwayat', 'Riwayat', akar + '/riwayat')}
         {item('bantuan', 'Bantuan', akar + '/bantuan')}
       </nav>
-      <div className="ml-auto text-right leading-tight">
-        <b className="block text-[13.5px] font-extrabold">{wali?.nama}</b>
-        <span className="text-[11.5px] font-semibold text-muted">
-          Wali dari {wali?.anak?.length || 0} siswa
-        </span>
+      <div className="ml-auto flex items-center gap-3">
+        <div className="text-right leading-tight">
+          <b className="block text-[13.5px] font-extrabold">{wali?.nama}</b>
+          <span className="text-[11.5px] font-semibold text-muted">
+            Wali dari {wali?.anak?.length || 0} siswa
+          </span>
+        </div>
+        <TombolTema />
       </div>
     </header>
   )
@@ -111,11 +114,13 @@ function NavAtas({ aktif, nav, akar, wali }) {
  */
 function TombolWa({ anak }) {
   const { pengaturan, biaya } = useData()
-  if (!anak) return null
-  const nomor = (anak.hp || '').replace(/[^0-9]/g, '').replace(/^0/, '62')
+  // Tujuannya nomor WhatsApp SEKOLAH (Profil sekolah), bukan anak.hp —
+  // anak.hp adalah nomor HP orang tua itu sendiri.
+  const nomor = waSekolah(pengaturan)
+  if (!anak || !nomor) return null
   const perluSekarang = sppPerluSekarang(anak, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, bulanBerjalan()) + kegiatanBelum(anak, biaya)
   const teks = encodeURIComponent(
-    `Assalamu'alaikum ${anak.guru}, saya orang tua ${anak.nama} (Kelas ${anak.kelas}). ` +
+    `Assalamu'alaikum${anak.guru ? ' ' + anak.guru : ''}, saya orang tua ${anak.nama} (Kelas ${anak.kelas}). ` +
       `Saya ingin konfirmasi pembayaran. Tagihan aktif yang tercatat di portal ` +
       `${rp(perluSekarang)}.`
   )
@@ -124,14 +129,14 @@ function TombolWa({ anak }) {
       href={`https://wa.me/${nomor}?text=${teks}`}
       target="_blank"
       rel="noreferrer"
-      aria-label="Hubungi guru kelas lewat WhatsApp"
+      aria-label="Hubungi sekolah lewat WhatsApp"
       className="absolute bottom-[88px] right-4 z-40 flex items-center gap-2.5 rounded-pill bg-ok p-3.5 font-extrabold text-white shadow-[0_10px_24px_rgba(37,211,102,.42)] active:scale-95 lg:bottom-7 lg:right-7 lg:px-5"
     >
       <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
         <path d="M17.5 14.4c-.3-.2-1.7-.9-2-1-.3-.1-.5-.2-.7.1-.2.3-.7 1-.9 1.2-.2.2-.3.2-.6.1-.3-.2-1.3-.5-2.4-1.5-.9-.8-1.5-1.8-1.7-2.1-.2-.3 0-.5.1-.6.1-.1.3-.4.4-.6.1-.2.2-.3.3-.5.1-.2 0-.4 0-.6 0-.2-.7-1.6-.9-2.2-.2-.6-.5-.5-.7-.5h-.6c-.2 0-.5.1-.8.4-.3.3-1 1-1 2.5s1.1 2.9 1.2 3.1c.2.2 2.1 3.2 5.1 4.5.7.3 1.3.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.7-.7 2-1.4.2-.7.2-1.3.2-1.4-.1-.1-.3-.2-.6-.3z" />
         <path d="M12 2a10 10 0 0 0-8.6 15L2 22l5.2-1.4A10 10 0 1 0 12 2zm0 18.2c-1.6 0-3.1-.4-4.4-1.2l-.3-.2-3.1.8.8-3-.2-.3A8.2 8.2 0 1 1 12 20.2z" />
       </svg>
-      <span className="hidden text-[13.5px] lg:block">Chat {anak.guru || 'guru kelas'}</span>
+      <span className="hidden text-[13.5px] lg:block">Chat sekolah</span>
     </a>
   )
 }

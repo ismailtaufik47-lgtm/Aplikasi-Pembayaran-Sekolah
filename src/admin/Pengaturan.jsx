@@ -7,14 +7,14 @@
  * tidak perlu lagi mengedit REKENING_BANK / WA_PENGEMBANG di kode.
  */
 import { useEffect, useState } from 'react'
-import { Kosong, Muat, PageHead } from '../components/ui.jsx'
-import EditorTtd from '../components/Editorttd.jsx'
+import { KartuTema, Kosong, Muat, PageHead } from '../components/ui.jsx'
+import EditorTtd, { EditorLogo } from '../components/EditorTtd.jsx'
 import { useData } from '../lib/store.jsx'
 import * as api from './apiAdmin.js'
 
 const KOSONG = {
   namaUsaha: '', alamat: '', wa: '', email: '', rekening: [],
-  namaPenandatangan: '', jabatan: 'Pemilik', ttd: null, stempel: null,
+  namaPenandatangan: '', jabatan: 'Pemilik', ttd: null, stempel: null, logo: null,
 }
 
 const Isian = ({ label, children, catatan }) => (
@@ -80,6 +80,9 @@ export default function Pengaturan() {
       <div className="mt-2 grid gap-4 lg:mt-4 lg:grid-cols-2 lg:items-start">
         <div className="card">
           <div className="mb-3 text-[14px] font-extrabold">Identitas usaha</div>
+          <Isian label="Logo (opsional)">
+            <EditorLogo logo={f.logo} ubah={(logo) => ubah({ logo })} toast={toast} />
+          </Isian>
           <Isian label="Nama usaha / penerbit">
             <input className="field-input" value={f.namaUsaha} onChange={(e) => ubah({ namaUsaha: e.target.value })} placeholder="contoh: Kipo Digital" />
           </Isian>
@@ -137,6 +140,7 @@ export default function Pengaturan() {
           {sibuk ? 'Menyimpan…' : 'Simpan pengaturan'}
         </button>
       </div>
+      <KartuTema className="mt-6 lg:max-w-xl" />
     </>
   )
 }
