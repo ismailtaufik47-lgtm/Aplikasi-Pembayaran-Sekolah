@@ -13,7 +13,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { BtnKecil, EmojiMenu, PageHead } from '../components/ui.jsx'
 import TeksAI from '../components/TeksAI.jsx'
-import SpandukLangganan from '../components/SpandukLangganan.jsx'
+import SpandukLangganan from '../components/Spanduklangganan.jsx'
 import { useData } from '../lib/store.jsx'
 import * as api from '../lib/api.js'
 import { BULAN, bulanBerjalan } from '../lib/format.js'
@@ -97,7 +97,7 @@ export default function TanyaAI() {
     setSibuk(true)
     try {
       const h = modeDemo
-        ? await (await import('../lib/tanyaDemo.js')).jawabDemo(q, { siswa, biaya, pembayaran, pengaturan })
+        ? await (await import('../lib/TanyaDemo.js')).jawabDemo(q, { siswa, biaya, pembayaran, pengaturan })
         : await api.tanyaAI(q, riwayat)
       setPesan((p) => [...p, { id: Date.now() + 1, peran: 'assistant', teks: h.jawaban, data: h.data || [] }])
       if (h.kuota) setKuota(h.kuota)
