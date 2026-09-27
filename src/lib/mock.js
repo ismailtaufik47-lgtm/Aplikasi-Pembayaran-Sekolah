@@ -19,14 +19,39 @@ export const sekolah = {
   ],
 }
 
+// Tanggal kegiatan demo dihitung dari hari ini, supaya selalu ada
+// kegiatan yang "sebentar lagi" dan yang "sudah lewat".
+const tglDepan = (n) => {
+  const d = new Date(Date.now() + n * 864e5)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
 export const biaya = [
   { id: 'b1', sekolah_id: idSekolah, nama: 'PMB', nominal: 350000, urutan: 1 },
   { id: 'b2', sekolah_id: idSekolah, nama: 'Dana usaha', nominal: 100000, urutan: 2 },
-  { id: 'b3', sekolah_id: idSekolah, nama: 'Manasik haji', nominal: 150000, urutan: 3 },
-  { id: 'b4', sekolah_id: idSekolah, nama: 'Outing class', nominal: 200000, urutan: 4 },
+  {
+    id: 'b3', sekolah_id: idSekolah, nama: 'Manasik haji', nominal: 150000, urutan: 3,
+    tanggal: tglDepan(5), waktu: '07.30 – 11.00 WIB', lokasi: 'Lapangan Pusdai Jawa Barat, Bandung',
+    deskripsi: 'Kegiatan manasik haji cilik untuk mengenalkan rukun Islam kelima kepada ananda. Anak-anak akan praktik thawaf mengelilingi miniatur Ka\'bah, sa\'i, dan melempar jumrah bersama guru kelas.\n\nOrang tua dipersilakan mengantar dan menunggu di area yang disediakan panitia.',
+    perlengkapan: 'Pakaian ihram putih (laki-laki) / gamis & kerudung putih (perempuan)\nSandal\nBotol minum\nBekal snack',
+  },
+  {
+    id: 'b4', sekolah_id: idSekolah, nama: 'Outing class', nominal: 200000, urutan: 4,
+    tanggal: tglDepan(-20), waktu: '07.00 – 13.00 WIB', lokasi: 'Kampung Gajah, Lembang',
+    deskripsi: 'Belajar di luar kelas mengenal hewan dan tanaman. Biaya sudah termasuk bus, tiket masuk, dan makan siang.',
+  },
   { id: 'b5', sekolah_id: idSekolah, nama: 'Pas foto', nominal: 20000, urutan: 5 },
-  { id: 'b6', sekolah_id: idSekolah, nama: 'Pentas seni', nominal: 185000, urutan: 6 },
-  { id: 'b7', sekolah_id: idSekolah, nama: 'Aksera / porseni', nominal: 75000, urutan: 7 },
+  {
+    id: 'b6', sekolah_id: idSekolah, nama: 'Pentas seni', nominal: 185000, urutan: 6,
+    tanggal: tglDepan(70), waktu: '08.00 WIB – selesai', lokasi: 'Gedung Serbaguna Tunas Ceria',
+    deskripsi: 'Pentas seni akhir semester: tari daerah, drama, dan paduan suara. Biaya untuk kostum, tata panggung, dan dokumentasi.',
+  },
+  {
+    id: 'b7', sekolah_id: idSekolah, nama: 'Aksera / porseni', nominal: 75000, urutan: 7,
+    tanggal: tglDepan(24), tanggal_selesai: tglDepan(25), waktu: '07.30 – 12.00 WIB', lokasi: 'GOR Pajajaran, Bandung',
+    deskripsi: 'Pekan olahraga dan seni antar-TK se-Kota Bandung. Ananda akan ikut lomba estafet bola, mewarnai, dan hafalan surat pendek.',
+    perlengkapan: 'Kaos olahraga sekolah\nTopi\nBotol minum',
+  },
   { id: 'b8', sekolah_id: idSekolah, nama: 'Peduli ramadhan', nominal: 50000, urutan: 8 },
 ]
 

@@ -240,8 +240,17 @@ export function Sheet({ buka, tutup, judul, lead, children }) {
         aria-modal="true"
         className="noscroll max-h-[90%] w-full animate-up overflow-y-auto rounded-t-[26px] bg-canvas px-[18px] pb-6 pt-2 lg:max-h-[86vh] lg:max-w-[460px] lg:animate-fade lg:rounded-[24px] lg:px-6 lg:pt-4"
       >
+        <div className="sticky top-0 z-10 -mb-2 flex h-0 justify-end">
+          <button
+            onClick={tutup}
+            aria-label="Tutup"
+            className="-mr-1 mt-1 grid h-9 w-9 place-items-center rounded-full text-muted hover:text-ink active:scale-95 lg:-mr-2"
+          >
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+          </button>
+        </div>
         <div className="mx-auto mb-3.5 mt-1.5 h-[5px] w-11 rounded-[9px] bg-[#D8DCE6] lg:hidden" />
-        {judul && <h3 className="mb-1 text-[18px] font-extrabold">{judul}</h3>}
+        {judul && <h3 className="mb-1 pr-10 text-[18px] font-extrabold">{judul}</h3>}
         {lead && <p className="mb-4 text-[13.5px] text-muted">{lead}</p>}
         {children}
       </div>

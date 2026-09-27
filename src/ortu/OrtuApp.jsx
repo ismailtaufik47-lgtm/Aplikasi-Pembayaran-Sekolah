@@ -1,20 +1,22 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Routes, Route, useNavigate, useLocation, useParams } from 'react-router-dom'
 import { Shell, Toast, Muat, TombolTema } from '../components/ui.jsx'
+import { FONT_EMOJI } from '../lib/emojiKegiatan.js'
 import { bulanBerjalan, kegiatanBelum, rp, sppPerluSekarang, waSekolah } from '../lib/format.js'
 import { useData } from '../lib/store.jsx'
-import Beranda from './Beranda.jsx'
+import Beranda, { LogoSekolah } from './Beranda.jsx'
 import Tagihan from './Tagihan.jsx'
 import Riwayat from './Riwayat.jsx'
 import Bantuan from './Bantuan.jsx'
-import { SheetStruk, SheetCaraBayar, SheetPengumuman } from './sheets.jsx'
+import Kegiatan from './Kegiatan.jsx'
+import { SheetStruk, SheetCaraBayar, SheetPengumuman, SheetKegiatan, TombolLonceng } from './sheets.jsx'
 
 /**
  * Portal orang tua — hanya melihat, tidak bisa mengubah data.
  * Di produksi, anak yang tampil ditentukan token pada URL (/ortu/:token).
  */
 export default function OrtuApp() {
-  const { siap, galat, pesan, siswa, wali, muat, segarkan } = useData()
+  const { siap, galat, pesan, siswa, wali, pengaturan, muat, segarkan } = useData()
   const { token } = useParams()
   const nav = useNavigate()
   const { pathname } = useLocation()
@@ -22,10 +24,17 @@ export default function OrtuApp() {
   const [struk, setStruk] = useState(null)
   const [caraBayar, setCaraBayar] = useState(false)
   const [pengumuman, setPengumuman] = useState(false)
+  const [kegiatan, setKegiatan] = useState(null) // id biaya kegiatan yang infonya sedang dibuka
 
   useEffect(() => {
     muat({ mode: 'ortu', token })
   }, [token, muat])
+
+  // Pindah halaman (mis. tombol "Lihat rincian") → selalu mulai dari paling atas.
+  const gulir = useRef(null)
+  useEffect(() => {
+    if (gulir.current) gulir.current.scrollTop = 0
+  }, [pathname])
 
   if (galat) return <Muat aksi={segarkan}>{galat}</Muat>
   if (!siap) return <Muat>Memuat data tagihan…</Muat>
@@ -35,74 +44,93 @@ export default function OrtuApp() {
   if (!aktif) return <Muat>Tautan ini belum terhubung ke data siswa mana pun. Hubungi pihak sekolah.</Muat>
   const tab = pathname.includes('/tagihan') ? 'tagihan'
     : pathname.includes('/riwayat') ? 'riwayat'
+    : pathname.includes('/kegiatan') ? 'kegiatan'
     : pathname.includes('/bantuan') ? 'bantuan' : 'beranda'
 
   const akar = token ? `/ortu/${token}` : '/ortu'
-  const layar = { akar, anak, aktif, pilihAnak: setAnakId, bukaStruk: setStruk, bukaCaraBayar: () => setCaraBayar(true), bukaPengumuman: () => setPengumuman(true) }
+  const layar = {
+    akar, anak, aktif, pilihAnak: setAnakId, bukaStruk: setStruk, bukaCaraBayar: () => setCaraBayar(true),
+    bukaPengumuman: () => setPengumuman(true), bukaKegiatan: setKegiatan,
+  }
 
   return (
     // .teks-jelas: semua teks abu-abu (text-muted) dibuat hitam supaya
     // lebih jelas dibaca — lihat src/index.css.
     <div className="teks-jelas">
     <Shell
-      topbar={<NavAtas aktif={tab} nav={nav} akar={akar} wali={wali} />}
+      topbar={<NavAtas aktif={tab} nav={nav} akar={akar} wali={wali} anak={aktif} pengaturan={pengaturan} bukaPengumuman={() => setPengumuman(true)} />}
       tabbar={<TabBar aktif={tab} nav={nav} akar={akar} />}
       fab={<TombolWa anak={aktif} />}
     >
-      <div className="noscroll flex-1 overflow-y-auto overscroll-contain px-[18px] pb-8 lg:px-8 lg:pb-12">
+      <div ref={gulir} className="noscroll flex-1 overflow-y-auto overscroll-contain px-[18px] pb-6 lg:px-8 lg:pb-12">
        <div className="mx-auto w-full lg:max-w-[1120px] 2xl:max-w-[1240px]">
         <Routes>
           <Route index element={<Beranda {...layar} />} />
           <Route path="tagihan" element={<Tagihan {...layar} />} />
           <Route path="riwayat" element={<Riwayat {...layar} />} />
+          <Route path="kegiatan" element={<Kegiatan {...layar} />} />
           <Route path="bantuan" element={<Bantuan {...layar} />} />
         </Routes>
        </div>
       </div>
       <SheetStruk id={struk} tutup={() => setStruk(null)} />
       <SheetCaraBayar buka={caraBayar} tutup={() => setCaraBayar(false)} anak={aktif} />
-      <SheetPengumuman buka={pengumuman} tutup={() => setPengumuman(false)} anak={aktif} />
+      <SheetPengumuman buka={pengumuman} tutup={() => setPengumuman(false)} anak={aktif} bukaKegiatan={setKegiatan} />
+      <SheetKegiatan id={kegiatan} tutup={() => setKegiatan(null)} anak={aktif} bukaCaraBayar={() => setCaraBayar(true)} />
       <Toast pesan={pesan} />
     </Shell>
     </div>
   )
 }
 
+/**
+ * Menu portal orang tua — dipakai tab bawah (HP) dan navigasi atas (laptop).
+ * Tiap menu punya emoji & warnanya sendiri supaya mudah dikenali.
+ */
+const MENU = [
+  { id: 'beranda', label: 'Beranda', e: '🏡', ke: '', latar: 'menu-biru', teks: 'text-brand', garis: 'bg-brand' },
+  { id: 'tagihan', label: 'Tagihan', e: '🧾', ke: '/tagihan', latar: 'menu-oranye', teks: 'text-warn-deep', garis: 'bg-warn' },
+  { id: 'riwayat', label: 'Riwayat', e: '✅', ke: '/riwayat', latar: 'menu-hijau', teks: 'text-ok-deep', garis: 'bg-ok' },
+  { id: 'kegiatan', label: 'Kegiatan', e: '🎈', ke: '/kegiatan', latar: 'menu-ungu', teks: 'text-grape', garis: 'bg-grape' },
+  { id: 'bantuan', label: 'Bantuan', e: '💬', ke: '/bantuan', latar: 'menu-pink', teks: 'text-rose', garis: 'bg-rose' },
+]
+
 /** Navigasi atas untuk layar lebar; di HP diganti tab bawah. */
-function NavAtas({ aktif, nav, akar, wali }) {
-  const item = (id, label, ke) => (
-    <button
-      onClick={() => nav(ke)}
-      className={`border-b-[3px] px-3.5 py-5 text-sm font-bold transition ${
-        aktif === id ? 'border-brand text-brand' : 'border-transparent text-muted hover:text-ink'
-      }`}
-    >
-      {label}
-    </button>
-  )
+function NavAtas({ aktif, nav, akar, wali, anak, pengaturan, bukaPengumuman }) {
   return (
     <header className="hidden shrink-0 items-center gap-5 border-b border-line bg-white px-8 lg:flex">
-      <div className="flex items-center gap-3 py-3.5">
-        <span className="grid h-[38px] w-[38px] place-items-center rounded-full bg-brand-soft text-lg">🏫</span>
-        <span>
-          <b className="block text-[14.5px] font-extrabold leading-tight">Portal orang tua</b>
-          <span className="text-[11.5px] font-semibold text-muted">Pembayaran SPP & kegiatan</span>
+      <div className="flex min-w-0 shrink items-center gap-3 py-3">
+        <LogoSekolah logo={pengaturan?.logo} ukuran={42} />
+        <span className="min-w-0 max-w-[230px]">
+          <b className="line-clamp-2 text-[15px] font-extrabold leading-tight">{pengaturan?.namaSekolah}</b>
+          <span className="text-[11.5px] font-semibold text-muted">Portal Orang Tua</span>
         </span>
       </div>
-      <nav className="ml-3 flex">
-        {item('beranda', 'Beranda', akar)}
-        {item('tagihan', 'Tagihan', akar + '/tagihan')}
-        {item('riwayat', 'Riwayat', akar + '/riwayat')}
-        {item('bantuan', 'Bantuan', akar + '/bantuan')}
+      <nav className="flex shrink-0 xl:ml-3 xl:gap-1">
+        {MENU.map((m) => {
+          const on = aktif === m.id
+          return (
+            <button
+              key={m.id}
+              onClick={() => nav(akar + m.ke)}
+              className={`relative flex items-center gap-1.5 px-2 py-5 text-sm font-bold transition xl:gap-2 xl:px-3 ${on ? m.teks : 'text-muted hover:text-ink'}`}
+            >
+              <span className={`grid h-8 w-8 place-items-center rounded-[10px] text-[17px] ${on ? m.latar : ''}`} style={FONT_EMOJI}>{m.e}</span>
+              {m.label}
+              <span className={`absolute inset-x-2 bottom-0 h-[3px] rounded-t-full ${on ? m.garis : 'bg-transparent'}`} />
+            </button>
+          )
+        })}
       </nav>
-      <div className="ml-auto flex items-center gap-3">
-        <div className="text-right leading-tight">
-          <b className="block text-[13.5px] font-extrabold">{wali?.nama}</b>
-          <span className="text-[11.5px] font-semibold text-muted">
-            Wali dari {wali?.anak?.length || 0} siswa
+      <div className="ml-auto flex shrink-0 items-center gap-3">
+        <TombolLonceng anak={anak} buka={bukaPengumuman} />
+        <TombolTema />
+        <div className="flex items-center gap-2.5 text-right leading-tight">
+          <span className="hidden max-w-[190px] xl:block">
+            <b className="block truncate text-[13.5px] font-extrabold">{wali?.nama}</b>
+            <span className="text-[11.5px] font-semibold text-muted">Wali dari {wali?.anak?.length || 0} siswa</span>
           </span>
         </div>
-        <TombolTema />
       </div>
     </header>
   )
@@ -141,24 +169,24 @@ function TombolWa({ anak }) {
   )
 }
 
+/** Tab bawah (HP): 5 menu dengan emoji berwarna. */
 function TabBar({ aktif, nav, akar }) {
-  const item = (id, label, emoji, ke) => {
-    const on = aktif === id
-    return (
-      <button onClick={() => nav(ke)} className="flex flex-1 flex-col items-center gap-0.5 py-1">
-        <span className={`grid h-8 w-8 place-items-center rounded-full text-[17px] transition ${on ? 'bg-brand-soft' : ''}`}>
-          {emoji}
-        </span>
-        <span className={`text-[10.5px] font-bold ${on ? 'text-brand' : 'text-muted'}`}>{label}</span>
-      </button>
-    )
-  }
   return (
-    <nav className="flex shrink-0 items-center border-t border-line bg-white px-1.5 pb-[calc(9px+env(safe-area-inset-bottom))] pt-2 lg:hidden">
-      {item('beranda', 'Beranda', '🏠', akar)}
-      {item('tagihan', 'Tagihan', '🧾', akar + '/tagihan')}
-      {item('riwayat', 'Riwayat', '🕓', akar + '/riwayat')}
-      {item('bantuan', 'Bantuan', '💬', akar + '/bantuan')}
+    <nav className="flex shrink-0 items-stretch border-t border-line bg-white px-1 pb-[calc(8px+env(safe-area-inset-bottom))] pt-1.5 lg:hidden">
+      {MENU.map((m) => {
+        const on = aktif === m.id
+        return (
+          <button key={m.id} onClick={() => nav(akar + m.ke)} className="relative flex min-w-0 flex-1 flex-col items-center gap-0.5 pt-0.5">
+            <span
+              className={`grid h-9 w-12 place-items-center rounded-2xl text-[21px] transition ${on ? `${m.latar} scale-105` : ''}`}
+              style={FONT_EMOJI}
+            >
+              {m.e}
+            </span>
+            <span className={`text-[11px] font-bold ${on ? m.teks : 'text-muted'}`}>{m.label}</span>
+          </button>
+        )
+      })}
     </nav>
   )
 }

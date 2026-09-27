@@ -1,13 +1,14 @@
 import { useState } from 'react'
 import Avatar from '../components/Avatar.jsx'
-import { Chip, Kosong, Segment, Track } from '../components/ui.jsx'
+import { Chevron, Chip, Kosong, Segment, Track } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import { emojiKegiatan } from '../lib/emojiKegiatan.js'
-import { BULAN, bulanBerjalan, dibayarKegiatan, labelJatuhTempoPeriode, dibayarSpp, persenBayar, rp, statusSpp } from '../lib/format.js'
+import { BULAN, bulanBerjalan, dibayarKegiatan, labelJatuhTempoPeriode, dibayarSpp, persenBayar, rp, statusSpp, tanggalKegiatan } from '../lib/format.js'
 
-export default function Tagihan({ aktif, bukaCaraBayar }) {
+export default function Tagihan({ aktif, bukaCaraBayar, bukaKegiatan }) {
   const { pengaturan, biaya } = useData()
-  const [seg, setSeg] = useState('spp')
+  // ?tab=kegiatan → langsung buka tab Biaya kegiatan (dipakai dari Beranda)
+  const [seg, setSeg] = useState(() => (new URLSearchParams(window.location.search).get('tab') === 'kegiatan' ? 'keg' : 'spp'))
   const kini = bulanBerjalan()
   const a = aktif
 
@@ -22,6 +23,9 @@ export default function Tagihan({ aktif, bukaCaraBayar }) {
       </div>
 
       <Segment nilai={seg} ubah={setSeg} opsi={[{ nilai: 'spp', label: 'Iuran SPP' }, { nilai: 'keg', label: 'Biaya kegiatan' }]} />
+      {seg === 'keg' && biaya.length > 0 && (
+        <p className="-mt-1 mb-2.5 px-1 text-[12.5px] font-semibold text-muted">Ketuk kegiatan untuk melihat jadwal & keterangan lengkapnya.</p>
+      )}
 
       <div className="card lg:grid lg:grid-cols-2 lg:gap-x-7">
         {seg === 'spp'
@@ -60,6 +64,7 @@ export default function Tagihan({ aktif, bukaCaraBayar }) {
               const dibayar = dibayarKegiatan(a, i)
               const lunas = dibayar >= b.nominal
               const sebagian = !lunas && dibayar > 0
+              const tgl = tanggalKegiatan(b, true)
               return (
                 <Baris
                   key={b.id}
@@ -67,6 +72,8 @@ export default function Tagihan({ aktif, bukaCaraBayar }) {
                   status={lunas ? 'ok' : sebagian ? 'sebagian' : ''}
                   ikon={emojiKegiatan(b)}
                   judul={b.nama}
+                  tanggal={tgl}
+                  ketuk={bukaKegiatan ? () => bukaKegiatan(b.id) : null}
                   catatan={lunas ? 'Sudah dibayar penuh' : sebagian ? `Baru dibayar sebagian · kurang ${rp(b.nominal - dibayar)}` : 'Belum dibayar'}
                   dibayar={dibayar}
                   target={b.nominal}
@@ -84,7 +91,7 @@ export default function Tagihan({ aktif, bukaCaraBayar }) {
   )
 }
 
-const Baris = ({ nomor, ikon, status, judul, catatan, dibayar, target, chip }) => {
+const Baris = ({ nomor, ikon, status, judul, tanggal, catatan, dibayar, target, chip, ketuk }) => {
   const warnaNo =
     status === 'ok' ? 'bg-ok-soft text-ok'
     : status === 'late' ? 'bg-danger-soft text-danger'
@@ -95,8 +102,9 @@ const Baris = ({ nomor, ikon, status, judul, catatan, dibayar, target, chip }) =
     : status === 'sebagian' || status === 'belum-bayar' ? '#F5A524'
     : status === 'late' ? '#EF4444'
     : '#C9D0DC'
+  const Wadah = ketuk ? 'button' : 'div'
   return (
-    <div className="row items-start py-3.5">
+    <Wadah className={`row items-start py-3.5 ${ketuk ? 'w-full text-left transition active:bg-isi lg:hover:bg-isi' : ''}`} onClick={ketuk || undefined}>
       <span className={`grid h-[38px] w-[38px] shrink-0 place-items-center rounded-xl font-extrabold ${ikon ? 'text-[19px]' : 'text-xs'} ${warnaNo}`}>
         {ikon || (status === 'ok' ? '✓' : status === 'late' ? '!' : String(nomor).padStart(2, '0'))}
       </span>
@@ -105,12 +113,16 @@ const Baris = ({ nomor, ikon, status, judul, catatan, dibayar, target, chip }) =
           <div className="truncate text-[14.5px] font-bold">{judul}</div>
           {chip}
         </div>
-        <div className="mt-0.5 text-[12.5px] text-muted">{catatan}</div>
+        <div className="mt-0.5 text-[12.5px] text-muted">
+          {tanggal && <span className="font-bold text-brand">📅 {tanggal} · </span>}
+          {catatan}
+        </div>
         <div className="mt-2 flex items-center gap-2.5">
           <div className="flex-1"><Track persen={persenBayar(dibayar, target)} warna={warnaBar} tinggi={5} /></div>
           <span className="shrink-0 text-xs font-bold text-muted">{rp(dibayar)}/{rp(target)}</span>
         </div>
       </div>
-    </div>
+      {ketuk && <span className="mt-2.5 shrink-0"><Chevron /></span>}
+    </Wadah>
   )
 }

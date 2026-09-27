@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { BtnKecil, Ikon, Kosong, PageHead, Sheet, Tile } from '../components/ui.jsx'
 import InputNominal from '../components/InputNominal.jsx'
 import { useData } from '../lib/store.jsx'
-import { AKHIR_BULAN, jatuhTempoAkhirBulan, rp } from '../lib/format.js'
+import { AKHIR_BULAN, adaInfoKegiatan, jatuhTempoAkhirBulan, rp, tanggalKegiatan } from '../lib/format.js'
 import { FONT_EMOJI, PILIHAN_EMOJI, emojiKegiatan, tebakEmoji } from '../lib/emojiKegiatan.js'
 
 export default function JenisBiaya() {
-  const { biaya, pengaturan, tambahBiaya, hapusBiaya, ubahEmojiBiaya, ubahPengaturan, toast } = useData()
+  const { biaya, pengaturan, tambahBiaya, hapusBiaya, ubahEmojiBiaya, ubahInfoBiaya, ubahPengaturan, toast } = useData()
   const nav = useNavigate()
   const [buka, setBuka] = useState(false)
   const [nama, setNama] = useState('')
@@ -16,6 +16,10 @@ export default function JenisBiaya() {
   const [tempo, setTempo] = useState(pengaturan.tanggalJatuhTempo)
   const [emojiBaru, setEmojiBaru] = useState(null) // null = otomatis dari nama
   const [pilihEmoji, setPilihEmoji] = useState(null) // { untuk: 'baru' } | { untuk: indeks biaya }
+  const [infoBaru, setInfoBaru] = useState(INFO_KOSONG)
+  const [bukaInfoBaru, setBukaInfoBaru] = useState(false)
+  const [edit, setEdit] = useState(null) // { i, info } — sedang mengedit info kegiatan ke-i
+  const [sibuk, setSibuk] = useState(false)
   const LATAR = ['#E4EEFF', '#DFF6E9', '#FFF4CC', '#EEE6FF', '#FFE6EE', '#DDF4F6']
 
   const terapkanEmoji = async (e) => {
@@ -33,9 +37,26 @@ export default function JenisBiaya() {
   const simpan = async () => {
     const n = Number(nominal)
     if (!nama.trim() || !n) return toast('Isi nama kegiatan dan nominalnya')
-    await tambahBiaya({ nama: nama.trim(), nominal: n, emoji: emojiBaru })
-    setNama(''); setNominal(''); setEmojiBaru(null); setBuka(false)
+    const salah = cekInfo(infoBaru)
+    if (salah) return toast(salah)
+    await tambahBiaya({ nama: nama.trim(), nominal: n, emoji: emojiBaru, info: infoBaru })
+    setNama(''); setNominal(''); setEmojiBaru(null); setInfoBaru(INFO_KOSONG); setBukaInfoBaru(false); setBuka(false)
     toast(`${nama.trim()} ditambahkan ke semua kartu siswa`)
+  }
+
+  const simpanInfo = async () => {
+    const salah = cekInfo(edit.info)
+    if (salah) return toast(salah)
+    setSibuk(true)
+    try {
+      await ubahInfoBiaya(edit.i, edit.info)
+      toast('Info kegiatan disimpan — orang tua bisa melihatnya di portal')
+      setEdit(null)
+    } catch (e) {
+      toast('Gagal menyimpan: ' + e.message)
+    } finally {
+      setSibuk(false)
+    }
   }
 
   return (
@@ -131,10 +152,19 @@ export default function JenisBiaya() {
               >
                 {emojiKegiatan(b)}
               </button>
-              <div className="min-w-0 flex-1">
+              <button
+                className="min-w-0 flex-1 text-left"
+                onClick={() => setEdit({ i, info: ambilInfo(b) })}
+                title="Info kegiatan untuk orang tua"
+              >
                 <div className="truncate text-[14.5px] font-bold">{b.nama}</div>
-                <div className="text-[12.5px] text-muted">{rp(b.nominal)} · sekali bayar</div>
-              </div>
+                <div className="truncate text-[12.5px] text-muted">
+                  {rp(b.nominal)} ·{' '}
+                  {adaInfoKegiatan(b)
+                    ? <span className="font-bold text-brand">{b.tanggal ? `📅 ${tanggalKegiatan(b, true)}` : 'ℹ️ Info terisi'} ›</span>
+                    : <span className="font-bold text-warn-deep">+ Isi info kegiatan</span>}
+                </div>
+              </button>
               <button
                 className="shrink-0 rounded-xl bg-[#F1F2F6] px-3 py-2 text-xs font-bold text-muted"
                 onClick={async () => { await hapusBiaya(i); toast(`${b.nama} dihapus`) }}
@@ -167,7 +197,36 @@ export default function JenisBiaya() {
         </p>
         <label className="mb-1.5 block text-[13px] font-bold">Nominal</label>
         <InputNominal className="mb-4" value={nominal} onChange={setNominal} placeholder="150.000" />
+        {bukaInfoBaru ? (
+          <div className="mb-4 rounded-2xl border border-line bg-kartu p-3.5">
+            <div className="mb-3 text-[13.5px] font-extrabold">Info untuk orang tua</div>
+            <FormInfoKegiatan info={infoBaru} ubah={(u) => setInfoBaru((x) => ({ ...x, ...u }))} />
+          </div>
+        ) : (
+          <button className="mb-4 w-full rounded-2xl border border-dashed border-line py-3 text-[13.5px] font-bold text-brand" onClick={() => setBukaInfoBaru(true)}>
+            + Tambah info kegiatan untuk orang tua (opsional)
+          </button>
+        )}
         <button className="bigbtn" onClick={simpan}>Tambahkan</button>
+      </Sheet>
+
+      <Sheet
+        buka={!!edit}
+        tutup={() => !sibuk && setEdit(null)}
+        judul={edit ? `Info ${biaya[edit.i]?.nama || 'kegiatan'}` : ''}
+        lead="Tampil di portal orang tua saat kegiatan ini diketuk (menu Tagihan → Biaya kegiatan)."
+      >
+        {edit && (
+          <>
+            <FormInfoKegiatan info={edit.info} ubah={(u) => setEdit((x) => ({ ...x, info: { ...x.info, ...u } }))} />
+            <div className="h-1" />
+            <button className="bigbtn disabled:opacity-60" onClick={simpanInfo} disabled={sibuk}>
+              {sibuk ? 'Menyimpan…' : 'Simpan info kegiatan'}
+            </button>
+            <div className="h-2.5" />
+            <button className="bigbtn-ghost" onClick={() => setEdit(null)} disabled={sibuk}>Batal</button>
+          </>
+        )}
       </Sheet>
 
       <Sheet
@@ -193,6 +252,75 @@ export default function JenisBiaya() {
           Otomatis sesuai nama kegiatan ({tebakEmoji(pilihEmoji?.untuk === 'baru' ? nama : biaya[pilihEmoji?.untuk]?.nama)})
         </button>
       </Sheet>
+    </>
+  )
+}
+
+/* ---------- info kegiatan untuk orang tua ---------- */
+
+const INFO_KOSONG = { tanggal: '', tanggalSelesai: '', waktu: '', lokasi: '', deskripsi: '', perlengkapan: '' }
+
+const ambilInfo = (b) => ({
+  tanggal: b.tanggal || '',
+  tanggalSelesai: b.tanggalSelesai || '',
+  waktu: b.waktu || '',
+  lokasi: b.lokasi || '',
+  deskripsi: b.deskripsi || '',
+  perlengkapan: b.perlengkapan || '',
+})
+
+/** Pesan salah isian, atau null kalau aman disimpan. */
+function cekInfo(i) {
+  if (i.tanggalSelesai && !i.tanggal) return 'Isi tanggal mulai dulu sebelum tanggal selesai'
+  if (i.tanggal && i.tanggalSelesai && i.tanggalSelesai < i.tanggal) return 'Tanggal selesai tidak boleh sebelum tanggal mulai'
+  return null
+}
+
+function FormInfoKegiatan({ info, ubah }) {
+  const label = 'mb-1.5 block text-[13px] font-bold'
+  return (
+    <>
+      <div className="mb-3 grid grid-cols-2 gap-2.5">
+        <div>
+          <label className={label}>Tanggal</label>
+          <input type="date" className="field-input" value={info.tanggal} onChange={(e) => ubah({ tanggal: e.target.value })} />
+        </div>
+        <div>
+          <label className={label}>Sampai <span className="font-semibold text-muted">(opsional)</span></label>
+          <input
+            type="date"
+            className="field-input"
+            value={info.tanggalSelesai}
+            min={info.tanggal || undefined}
+            disabled={!info.tanggal}
+            onChange={(e) => ubah({ tanggalSelesai: e.target.value })}
+          />
+        </div>
+      </div>
+      <label className={label}>Waktu</label>
+      <input className="field-input mb-3" maxLength={60} value={info.waktu} onChange={(e) => ubah({ waktu: e.target.value })} placeholder="mis. 07.30 – 11.00 WIB" />
+      <label className={label}>Lokasi</label>
+      <input className="field-input mb-3" maxLength={150} value={info.lokasi} onChange={(e) => ubah({ lokasi: e.target.value })} placeholder="mis. Lapangan Pusdai, Bandung" />
+      <label className={label}>Keterangan kegiatan</label>
+      <textarea
+        className="field-input mb-1 min-h-[96px] resize-y"
+        rows={4}
+        maxLength={3000}
+        value={info.deskripsi}
+        onChange={(e) => ubah({ deskripsi: e.target.value })}
+        placeholder="Jelaskan kegiatannya untuk orang tua: tujuan, susunan acara, apa saja yang sudah termasuk biaya, dll."
+      />
+      <p className="mb-3 text-right text-[11px] font-semibold text-muted">{info.deskripsi.length}/3000</p>
+      <label className={label}>Yang perlu dibawa / dipakai anak</label>
+      <textarea
+        className="field-input mb-1 min-h-[80px] resize-y"
+        rows={3}
+        maxLength={1000}
+        value={info.perlengkapan}
+        onChange={(e) => ubah({ perlengkapan: e.target.value })}
+        placeholder={'Satu baris satu barang, mis.\nBaju putih\nBotol minum'}
+      />
+      <p className="mb-3 text-xs text-muted">Semua isian boleh dikosongkan. Yang kosong tidak ditampilkan ke orang tua.</p>
     </>
   )
 }

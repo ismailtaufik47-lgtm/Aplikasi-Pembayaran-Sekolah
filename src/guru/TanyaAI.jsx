@@ -176,7 +176,7 @@ export default function TanyaAI() {
                 <div className="min-w-0">
                   <b className="block text-[17px] font-extrabold lg:text-[19px]">Halo, {petugas || 'Bapak/Ibu'}!</b>
                   <p className="mt-1 text-[13.5px] leading-relaxed text-muted">
-                    Saya asisten laporan {pengaturan.namaSekolah}. Ketik pertanyaan dengan bahasa sehari-hari,
+                    Saya asisten laporan sekolah {pengaturan.namaSekolah}. Ketik pertanyaan dengan bahasa sehari-hari,
                     atau ketuk salah satu contoh di bawah.
                   </p>
                 </div>

@@ -216,16 +216,21 @@ export function DataProvider({ children }) {
     }
   }
 
-  async function tambahBiaya({ nama, nominal, emoji = null }) {
+  async function tambahBiaya({ nama, nominal, emoji = null, info = {} }) {
     try {
       const baris = await api.tambahBiaya({
         sekolahId: pengaturan.id,
         nama,
         nominal,
         emoji,
+        info,
         urutan: biaya.length + 1,
       })
-      setBiaya((lama) => [...lama, { id: baris.id, nama, nominal, emoji }])
+      setBiaya((lama) => [...lama, {
+        id: baris.id, nama, nominal, emoji,
+        tanggal: baris.tanggal || null, tanggalSelesai: baris.tanggal_selesai || null,
+        waktu: baris.waktu || '', lokasi: baris.lokasi || '', deskripsi: baris.deskripsi || '', perlengkapan: baris.perlengkapan || '',
+      }])
       setSiswa((lama) => lama.map((s) => ({ ...s, kegiatan: [...s.kegiatan, 0] })))
     } catch (e) {
       toast('Gagal menambah biaya: ' + e.message)
@@ -244,6 +249,14 @@ export function DataProvider({ children }) {
       toast('Gagal menyimpan emoji: ' + e.message)
       throw e
     }
+  }
+
+  /** Simpan info kegiatan ke-i (dibaca orang tua di portal). */
+  async function ubahInfoBiaya(i, info) {
+    const target = biaya[i]
+    const hasil = await api.simpanInfoBiaya(target.id, info)
+    setBiaya((lama) => lama.map((b) => (b.id === target.id ? { ...b, ...hasil } : b)))
+    return hasil
   }
 
   /** Ganti avatar akun yang sedang login. */
@@ -345,6 +358,7 @@ export function DataProvider({ children }) {
       tambahBiaya,
       hapusBiaya,
       ubahEmojiBiaya,
+      ubahInfoBiaya,
       avatarSaya,
       ubahAvatarSaya,
       ubahPengaturan,

@@ -28,6 +28,26 @@ export { modeDemo }
  * jumlahnya di sini selalu sinkron dengan total transaksinya, karena
  * memang dihitung ulang dari situ setiap kali data dimuat.
  */
+/** Info kegiatan untuk orang tua (0026_info_kegiatan.sql) — kolom DB → nama di aplikasi. */
+const infoKegiatan = (b) => ({
+  tanggal: b.tanggal || null,
+  tanggalSelesai: b.tanggal_selesai || null,
+  waktu: b.waktu || '',
+  lokasi: b.lokasi || '',
+  deskripsi: b.deskripsi || '',
+  perlengkapan: b.perlengkapan || '',
+})
+
+/** Kebalikan infoKegiatan: nama di aplikasi → kolom DB. Teks kosong disimpan NULL. */
+const kolomInfo = (i = {}) => ({
+  tanggal: i.tanggal || null,
+  tanggal_selesai: (i.tanggal && i.tanggalSelesai && i.tanggalSelesai > i.tanggal) ? i.tanggalSelesai : null,
+  waktu: i.waktu?.trim() || null,
+  lokasi: i.lokasi?.trim() || null,
+  deskripsi: i.deskripsi?.trim() || null,
+  perlengkapan: i.perlengkapan?.trim() || null,
+})
+
 function bentuk({ sekolah, biaya, siswa, pembayaran, wali }) {
   const urutanBiaya = biaya.map((b) => b.id)
 
@@ -92,7 +112,7 @@ function bentuk({ sekolah, biaya, siswa, pembayaran, wali }) {
       // TRUE = dinonaktifkan paksa oleh admin aplikasi (lihat 0018_panel_admin.sql).
       dinonaktifkanAdmin: !!sekolah.dinonaktifkan_admin,
     },
-    biaya: biaya.map((b) => ({ id: b.id, nama: b.nama, nominal: b.nominal, emoji: b.emoji || null })),
+    biaya: biaya.map((b) => ({ id: b.id, nama: b.nama, nominal: b.nominal, emoji: b.emoji || null, ...infoKegiatan(b) })),
     siswa: daftarSiswa,
     pembayaran: daftarBayar,
     wali: wali || null,
@@ -151,7 +171,12 @@ export async function muatDataPortal(token) {
 
   if (!token) throw new Error('Tautan portal tidak lengkap. Minta tautan baru ke pihak sekolah.')
 
-  const { data, error } = await supabase.rpc('portal_wali', { p_token: token })
+  const [{ data, error }, logo] = await Promise.all([
+    supabase.rpc('portal_wali', { p_token: token }),
+    // Logo sekolah untuk kepala portal (0027_logo_portal.sql). Kalau fungsinya
+    // belum ada atau gagal, portal tetap jalan dan menampilkan ikon 🏫.
+    supabase.rpc('portal_logo', { p_token: token }).then((r) => (r.error ? null : r.data), () => null),
+  ])
   if (error) throw new Error(error.message)
 
   const hasil = bentuk({
@@ -165,7 +190,11 @@ export async function muatDataPortal(token) {
   // yang dibuat sekali saat link digenerate dan tidak ikut terupdate).
   // Kalau ada lebih dari satu anak, ambil nama wali dari anak pertama.
   const namaWali = hasil.siswa[0]?.wali || data.wali.nama || 'Orang tua'
-  return { ...hasil, wali: { nama: namaWali, anak: hasil.siswa.map((s) => s.id) } }
+  return {
+    ...hasil,
+    pengaturan: { ...hasil.pengaturan, logo: logo || null },
+    wali: { nama: namaWali, anak: hasil.siswa.map((s) => s.id) },
+  }
 }
 
 /* ===================== tulis (khusus guru) ===================== */
@@ -363,11 +392,11 @@ function pesanSiswa(error) {
   return error.message
 }
 
-export async function tambahBiaya({ sekolahId, nama, nominal, urutan, emoji = null }) {
-  if (modeDemo) return { id: 'demo-' + Date.now(), nama, nominal, emoji }
+export async function tambahBiaya({ sekolahId, nama, nominal, urutan, emoji = null, info = {} }) {
+  if (modeDemo) return { id: 'demo-' + Date.now(), nama, nominal, emoji, ...kolomInfo(info) }
   const { data, error } = await supabase
     .from('biaya')
-    .insert({ sekolah_id: sekolahId, nama, nominal, urutan, emoji })
+    .insert({ sekolah_id: sekolahId, nama, nominal, urutan, emoji, ...kolomInfo(info) })
     .select()
     .single()
   if (error) throw new Error(error.message)
@@ -380,6 +409,18 @@ export async function ubahEmojiBiaya(id, emoji) {
   const { error } = await supabase.from('biaya').update({ emoji: emoji || null }).eq('id', id)
   if (error) throw new Error(error.message)
   return true
+}
+
+/** Simpan info kegiatan (tanggal, jam, lokasi, deskripsi, perlengkapan) yang dibaca orang tua di portal. */
+export async function simpanInfoBiaya(id, info) {
+  if (modeDemo) return infoKegiatan(kolomInfo(info))
+  const { data, error } = await supabase.from('biaya').update(kolomInfo(info)).eq('id', id).select().single()
+  if (error) {
+    if (/biaya_info_panjang/.test(error.message)) throw new Error('Teks terlalu panjang. Deskripsi maks. 3.000 huruf.')
+    if (/biaya_tanggal_urut/.test(error.message)) throw new Error('Tanggal selesai tidak boleh sebelum tanggal mulai.')
+    throw new Error(error.message)
+  }
+  return infoKegiatan(data)
 }
 
 /**

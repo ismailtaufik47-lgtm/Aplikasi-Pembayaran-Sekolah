@@ -43,6 +43,7 @@
   .field-input { @apply w-full bg-kartu text-ink border border-line rounded-[14px] px-3.5 py-3 font-semibold outline-none focus:border-brand focus:ring-4 focus:ring-brand-soft; }
   .bigbtn { @apply w-full py-3.5 rounded-2xl bg-brand text-white font-extrabold text-[15px] active:scale-[.99] active:brightness-95 transition; }
   .bigbtn-ghost { @apply w-full py-3.5 rounded-2xl bg-kartu border border-line text-ink font-extrabold text-[15px] active:scale-[.99] active:bg-isi transition; }
+  .bigbtn-tutup { @apply w-full py-3.5 rounded-2xl bg-danger text-white font-extrabold text-[15px] active:scale-[.99] active:brightness-95 transition; }
   .bigbtn-wa { @apply w-full py-3.5 rounded-2xl bg-ok text-white font-extrabold text-[15px] active:scale-[.99] active:brightness-95 transition; }
   .seghead { @apply flex items-center justify-between mx-0.5 mt-6 mb-3; }
   .seghead h2 { @apply text-[17px] font-extrabold tracking-tight; }
@@ -99,3 +100,23 @@
 
 /* latar gelap sheet/overlay sedikit lebih pekat */
 .dark .bg-\[rgba\(21\,26\,38\,\.42\)\] { background-color: rgb(0 0 0 / .6); }
+
+/* ===================== portal orang tua: beranda ===================== */
+.langit-portal { background: linear-gradient(180deg, #D9E9FF 0%, #E8F1FF 55%, rgb(var(--canvas)) 100%); }
+@media (min-width: 1024px) { .langit-portal { background: linear-gradient(120deg, #D6E7FF 0%, #E9F2FF 60%, #F3F8FF 100%); } }
+.dark .langit-portal { background: linear-gradient(180deg, #172440 0%, #131C2E 60%, rgb(var(--canvas)) 100%); }
+@media (min-width: 1024px) { .dark .langit-portal { background: linear-gradient(120deg, #1A2848 0%, #151F35 70%, #141C2E 100%); } }
+.kartu-anak-atas { background: linear-gradient(120deg, #E6F0FF 0%, #F4F8FF 55%, rgb(var(--kartu)) 100%); }
+.dark .kartu-anak-atas { background: linear-gradient(120deg, #1D2B4B 0%, rgb(var(--kartu)) 75%); }
+.menu-hijau  { background: #E8F7EE; }
+.menu-ungu   { background: #F1ECFF; }
+.menu-biru   { background: #E7EFFF; }
+.menu-oranye { background: #FFF1DE; }
+.menu-pink   { background: #FFE8F1; }
+.dark .menu-hijau  { background: color-mix(in srgb, #22C55E 13%, rgb(var(--kartu))); }
+.dark .menu-ungu   { background: color-mix(in srgb, #8B5CF6 15%, rgb(var(--kartu))); }
+.dark .menu-biru   { background: color-mix(in srgb, #3B6EF6 15%, rgb(var(--kartu))); }
+.dark .menu-oranye { background: color-mix(in srgb, #F5A524 13%, rgb(var(--kartu))); }
+.dark .menu-pink   { background: color-mix(in srgb, #EC4899 14%, rgb(var(--kartu))); }
+.dark .ilustrasi-sekolah { filter: brightness(.82) saturate(.9); }
+.dark .ilustrasi-sekolah .awan { opacity: .15; }

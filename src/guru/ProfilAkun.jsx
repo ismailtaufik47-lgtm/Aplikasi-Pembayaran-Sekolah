@@ -174,7 +174,7 @@ export default function ProfilAkun() {
         {avatarSaya !== null && (
           <button className="bigbtn-ghost mb-2.5" onClick={() => gantiAvatar(null)}>Pakai huruf depan nama saja</button>
         )}
-        <button className="bigbtn-ghost" onClick={() => setPilihAvatar(false)}>Tutup</button>
+        <button className="bigbtn-tutup" onClick={() => setPilihAvatar(false)}>Tutup</button>
       </Sheet>
     </>
   )

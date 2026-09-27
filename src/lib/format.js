@@ -256,3 +256,63 @@ export function waSekolah(pengaturan) {
   if (!n) return ''
   return n.startsWith('0') ? '62' + n.slice(1) : n
 }
+
+/* ---------- info kegiatan (0026) ---------- */
+
+const HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', "Jum'at", 'Sabtu']
+const BULAN_KALENDER = ['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember']
+
+/** "YYYY-MM-DD" → Date lokal (bukan UTC, supaya tanggal tidak bergeser). */
+export function tanggalDari(iso) {
+  if (!iso) return null
+  const [y, m, d] = String(iso).slice(0, 10).split('-').map(Number)
+  return y && m && d ? new Date(y, m - 1, d) : null
+}
+
+/**
+ * Tanggal kegiatan untuk dibaca orang tua:
+ *   panjang → "Sabtu, 17 Oktober 2026" / "Sabtu–Minggu, 17–18 Oktober 2026"
+ *   pendek  → "Sab, 17 Okt" / "17–18 Okt"
+ * '' kalau sekolah belum mengisi tanggal.
+ */
+export function tanggalKegiatan(b, pendek = false) {
+  const a = tanggalDari(b?.tanggal)
+  if (!a) return ''
+  const z = tanggalDari(b.tanggalSelesai)
+  const bln = (d) => (pendek ? BULAN_KALENDER[d.getMonth()].slice(0, 3) : BULAN_KALENDER[d.getMonth()])
+  const hari = (d) => (pendek ? HARI[d.getDay()].slice(0, 3).replace("'", '') : HARI[d.getDay()])
+  const thn = (d) => (pendek ? '' : ' ' + d.getFullYear())
+  if (!z || z.getTime() === a.getTime()) return `${hari(a)}, ${a.getDate()} ${bln(a)}${thn(a)}`
+  if (a.getMonth() === z.getMonth() && a.getFullYear() === z.getFullYear()) {
+    return pendek
+      ? `${a.getDate()}–${z.getDate()} ${bln(a)}`
+      : `${hari(a)}–${hari(z)}, ${a.getDate()}–${z.getDate()} ${bln(a)}${thn(a)}`
+  }
+  return `${a.getDate()} ${bln(a)}${a.getFullYear() !== z.getFullYear() ? thn(a) : ''} – ${z.getDate()} ${bln(z)}${thn(z)}`
+}
+
+/**
+ * Posisi kegiatan terhadap hari ini: { selisih, label }.
+ * selisih = jumlah hari sampai tanggal mulai (negatif = sudah lewat).
+ * label: "Hari ini", "Besok", "5 hari lagi", "Sedang berlangsung", "Sudah lewat".
+ * null kalau tanggal belum diisi.
+ */
+export function jarakKegiatan(b, hariIni = new Date()) {
+  const a = tanggalDari(b?.tanggal)
+  if (!a) return null
+  const z = tanggalDari(b.tanggalSelesai) || a
+  const nol = new Date(hariIni.getFullYear(), hariIni.getMonth(), hariIni.getDate())
+  const selisih = Math.round((a - nol) / 864e5)
+  const sisaAkhir = Math.round((z - nol) / 864e5)
+  const label =
+    selisih > 1 ? `${selisih} hari lagi`
+    : selisih === 1 ? 'Besok'
+    : selisih === 0 ? 'Hari ini'
+    : sisaAkhir >= 0 ? 'Sedang berlangsung'
+    : 'Sudah lewat'
+  return { selisih, selesai: sisaAkhir < 0, label }
+}
+
+/** true kalau sekolah sudah mengisi minimal satu info kegiatan. */
+export const adaInfoKegiatan = (b) =>
+  !!(b && (b.tanggal || b.waktu || b.lokasi || b.deskripsi || b.perlengkapan))
