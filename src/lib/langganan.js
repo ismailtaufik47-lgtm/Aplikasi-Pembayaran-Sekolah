@@ -192,7 +192,13 @@ export function alasanKunci(pengaturan) {
 /** Pesan singkat (toast) saat tombol yang terkunci ditekan.
  *  aksi: 'bayar' (catat pembayaran) | 'siswa' (tambah siswa). */
 export function pesanKunci(pengaturan, aksi = 'bayar') {
-  const apa = aksi === 'siswa' ? 'menambah siswa baru' : 'mencatat pembayaran baru'
+  const apa = {
+    siswa: 'menambah siswa baru',
+    bayar: 'mencatat pembayaran baru',
+    kas: 'mencatat transaksi kas',
+    saldo: 'mengubah saldo awal kas',
+    batal: 'membatalkan transaksi',
+  }[aksi] || 'melanjutkan transaksi'
   const alasan = alasanKunci(pengaturan)
   if (alasan === 'admin') return `Aplikasi sedang dinonaktifkan admin. Hubungi admin aplikasi untuk ${apa}.`
   if (alasan === 'sewa') return `Masa sewa aplikasi sudah tidak aktif. Perpanjang dulu untuk ${apa}.`

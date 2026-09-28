@@ -12,7 +12,7 @@ import * as api from '../lib/api.js'
 import EditorTtd, { EditorLogo } from '../components/EditorTtd.jsx'
 
 export default function ProfilSekolah() {
-  const { pengaturan, ubahPengaturan, toast, pembayaran, siswa } = useData()
+  const { pengaturan, ubahPengaturan, toast, pembayaran, siswa, aturLogoLokal } = useData()
   const nav = useNavigate()
   const [nama, setNama] = useState(pengaturan.namaSekolah)
   const [kepala, setKepala] = useState(pengaturan.kepalaSekolah || '')
@@ -88,6 +88,8 @@ export default function ProfilSekolah() {
     try {
       await api.simpanLogoSekolah(logo)
       toast(logo ? 'Logo sekolah disimpan' : 'Logo sekolah dihapus')
+      // Logo di menu samping ikut berganti. (Aman walau store.jsx lama belum punya fungsinya.)
+      if (typeof aturLogoLokal === 'function') aturLogoLokal(logo)
     } catch (e) {
       setTtd((t) => ({ ...t, logo: lama }))
       toast('Gagal menyimpan logo: ' + e.message)
@@ -193,7 +195,7 @@ export default function ProfilSekolah() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[14.5px] font-bold">{s.nama}</div>
-                  <div className="text-xs text-muted">Salah PIN 3x — {s.peran === 'admin' ? 'Admin' : 'Guru'}</div>
+                  <div className="text-xs text-muted">Salah PIN 3x — {s.peran === 'kepala' ? 'Kepala sekolah' : 'Admin/TU'}</div>
                 </div>
                 <button
                   className="shrink-0 rounded-xl bg-brand px-3.5 py-2 text-xs font-bold text-white disabled:opacity-60"
@@ -272,7 +274,7 @@ export default function ProfilSekolah() {
         ) : (
           <p className="py-4 text-[13px] text-muted">Memuat…</p>
         )}
-        <p className="mt-2 text-[11.5px] font-semibold text-muted">Dicetak di kop kuitansi, di sebelah kiri nama sekolah. Langsung tersimpan.</p>
+        <p className="mt-2 text-[11.5px] font-semibold text-muted">Tampil di menu aplikasi, portal orang tua, kuitansi, dan laporan. Langsung tersimpan.</p>
       </div>
       <div className="card mb-3 lg:max-w-2xl">
         <div className="mb-4 grid gap-3 sm:grid-cols-2">

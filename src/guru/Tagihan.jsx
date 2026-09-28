@@ -91,7 +91,8 @@ function labelStatusSpp(status, indeksBulan, kini) {
 
 
 export default function Tagihan() {
-  const { siswa, biaya, pengaturan, catatPembayaran, toast } = useData()
+  const { siswa, biaya, pengaturan, catatPembayaran, toast, boleh } = useData()
+  const bisaCatat = boleh('pembayaran')
   const nav = useNavigate()
   const kini = bulanBerjalan()
 
@@ -254,12 +255,14 @@ export default function Tagihan() {
         </div>
 
         <div className="flex flex-wrap gap-2.5">
-          <button
-            className="whitespace-nowrap rounded-2xl bg-brand px-4 py-2.5 text-[13px] font-extrabold text-white"
-            onClick={() => setFormBiaya(true)}
-          >
-            + Buat Tagihan
-          </button>
+          {boleh('biaya') && (
+            <button
+              className="whitespace-nowrap rounded-2xl bg-brand px-4 py-2.5 text-[13px] font-extrabold text-white"
+              onClick={() => setFormBiaya(true)}
+            >
+              + Buat Tagihan
+            </button>
+          )}
           <button
             className="whitespace-nowrap rounded-2xl border border-line bg-white px-4 py-2.5 text-[13px] font-extrabold text-brand"
             onClick={() => setMassal(true)}
@@ -304,7 +307,7 @@ export default function Tagihan() {
               </thead>
               <tbody>
                 {hasil.slice(0, 150).map((t) => (
-                  <BarisDesktop key={t.id} t={t} nav={nav} kirimWa={kirimWa} onCatat={() => setPeriode({ siswaId: t.siswaId, jenis: t.jenis, indeks: t.indeks })} />
+                  <BarisDesktop key={t.id} t={t} nav={nav} kirimWa={kirimWa} bisaCatat={bisaCatat} onCatat={() => setPeriode({ siswaId: t.siswaId, jenis: t.jenis, indeks: t.indeks })} />
                 ))}
               </tbody>
             </table>
@@ -312,7 +315,7 @@ export default function Tagihan() {
             {/* mobile: kartu */}
             <div className="lg:hidden">
               {hasil.slice(0, 150).map((t) => (
-                <BarisMobile key={t.id} t={t} nav={nav} kirimWa={kirimWa} onCatat={() => setPeriode({ siswaId: t.siswaId, jenis: t.jenis, indeks: t.indeks })} />
+                <BarisMobile key={t.id} t={t} nav={nav} kirimWa={kirimWa} bisaCatat={bisaCatat} onCatat={() => setPeriode({ siswaId: t.siswaId, jenis: t.jenis, indeks: t.indeks })} />
               ))}
             </div>
             {hasil.length > 150 && (
@@ -347,7 +350,7 @@ export default function Tagihan() {
 
 /* ---------------- baris tabel ---------------- */
 
-function BarisDesktop({ t, nav, kirimWa, onCatat }) {
+function BarisDesktop({ t, nav, kirimWa, onCatat, bisaCatat }) {
   const b = t.badge
   return (
     <tr className={`border-b border-line last:border-b-0 hover:bg-[#FAFBFF] ${t.status === 'nunggak' ? 'border-l-4 border-l-danger' : ''}`}>
@@ -374,7 +377,7 @@ function BarisDesktop({ t, nav, kirimWa, onCatat }) {
               <IkonWhatsapp size={17} /> <span className="hidden 2xl:inline">WhatsApp</span><span className="2xl:hidden">WA</span>
             </button>
           )}
-          <button className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-[#F1F4F9]" onClick={onCatat} aria-label="Catat pembayaran">
+          <button className="grid h-7 w-7 place-items-center rounded-lg text-muted hover:bg-[#F1F4F9]" onClick={onCatat} aria-label={bisaCatat ? 'Catat pembayaran' : 'Lihat rincian'}>
             <Ikon.titikTiga size={16} />
           </button>
         </div>
@@ -383,7 +386,7 @@ function BarisDesktop({ t, nav, kirimWa, onCatat }) {
   )
 }
 
-function BarisMobile({ t, nav, kirimWa, onCatat }) {
+function BarisMobile({ t, nav, kirimWa, onCatat, bisaCatat }) {
   const b = t.badge
   return (
     <div className={`row items-start ${t.status === 'nunggak' ? 'border-l-4 border-l-danger pl-2.5' : ''}`}>
@@ -405,7 +408,7 @@ function BarisMobile({ t, nav, kirimWa, onCatat }) {
                 <IkonWhatsapp size={16} />
               </button>
             )}
-            {t.sisa > 0 && <button className="text-brand" onClick={onCatat}>Catat</button>}
+            {t.sisa > 0 && bisaCatat && <button className="text-brand" onClick={onCatat}>Catat</button>}
           </div>
         </div>
       </div>

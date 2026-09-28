@@ -22,11 +22,12 @@ import ProfilAkun from './ProfilAkun.jsx'
 import ProfilSekolah from './ProfilSekolah.jsx'
 import Langganan from './langganan.jsx'
 import TanyaAI from './TanyaAI.jsx'
+import Kas from './Kas.jsx'
 import SpandukLangganan from '../components/Spanduklangganan.jsx'
-import { hitungLangganan, pesanKunci } from '../lib/langganan.js'
+import { labelPeran, menuSekolah, pilihTab } from '../lib/akses.js'
 
 export default function GuruApp() {
-  const { siap, galat, peran, pesan, muat, segarkan, pengaturan, toast } = useData()
+  const { siap, galat, peran, pesan, muat, segarkan, pengaturan, boleh, terkunci, cegahKunci } = useData()
   const { sesi, siap: authSiap } = useAuth()
   const [catat, setCatat] = useState(null)   // { siswaId } | null
   const [formSiswa, setFormSiswa] = useState(null) // { siswaId } | null
@@ -48,55 +49,42 @@ export default function GuruApp() {
   if (galat) return <Muat aksi={segarkan}>Gagal memuat data: {galat}</Muat>
   if (!siap) return <Muat>Memuat data sekolah…</Muat>
 
-  // Masa aktif habis → aplikasi TETAP bisa dibuka & semua data tetap bisa
-  // dilihat. Yang dikunci hanya AKSI menambah siswa baru & mencatat
-  // pembayaran baru (spanduk menetap menjelaskannya, lihat SpandukLangganan).
-  // Penguncian sebenarnya ditegakkan di database lewat trigger (0013) —
-  // ini hanya lapisan tampilan supaya tombolnya tidak menipu/aktif percuma.
-  const langganan = hitungLangganan(pengaturan)
-  const terkunci = langganan.status === 'kadaluarsa'
-
+  // Masa sewa habis → aplikasi TETAP bisa dibuka & semua data tetap bisa
+  // dilihat. Yang dikunci semua TRANSAKSI: catat pembayaran, tambah siswa,
+  // catat kas, saldo awal, dan pembatalan (spanduk menetap menjelaskannya).
+  // Penguncian sebenarnya ditegakkan di database (0013 & 0029) — ini hanya
+  // lapisan tampilan supaya tombolnya tidak aktif percuma.
   const bukaCatat = (siswaId) => {
-    if (terkunci) return toast(pesanKunci(pengaturan, 'bayar'))
+    if (cegahKunci('bayar')) return
     setCatat(siswaId ? { siswaId } : {})
   }
   const bukaTambahSiswa = () => {
-    if (terkunci) return toast(pesanKunci(pengaturan, 'siswa'))
+    if (cegahKunci('siswa')) return
     setFormSiswa({})
   }
 
-  const kepala = peran === 'kepala'
-  const bisaUndang = kepala || peran === 'admin'
-  const bisaAI = kepala || peran === 'admin' // Tanya AI: kepala sekolah & admin sekolah
+  // Menu mengikuti hak akses akun (diatur admin aplikasi per sekolah).
+  const menu = menuSekolah(boleh)
+  const ada = (id) => menu.some((m) => m.id === id)
+  const bisaCatat = boleh('pembayaran')
+  const tab = pilihTab(menu, bisaCatat)
 
-  // admin sekolah tidak punya tab Tanya AI (masuk lewat Lainnya)
-  const tabAktif = pathname.includes('/tanya-ai') ? (kepala ? 'ai' : 'lainnya')
-    : pathname.includes('/siswa') ? 'siswa'
-    : pathname.includes('/tagihan') ? 'tagihan'
-    : pathname.includes('/pembayaran') ? 'pembayaran'
-    : pathname.includes('/laporan') ? 'laporan'
-    : pathname.includes('/lainnya') ? 'lainnya'
-    : pathname.includes('/kode-aktivasi') ? 'lainnya'
-    : pathname.includes('/biaya') ? 'lainnya'
-    : pathname.includes('/profil') ? 'lainnya'
-    : pathname.includes('/langganan') ? 'lainnya'
-    : 'beranda'
-
-  // Sidebar desktop menampilkan semua menu, jadi butuh penanda halaman
-  // yang lebih rinci daripada tab bar mobile (yang merangkum ke "Lainnya").
-  const halaman = ['kode-aktivasi', 'biaya', 'profil-sekolah', 'profil-akun', 'langganan']
-    .find((h) => pathname.includes('/' + h)) || (pathname.includes('/tanya-ai') ? 'ai' : tabAktif)
+  const halaman = pathname.includes('/tanya-ai') ? 'ai'
+    : (menu.find((m) => m.id !== 'beranda' && pathname.startsWith(m.ke)) || {}).id
+      || (pathname.includes('/lainnya') ? 'lainnya' : pathname.includes('/profil-akun') ? 'profil-akun' : 'beranda')
+  // Tab bar mobile merangkum halaman yang tidak punya tab ke "Lainnya".
+  const tabAktif = tab.some((t) => t.id === halaman) ? halaman : halaman === 'beranda' ? 'beranda' : 'lainnya'
 
   // Tanya AI punya tata letak sendiri (kolom ketik menempel di bawah),
-  // jadi tidak dibungkus area gulir biasa. Kepala sekolah & admin sekolah.
-  const halamanAI = bisaAI && /\/tanya-ai\/?$/.test(pathname)
+  // jadi tidak dibungkus area gulir biasa.
+  const halamanAI = ada('ai') && /\/tanya-ai\/?$/.test(pathname)
 
   return (
     // .teks-jelas: teks keterangan abu-abu dibuat hitam (lihat src/index.css)
     <div className="teks-jelas">
     <Shell
-      sidebar={<SisiKiri aktif={halaman} nav={nav} buka={() => bukaCatat()} terkunci={terkunci} kepala={kepala} bisaUndang={bisaUndang} bisaAI={bisaAI} />}
-      tabbar={<TabBar aktif={tabAktif} nav={nav} buka={() => bukaCatat()} kepala={kepala} terkunci={terkunci} />}
+      sidebar={<SisiKiri aktif={halaman} nav={nav} menu={menu} buka={() => bukaCatat()} terkunci={terkunci} bisaCatat={bisaCatat} peran={peran} />}
+      tabbar={<TabBar tab={tab} aktif={tabAktif} nav={nav} buka={() => bukaCatat()} terkunci={terkunci} />}
     >
       {halamanAI ? <TanyaAI /> : (
       <div className="noscroll flex-1 overflow-y-auto overscroll-contain px-[18px] pb-6 lg:px-8 lg:pb-10">
@@ -104,38 +92,36 @@ export default function GuruApp() {
         <SpandukLangganan pengaturan={pengaturan} />
         <Routes>
           <Route index element={<Beranda onCatat={(siswaId) => bukaCatat(siswaId)} />} />
-          <Route path="siswa" element={<DaftarSiswa onTambah={bukaTambahSiswa} onUbah={(siswaId) => setFormSiswa({ siswaId })} terkunci={terkunci} />} />
-          <Route
-            path="siswa/:id"
-            element={
-              <DetailSiswa
-                onCatat={(siswaId) => bukaCatat(siswaId)}
-                onUbah={(siswaId) => setFormSiswa({ siswaId })}
-              />
-            }
-          />
-          <Route path="laporan" element={<Laporan />} />
           <Route path="lainnya" element={<Lainnya />} />
           <Route path="profil-akun" element={<ProfilAkun />} />
-          <Route path="langganan" element={<Langganan />} />
 
-          {/* Rute operasional — dikunci untuk kepala sekolah, bukan cuma disembunyikan
-              di menu. Kalau kepala mengetik URL-nya langsung, dilempar balik ke beranda. */}
-          {!kepala && <Route path="tagihan" element={<Tagihan />} />}
-          {!kepala && <Route path="pembayaran" element={<RiwayatBayar />} />}
-          {!kepala && <Route path="biaya" element={<JenisBiaya />} />}
-
-          {/* Rute administratif — kode aktivasi untuk kepala & admin, profil sekolah khusus kepala */}
-          {bisaUndang && <Route path="kode-aktivasi" element={<KodeAktivasi />} />}
-          {kepala && <Route path="profil-sekolah" element={<ProfilSekolah />} />}
+          {/* Rute dikunci sesuai hak akses — bukan cuma disembunyikan di menu.
+              Kalau URL-nya diketik langsung, dilempar balik ke beranda. */}
+          {ada('siswa') && (
+            <Route path="siswa" element={<DaftarSiswa onTambah={bukaTambahSiswa} onUbah={(siswaId) => setFormSiswa({ siswaId })} terkunci={terkunci} />} />
+          )}
+          {ada('siswa') && (
+            <Route
+              path="siswa/:id"
+              element={<DetailSiswa onCatat={(siswaId) => bukaCatat(siswaId)} onUbah={(siswaId) => setFormSiswa({ siswaId })} />}
+            />
+          )}
+          {ada('tagihan') && <Route path="tagihan" element={<Tagihan />} />}
+          {ada('pembayaran') && <Route path="pembayaran" element={<RiwayatBayar />} />}
+          {ada('laporan') && <Route path="laporan" element={<Laporan />} />}
+          {ada('kas') && <Route path="kas" element={<Kas />} />}
+          {ada('biaya') && <Route path="biaya" element={<JenisBiaya />} />}
+          {ada('kode-aktivasi') && <Route path="kode-aktivasi" element={<KodeAktivasi />} />}
+          {ada('profil-sekolah') && <Route path="profil-sekolah" element={<ProfilSekolah />} />}
+          {ada('langganan') && <Route path="langganan" element={<Langganan />} />}
 
           <Route path="*" element={<Navigate to="/guru" replace />} />
         </Routes>
        </div>
       </div>
       )}
-      {!kepala && <SheetCatat buka={!!catat} awal={catat} tutup={() => setCatat(null)} />}
-      {!kepala && (
+      {bisaCatat && <SheetCatat buka={!!catat} awal={catat} tutup={() => setCatat(null)} />}
+      {boleh('siswa') && (
         <SheetSiswa
           buka={!!formSiswa}
           siswaId={formSiswa?.siswaId ?? null}
@@ -150,59 +136,29 @@ export default function GuruApp() {
 }
 
 /** Navigasi kiri, hanya tampil mulai lebar 1024px. */
-function SisiKiri({ aktif, nav, buka, terkunci, kepala, bisaUndang, bisaAI }) {
-  const { pengaturan, petugas, avatarSaya, modeDemo } = useData()
+function SisiKiri({ aktif, nav, menu, buka, terkunci, bisaCatat, peran }) {
+  const { pengaturan, petugas, avatarSaya, modeDemo, boleh } = useData()
   const { keluar } = useAuth()
+  const utama = menu.filter((m) => m.grup === 'menu')
+  const atur = menu.filter((m) => m.grup === 'atur')
   return (
     <Sidebar>
-      <SidebarBrand nama={pengaturan.namaSekolah} sub={pengaturan.alamat || (kepala ? 'Lengkapi alamat di Profil sekolah' : 'Panel sekolah')} />
+      <SidebarBrand logo={pengaturan.logo} nama={pengaturan.namaSekolah} sub={pengaturan.alamat || (boleh('sekolah') ? 'Lengkapi alamat di Profil sekolah' : 'Panel sekolah')} />
 
       <NavLabel>Menu</NavLabel>
-      <NavItem aktif={aktif === 'beranda'} onClick={() => nav('/guru')} emoji="beranda">Beranda</NavItem>
-      <NavItem aktif={aktif === 'siswa'} onClick={() => nav('/guru/siswa')} emoji="siswa">Siswa</NavItem>
-      {!kepala && (
-        <NavItem aktif={aktif === 'tagihan'} onClick={() => nav('/guru/tagihan')} emoji="tagihan">
-          Tagihan
-        </NavItem>
-      )}
-      {!kepala && (
-        <NavItem aktif={aktif === 'pembayaran'} onClick={() => nav('/guru/pembayaran')} emoji="pembayaran">
-          Pembayaran
-        </NavItem>
-      )}
-      <NavItem aktif={aktif === 'laporan'} onClick={() => nav('/guru/laporan')} emoji="laporan">Laporan</NavItem>
-      {bisaAI && (
-        <NavItem aktif={aktif === 'ai'} onClick={() => nav('/guru/tanya-ai')} emoji="ai">
-          Tanya AI
-        </NavItem>
-      )}
+      {utama.map((m) => (
+        <NavItem key={m.id} aktif={aktif === m.id} onClick={() => nav(m.ke)} emoji={m.emoji}>{m.label}</NavItem>
+      ))}
 
-      <NavLabel>{kepala ? 'Sekolah' : 'Pengaturan'}</NavLabel>
-      {!kepala && (
-        <NavItem aktif={aktif === 'biaya'} onClick={() => nav('/guru/biaya')} emoji="biaya">
-          Jenis biaya
-        </NavItem>
-      )}
-      {bisaUndang && (
-        <NavItem aktif={aktif === 'kode-aktivasi'} onClick={() => nav('/guru/kode-aktivasi')} emoji="kode">
-          Kode aktivasi
-        </NavItem>
-      )}
-      {kepala && (
-        <NavItem aktif={aktif === 'profil-sekolah'} onClick={() => nav('/guru/profil-sekolah')} emoji="sekolah">
-          Profil sekolah
-        </NavItem>
-      )}
-      {bisaUndang && (
-        <NavItem aktif={aktif === 'langganan'} onClick={() => nav('/guru/langganan')} emoji="langganan">
-          Langganan
-        </NavItem>
-      )}
+      <NavLabel>{atur.length ? 'Pengaturan' : 'Akun'}</NavLabel>
+      {atur.map((m) => (
+        <NavItem key={m.id} aktif={aktif === m.id} onClick={() => nav(m.ke)} emoji={m.emoji}>{m.label}</NavItem>
+      ))}
       <NavItem aktif={aktif === 'profil-akun'} onClick={() => nav('/guru/profil-akun')} emoji="akun">
         Profil akun
       </NavItem>
 
-      {!kepala && (
+      {bisaCatat && (
         <button
           onClick={buka}
           title={terkunci ? 'Terkunci sampai langganan diperpanjang' : undefined}
@@ -215,20 +171,22 @@ function SisiKiri({ aktif, nav, buka, terkunci, kepala, bisaUndang, bisaAI }) {
         </button>
       )}
 
-      <div className="mt-auto flex items-center gap-3 border-t border-line px-2 pt-3">
-        <button onClick={() => nav('/guru/profil-akun')} title="Profil akun" className="rounded-full">
+      <div className="mt-auto border-t border-line px-1 pt-3">
+        <button onClick={() => nav('/guru/profil-akun')} title="Profil akun" className="flex w-full items-center gap-2.5 rounded-xl p-1 text-left hover:bg-isi">
           <AvatarStaf nama={petugas} avatar={avatarSaya} size={38} />
+          <span className="min-w-0 flex-1">
+            <b className="block break-words text-[13.5px] font-extrabold leading-tight">{petugas || 'Staf sekolah'}</b>
+            <span className="text-[11.5px] font-semibold text-muted">{labelPeran(peran)}{modeDemo ? ' · demo' : ''}</span>
+          </span>
         </button>
-        <span className="min-w-0 flex-1">
-          <b className="block truncate text-[13.5px] font-extrabold">{petugas || 'Guru'}</b>
-          <span className="text-[11.5px] font-semibold text-muted">{kepala ? 'Kepala sekolah' : modeDemo ? 'Mode demo' : 'Staf sekolah'}</span>
-        </span>
-        <TombolTema />
-        {!modeDemo && (
-          <button className="rounded-lg px-2 py-1.5 text-[11.5px] font-bold text-danger" onClick={keluar}>
-            Keluar
-          </button>
-        )}
+        <div className="mt-2 flex items-center gap-2 px-1">
+          <TombolTema />
+          {!modeDemo && (
+            <button className="h-9 flex-1 rounded-xl bg-danger-soft text-[12.5px] font-bold text-danger" onClick={keluar}>
+              Keluar
+            </button>
+          )}
+        </div>
       </div>
     </Sidebar>
   )
@@ -238,19 +196,16 @@ function SisiKiri({ aktif, nav, buka, terkunci, kepala, bisaUndang, bisaAI }) {
  * Bottom nav mobile — baris rata sederhana, TIDAK ADA elemen melayang
  * atau absolute-positioned sama sekali (sengaja, supaya tidak pernah
  * muncul artefak tombol "nyangkut" di tengah nav seperti yang pernah
- * terjadi). "Catat pembayaran" untuk guru/admin jadi salah satu item
- * biasa, sejajar dengan tab lain.
+ * terjadi). "Bayar" jadi salah satu item biasa, sejajar dengan tab lain.
  */
-function TabBar({ aktif, nav, buka, kepala, terkunci }) {
+function TabBar({ tab, aktif, nav, buka, terkunci }) {
   return (
     <nav className="flex shrink-0 items-stretch border-t border-line bg-white px-1 pb-[calc(8px+env(safe-area-inset-bottom))] pt-1.5 lg:hidden">
-      <TabEmoji id="beranda" label="Beranda" aktif={aktif === 'beranda'} onClick={() => nav('/guru')} />
-      <TabEmoji id="siswa" label="Siswa" aktif={aktif === 'siswa'} onClick={() => nav('/guru/siswa')} />
-      {!kepala && <TabEmoji id="bayar" label="Bayar" onClick={buka} redup={terkunci} />}
-      {kepala && <TabEmoji id="laporan" label="Laporan" aktif={aktif === 'laporan'} onClick={() => nav('/guru/laporan')} />}
-      {kepala
-        ? <TabEmoji id="ai" label="Tanya AI" aktif={aktif === 'ai'} onClick={() => nav('/guru/tanya-ai')} />
-        : <TabEmoji id="pembayaran" label="Riwayat" aktif={aktif === 'pembayaran'} onClick={() => nav('/guru/pembayaran')} />}
+      {tab.map((t) => (
+        t.catat
+          ? <TabEmoji key={t.id} id={t.emoji} label={t.label} onClick={buka} redup={terkunci} />
+          : <TabEmoji key={t.id} id={t.emoji} label={t.label} aktif={aktif === t.id} onClick={() => nav(t.ke)} />
+      ))}
       <TabEmoji id="lainnya" label="Lainnya" aktif={aktif === 'lainnya'} onClick={() => nav('/guru/lainnya')} />
     </nav>
   )

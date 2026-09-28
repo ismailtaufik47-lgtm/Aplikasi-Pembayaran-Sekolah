@@ -162,6 +162,11 @@ export function AdminProvider({ children }) {
         () => api.ubahKuotaAI(s.id, batas),
         batas === 0 ? `Tanya AI ${s.nama} dimatikan` : `Kuota Tanya AI ${s.nama} disimpan`
       ),
+    aturHakAkses: (s, hak) =>
+      jalankan(
+        () => api.aturHakAkses(s.id, hak),
+        hak === null ? `Hak akses ${s.nama} kembali standar` : `Hak akses ${s.nama} disimpan`
+      ),
     /** Unduh PDF (invoice / kuitansi sewa) dengan toast galat bila gagal. */
     unduhDokumen: async (fn) => {
       try {

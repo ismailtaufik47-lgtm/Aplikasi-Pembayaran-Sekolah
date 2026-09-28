@@ -57,3 +57,10 @@ export const kuitansiSewa = (id) => rpc('kuitansi_sewa', { p_id: id })
 /** Tarif khusus per siswa. null = kembali ke tarif default aplikasi. */
 export const ubahTarif = (sekolahId, harga) =>
   rpc('ubah_harga_per_siswa', { p_sekolah_id: sekolahId, p_harga: harga })
+
+/** Hak akses per peran & fitur satu sekolah (0029). → { akses, standar, pilihan } */
+export const hakAkses = (sekolahId) => rpc('admin_hak_akses', { p_sekolah_id: sekolahId })
+
+/** Simpan hak akses. hak = null → kembali ke pengaturan standar. */
+export const aturHakAkses = (sekolahId, hak) =>
+  rpc('admin_atur_hak_akses', { p_sekolah_id: sekolahId, p_hak: hak })

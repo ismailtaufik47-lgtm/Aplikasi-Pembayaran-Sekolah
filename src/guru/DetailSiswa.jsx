@@ -24,14 +24,15 @@ import {
 export default function DetailSiswa({ onCatat, onUbah }) {
   const { id } = useParams()
   const nav = useNavigate()
-  const { siswa, biaya, pengaturan, peran, toast } = useData()
+  const { siswa, biaya, pengaturan, toast, boleh } = useData()
   const [seg, setSeg] = useState('spp')
   const [periode, setPeriode] = useState(null) // { jenis, indeks } | null
   const [linkOrtu, setLinkOrtu] = useState(null) // { token, nama } | null, saat sheet link dibuka
   const [memuatLink, setMemuatLink] = useState(false)
   const s = siswa.find((x) => x.id === id)
   const kini = bulanBerjalan()
-  const readOnly = peran === 'kepala'
+  const bisaUbah = boleh('siswa')
+  const bisaCatat = boleh('pembayaran')
 
   if (!s) return <Kosong>Data siswa tidak ditemukan.</Kosong>
 
@@ -94,7 +95,7 @@ export default function DetailSiswa({ onCatat, onUbah }) {
           <Ikon.kembali size={18} />
         </button>
         <h2 className="text-[17px] font-extrabold">Kartu pembayaran</h2>
-        {!readOnly && (
+        {bisaUbah && (
           <button
             className="ml-auto rounded-xl bg-white border border-line px-3 py-2 text-xs font-extrabold"
             onClick={() => onUbah(s.id)}
@@ -132,14 +133,18 @@ export default function DetailSiswa({ onCatat, onUbah }) {
                 Sisa tahun ajaran (termasuk bulan yang belum jatuh tempo): {rp(sisaTahunAjaran)}
               </div>
             )}
-            {!readOnly && (
+            {(bisaCatat || bisaUbah) && (
               <div className="mt-3 flex gap-2.5">
-                <button className="flex-1 rounded-2xl bg-white py-2.5 text-[13.5px] font-extrabold text-brand" onClick={() => onCatat(s.id)}>
-                  Catat pembayaran
-                </button>
-                <button className="flex-1 rounded-2xl bg-white/20 py-2.5 text-[13.5px] font-extrabold text-white" onClick={bukaLinkOrtu}>
-                  Kirim ke ortu
-                </button>
+                {bisaCatat && (
+                  <button className="flex-1 rounded-2xl bg-white py-2.5 text-[13.5px] font-extrabold text-brand" onClick={() => onCatat(s.id)}>
+                    Catat pembayaran
+                  </button>
+                )}
+                {bisaUbah && (
+                  <button className="flex-1 rounded-2xl bg-white/20 py-2.5 text-[13.5px] font-extrabold text-white" onClick={bukaLinkOrtu}>
+                    Kirim ke ortu
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -218,7 +223,6 @@ export default function DetailSiswa({ onCatat, onUbah }) {
         siswaId={s.id}
         jenis={periode?.jenis}
         indeks={periode?.indeks}
-        readOnly={readOnly}
       />
 
       <Sheet buka={!!linkOrtu} tutup={() => setLinkOrtu(null)} judul="Link portal orang tua" lead={`Untuk memantau status pembayaran ${s.nama}`}>

@@ -5,7 +5,7 @@
  *
  * Dua jalur ini SENGAJA tidak dibuat simetris seperti kartu kembar:
  * bergabung ke sekolah yang sudah didaftarkan kepala sekolahnya jauh
- * lebih sering terjadi (tiap sekolah bisa punya banyak guru/TU) daripada
+ * lebih sering terjadi (tiap sekolah bisa punya beberapa Admin/TU) daripada
  * mendaftarkan sekolah baru (sekali per sekolah) — jadi bobot visualnya
  * dibuat mengikuti itu, bukan dibagi rata 50/50.
  *
@@ -47,8 +47,8 @@ export default function DaftarPeran({ kembali }) {
 
         <h1 className="text-[21px] font-extrabold tracking-tight">Gabung ke Pembayaran TK</h1>
         <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted">
-          Tiap sekolah punya satu kepala sekolah yang mendaftarkan, lalu mengundang guru
-          dan staf TU pakai kode. Pilih yang sesuai posisi Anda.
+          Tiap sekolah didaftarkan kepala sekolah, lalu kepala sekolah mengundang
+          Admin/TU pakai kode. Pilih yang sesuai posisi Anda.
         </p>
 
         {/* jalur utama — lebih sering dipakai: staf yang bergabung pakai kode */}
@@ -61,7 +61,7 @@ export default function DaftarPeran({ kembali }) {
             <Ikon.siswa size={21} />
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-extrabold">Guru atau staf TU</span>
+            <span className="block text-[15px] font-extrabold">Saya Admin/TU sekolah</span>
             <span className="mt-0.5 block text-[13px] leading-relaxed text-muted">
               Sekolah Anda sudah terdaftar dan Anda punya kode aktivasi 6 karakter dari kepala sekolah
             </span>

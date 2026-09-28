@@ -9,6 +9,8 @@
 import { createContext, useCallback, useContext, useMemo, useRef, useState } from 'react'
 import * as api from './api.js'
 import { BULAN, waktuTampil } from './format.js'
+import { cekAkses, lengkapiAkses } from './akses.js'
+import { hitungLangganan, pesanKunci } from './langganan.js'
 
 const Ctx = createContext(null)
 export const useData = () => useContext(Ctx)
@@ -23,6 +25,7 @@ export function DataProvider({ children }) {
   const [wali, setWali] = useState(null)
   const [petugas, setPetugas] = useState('')
   const [peran, setPeran] = useState('')
+  const [akses, setAkses] = useState({})
   const [pinAktif, setPinAktif] = useState(false)
   const [avatarSaya, setAvatarSaya] = useState(null)
   const [pesan, setPesan] = useState('')
@@ -42,6 +45,7 @@ export function DataProvider({ children }) {
     setWali(d.wali)
     setPetugas(d.petugas || '')
     setPeran(d.peran || '')
+    setAkses(d.akses || (d.peran ? lengkapiAkses(d.peran, null) : {}))
     setPinAktif(!!d.pinAktif)
     setAvatarSaya(Number.isInteger(d.avatarSaya) ? d.avatarSaya : null)
     setSiap(true)
@@ -138,13 +142,18 @@ export function DataProvider({ children }) {
    * dengan cicilan, satu periode bisa punya beberapa transaksi). Jumlah
    * yang tercatat pada siswa dikurangi sebesar transaksi itu saja.
    */
-  async function batalkanPembayaran(pembayaranId) {
+  async function batalkanPembayaran(pembayaranId, alasan) {
     const baris = pembayaran.find((p) => p.id === pembayaranId)
     if (!baris) return
     setPembayaran((lama) => lama.filter((p) => p.id !== pembayaranId))
     tambahJumlah(baris.siswaId, baris.jenis, baris.indeks, -baris.nominal)
     try {
-      await api.hapusPembayaran(pembayaranId)
+      const s = siswa.find((x) => x.id === baris.siswaId)
+      await api.batalkanPembayaran(pembayaranId, alasan, {
+        id: baris.id, sumber: 'pembayaran', jenis: 'masuk',
+        uraian: baris.ket + (s ? ' · ' + s.nama : ''), nominal: baris.nominal,
+        tanggal: baris.tanggal, petugas: baris.petugas, dibatalkanNama: petugas,
+      })
     } catch (e) {
       setPembayaran((lama) => [baris, ...lama])
       tambahJumlah(baris.siswaId, baris.jenis, baris.indeks, baris.nominal)
@@ -298,6 +307,11 @@ export function DataProvider({ children }) {
     }
   }
 
+  /** Logo sekolah baru saja diganti di Profil sekolah → langsung tampil di menu. */
+  function aturLogoLokal(logo) {
+    setPengaturan((p) => (p ? { ...p, logo: logo || null } : p))
+  }
+
   /** Ubah nama tampilan akun yang sedang login (bukan nama sekolah). */
   async function ubahNamaSaya(nama) {
     const lama = petugas
@@ -333,6 +347,9 @@ export function DataProvider({ children }) {
     }
   }
 
+  // Masa sewa habis → transaksi dikunci (ditegakkan juga di database, 0029).
+  const terkunci = !!pengaturan && hitungLangganan(pengaturan).status === 'kadaluarsa'
+
   const nilai = useMemo(
     () => ({
       siap,
@@ -345,6 +362,16 @@ export function DataProvider({ children }) {
       wali,
       petugas,
       peran,
+      akses,
+      /** boleh('kas') = bisa kelola · boleh('kas', 'lihat') = minimal bisa lihat */
+      boleh: (fitur, tingkat = 'kelola') => cekAkses(akses, fitur, tingkat),
+      terkunci,
+      /** true (dan tampilkan pesan) kalau aksi transaksi sedang terkunci. */
+      cegahKunci: (aksi) => {
+        if (!terkunci) return false
+        toast(pesanKunci(pengaturan, aksi))
+        return true
+      },
       pinAktif,
       pesan,
       muat,
@@ -362,11 +389,12 @@ export function DataProvider({ children }) {
       avatarSaya,
       ubahAvatarSaya,
       ubahPengaturan,
+      aturLogoLokal,
       ubahNamaSaya,
       aturPinAkun,
       matikanPinAkun,
     }),
-    [siap, galat, pengaturan, biaya, siswa, pembayaran, wali, petugas, peran, pinAktif, avatarSaya, pesan, muat, segarkan]
+    [siap, galat, pengaturan, biaya, siswa, pembayaran, wali, petugas, peran, akses, pinAktif, avatarSaya, pesan, muat, segarkan]
   )
 
   return <Ctx.Provider value={nilai}>{children}</Ctx.Provider>

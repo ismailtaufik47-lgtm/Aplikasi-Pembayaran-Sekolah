@@ -1,15 +1,28 @@
-import { useMemo, useState } from 'react'
+/**
+ * Riwayat pembayaran + pembatalan.
+ *
+ * Alur membatalkan (dibuat sesederhana mungkin):
+ *   ketuk transaksi → "Batalkan transaksi" → pilih alasan → "Ya, batalkan".
+ * Tidak ada hapus: transaksi pindah ke tab "Dibatalkan" lengkap dengan
+ * siapa, kapan, dan alasannya. Tab itu juga memuat transaksi kas yang
+ * dibatalkan, jadi kepala sekolah cukup melihat satu tempat.
+ */
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Avatar from '../components/Avatar.jsx'
-import { Chip, Ikon, Kosong, PageHead, Tile } from '../components/ui.jsx'
+import { Chip, Ikon, Kosong, PageHead, Sheet, Tile } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import * as api from '../lib/api.js'
-import { hariTampil, rp, tanggalISO, tanggalKunci, tanggalPanjang } from '../lib/format.js'
+import { hariTampil, rp, tanggalISO, tanggalKunci, tanggalPanjang, waktuTampil } from '../lib/format.js'
+import FormBatal from './FormBatal.jsx'
 
 export default function RiwayatBayar() {
-  const { pembayaran, siswa, pengaturan, toast } = useData()
+  const { pembayaran, siswa, pengaturan, toast, boleh } = useData()
   const nav = useNavigate()
   const [unduh, setUnduh] = useState(null) // id transaksi yang kuitansinya sedang dibuat
+  const [tab, setTab] = useState(boleh('pembayaran', 'lihat') ? 'transaksi' : 'batal')
+  const [pilih, setPilih] = useState(null) // transaksi yang detailnya dibuka
+  const lihatBatal = boleh('batal', 'lihat')
 
   const unduhKuitansi = async (p, s) => {
     if (unduh) return
@@ -53,10 +66,31 @@ export default function RiwayatBayar() {
   const totalTampil = kelompok.reduce((t, k) => t + k.items.reduce((x, p) => x + p.nominal, 0), 0)
   const jmlTampil = kelompok.reduce((t, k) => t + k.items.length, 0)
 
-  return (
+  const judul = (
     <>
       <h1 className="pb-1.5 pt-3.5 text-xl font-extrabold lg:hidden">Riwayat pembayaran</h1>
       <PageHead judul="Riwayat pembayaran" sub="Semua transaksi yang tercatat tahun ajaran ini" />
+      {lihatBatal && boleh('pembayaran', 'lihat') && (
+        <div className="mb-3 mt-1 flex rounded-2xl bg-white p-1 shadow-soft lg:mt-4 lg:max-w-sm">
+          {[['transaksi', 'Transaksi'], ['batal', 'Dibatalkan']].map(([id, label]) => (
+            <button
+              key={id}
+              onClick={() => setTab(id)}
+              className={`flex-1 rounded-xl py-2.5 text-[13.5px] font-extrabold ${tab === id ? 'bg-brand text-white' : 'text-muted'}`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+    </>
+  )
+
+  if (tab === 'batal') return <>{judul}<DaftarBatal /></>
+
+  return (
+    <>
+      {judul}
 
       <div className="noscroll -mx-[18px] flex gap-3 overflow-x-auto px-[18px] pb-1.5 pt-1 lg:mx-0 lg:grid lg:grid-cols-3 lg:gap-4 lg:overflow-visible lg:px-0">
         <Stat warna="green" ikon={<Ikon.cek size={20} />} label="Masuk hari ini" nilai={rp(hariIni.reduce((t, p) => t + p.nominal, 0))} />
@@ -131,7 +165,7 @@ export default function RiwayatBayar() {
                   if (!s) return null
                   return (
                     <div key={p.id} className="row lg:rounded-xl lg:px-4 lg:hover:bg-[#FAFBFF]">
-                      <button className="flex min-w-0 flex-1 items-center gap-3 text-left" onClick={() => nav(`/guru/siswa/${s.id}`)}>
+                      <button className="flex min-w-0 flex-1 items-center gap-3 text-left" onClick={() => setPilih(p)}>
                         <Avatar nama={s.nama} jenis={s.jenis} avatar={s.avatar} foto={s.foto} />
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[14.5px] font-bold">{s.nama}</span>
@@ -159,6 +193,140 @@ export default function RiwayatBayar() {
           )
         })
       )}
+
+      <SheetTransaksi
+        p={pilih}
+        s={pilih && siswa.find((x) => x.id === pilih.siswaId)}
+        tutup={() => setPilih(null)}
+        unduh={unduh}
+        onKuitansi={unduhKuitansi}
+        onKartu={(id) => { setPilih(null); nav(`/guru/siswa/${id}`) }}
+      />
+    </>
+  )
+}
+
+/* ---------- detail satu transaksi + batalkan ---------- */
+function SheetTransaksi({ p, s, tutup, unduh, onKuitansi, onKartu }) {
+  const { batalkanPembayaran, toast, boleh, cegahKunci } = useData()
+  const [form, setForm] = useState(false)
+  const [sibuk, setSibuk] = useState(false)
+  useEffect(() => { setForm(false) }, [p])
+  if (!p || !s) return null
+
+  const kirim = async (alasan) => {
+    setSibuk(true)
+    try {
+      await batalkanPembayaran(p.id, alasan)
+      toast('Pembayaran dibatalkan')
+      tutup()
+    } catch {
+      /* pesan galat sudah ditampilkan store */
+    } finally {
+      setSibuk(false)
+    }
+  }
+
+  const Kv = ({ k, v }) => (
+    <div className="flex justify-between gap-3 py-1.5 text-[13.5px]">
+      <span className="shrink-0 font-semibold text-muted">{k}</span>
+      <span className="text-right font-bold">{v}</span>
+    </div>
+  )
+
+  return (
+    <Sheet buka tutup={() => !sibuk && tutup()} judul="Detail pembayaran">
+      <div className="card">
+        <div className="flex items-center gap-3">
+          <Avatar nama={s.nama} jenis={s.jenis} avatar={s.avatar} foto={s.foto} />
+          <div className="min-w-0 flex-1">
+            <div className="text-[15px] font-extrabold leading-tight">{s.nama}</div>
+            <div className="text-[12.5px] text-muted">Kelas {s.kelas} · NIS {s.nis}</div>
+          </div>
+          <div className="shrink-0 text-[18px] font-extrabold text-ok-deep">{rp(p.nominal)}</div>
+        </div>
+        <div className="mt-3 border-t border-line pt-2">
+          <Kv k="Untuk" v={p.ket} />
+          <Kv k="Tanggal" v={waktuTampil(p.tanggal)} />
+          <Kv k="Metode" v={p.metode} />
+          <Kv k="Dicatat oleh" v={p.petugas || '—'} />
+        </div>
+      </div>
+
+      <div className="mt-3 flex gap-2.5">
+        <button
+          className="flex-1 rounded-2xl border border-line bg-white py-3 text-[13.5px] font-bold disabled:opacity-50"
+          onClick={() => onKuitansi(p, s)}
+          disabled={!!unduh}
+        >
+          {unduh === p.id ? '⏳ Membuat…' : '📄 Kuitansi'}
+        </button>
+        <button className="flex-1 rounded-2xl border border-line bg-white py-3 text-[13.5px] font-bold" onClick={() => onKartu(s.id)}>
+          🧒 Kartu siswa
+        </button>
+      </div>
+
+      <div className="h-3" />
+      {boleh('batal') && (form ? (
+        <div className="mb-2.5">
+          <FormBatal nominal={p.nominal} sibuk={sibuk} onKirim={kirim} onBatal={() => setForm(false)} />
+        </div>
+      ) : (
+        <button
+          className="mb-2.5 w-full rounded-2xl bg-danger-soft py-3.5 text-[15px] font-extrabold text-danger"
+          onClick={() => !cegahKunci('batal') && setForm(true)}
+        >
+          Batalkan transaksi ini
+        </button>
+      ))}
+      <button className="bigbtn-tutup" onClick={tutup}>Tutup</button>
+    </Sheet>
+  )
+}
+
+/* ---------- daftar transaksi yang dibatalkan (pembayaran + kas) ---------- */
+function DaftarBatal() {
+  const [data, setData] = useState(null)
+  const [galat, setGalat] = useState('')
+  useEffect(() => {
+    api.riwayatPembatalan().then(setData).catch((e) => setGalat(e.message))
+  }, [])
+
+  if (galat) return <div className="card"><Kosong>{galat}</Kosong></div>
+  if (!data) return <div className="card"><Kosong>Memuat riwayat pembatalan…</Kosong></div>
+
+  const total = data.reduce((t, b) => t + Number(b.nominal || 0), 0)
+  return (
+    <>
+      <div className="seghead">
+        <h2>Transaksi dibatalkan</h2>
+        {data.length > 0 && <span className="text-[12.5px] font-bold text-muted">{data.length} transaksi · {rp(total)}</span>}
+      </div>
+      <div className="card">
+        {data.length === 0 ? (
+          <Kosong>Belum ada transaksi yang dibatalkan. 👍</Kosong>
+        ) : (
+          data.map((b) => (
+            <div key={b.sumber + b.id} className="row items-start">
+              <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-[13px] text-[18px] ${b.sumber === 'kas' ? 'bg-warn-soft' : 'bg-danger-soft'}`}>
+                {b.sumber === 'kas' ? '💰' : '💳'}
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-[14px] font-bold leading-snug">{b.uraian}</span>
+                <span className="block text-[12px] text-muted">
+                  {b.sumber === 'kas' ? (b.jenis === 'keluar' ? 'Kas keluar' : 'Kas masuk') : 'Pembayaran'} · dicatat {b.petugas || '—'}
+                </span>
+                <span className="mt-1.5 block rounded-xl bg-danger-soft px-2.5 py-1.5 text-[12px] font-semibold text-danger">
+                  Dibatalkan {b.dibatalkanNama || '—'} · {waktuTampil(b.dibatalkanPada)}
+                  <br />
+                  Alasan: {b.alasan || '—'}
+                </span>
+              </span>
+              <span className="shrink-0 text-[14px] font-extrabold text-muted line-through">{rp(b.nominal)}</span>
+            </div>
+          ))
+        )}
+      </div>
     </>
   )
 }

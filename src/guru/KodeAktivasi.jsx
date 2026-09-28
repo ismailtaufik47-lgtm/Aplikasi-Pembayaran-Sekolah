@@ -1,7 +1,8 @@
 /**
- * Kelola kode aktivasi — kepala sekolah/admin membuat kode di sini,
- * lalu membagikannya (WA, lisan, dll) ke guru yang belum terdaftar.
- * Guru memasukkan kode itu di layar Onboarding saat pertama kali login.
+ * Kelola kode aktivasi — kepala sekolah membuat kode di sini, lalu
+ * membagikannya (WA, lisan, dll) ke Admin/TU yang belum terdaftar.
+ * Admin/TU memasukkan kode itu di layar Onboarding saat pertama kali login.
+ * (Guru kelas tidak memakai aplikasi ini — hanya kepala sekolah & Admin/TU.)
  */
 import { useState } from 'react'
 import { BtnKecil, Ikon, Kosong, PageHead } from '../components/ui.jsx'
@@ -34,16 +35,12 @@ export default function KodeAktivasi() {
   return (
     <>
       <h1 className="pb-1.5 pt-3.5 text-xl font-extrabold lg:hidden">Kode aktivasi</h1>
-      <PageHead judul="Kode aktivasi" sub="Buat kode sekali pakai untuk mengundang guru atau admin baru" />
+      <PageHead judul="Kode aktivasi" sub="Buat kode sekali pakai untuk mengundang akun Admin/TU baru" />
 
       <div className="flex gap-2.5 lg:mt-4 lg:max-w-md">
-        <BtnKecil utama onClick={() => buat('guru')} disabled={sibuk}>
+        <BtnKecil utama onClick={() => buat('admin')} disabled={sibuk}>
           <Ikon.plus size={16} />
-          Kode untuk guru
-        </BtnKecil>
-        <BtnKecil onClick={() => buat('admin')} disabled={sibuk}>
-          <Ikon.plus size={16} />
-          Kode untuk admin
+          {sibuk ? 'Membuat kode…' : 'Buat kode untuk Admin/TU'}
         </BtnKecil>
       </div>
 
@@ -58,7 +55,7 @@ export default function KodeAktivasi() {
                 {k.kode}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="block text-[14.5px] font-bold">Untuk {k.peran === 'admin' ? 'admin' : 'guru'}</span>
+                <span className="block text-[14.5px] font-bold">Untuk Admin/TU</span>
                 <span className="block text-xs text-muted">{k.waktu} · sekali pakai</span>
               </span>
               <button
@@ -74,8 +71,9 @@ export default function KodeAktivasi() {
 
       <div className="mt-4 flex gap-2.5 rounded-2xl bg-brand-soft px-4 py-3 text-[12.5px] font-semibold leading-relaxed text-brand-deep">
         <span className="shrink-0">ℹ️</span>
-        Kode hanya berlaku sekali. Bagikan langsung ke guru yang dituju — siapa pun yang
-        memasukkannya lebih dulu akan mendapat aksesnya.
+        Kode hanya berlaku sekali. Bagikan langsung ke Admin/TU yang dituju — siapa pun yang
+        memasukkannya lebih dulu akan mendapat aksesnya. Menu yang bisa dibuka Admin/TU
+        mengikuti pengaturan hak akses sekolah.
       </div>
     </>
   )

@@ -5,23 +5,27 @@
  *  1. Trial berjalan — pengingat santai, bisa diklik ke halaman Langganan.
  *  2. Masa aktif tinggal sedikit (≤7 hari) — pengingat serupa, warna waspada.
  *  3. KADALUARSA (trial ATAU langganan habis) — spanduk MENETAP (tidak
- *     hilang sampai diperpanjang), menjelaskan bahwa menambah siswa &
- *     mencatat pembayaran terkunci sementara, tapi data tetap bisa dilihat.
+ *     hilang sampai diperpanjang), menjelaskan bahwa semua transaksi
+ *     terkunci sementara, tapi data tetap bisa dilihat.
  *     Teksnya beda tergantung riwayat sekolah:
  *       • belum pernah bayar (langgananSampai kosong) → "masa uji coba habis"
  *       • pernah bayar tapi sudah lewat tanggalnya    → "masa sewa tidak aktif"
  *       • dinonaktifkan paksa oleh admin aplikasi      → "dinonaktifkan admin"
  *
- * Aplikasi TIDAK dikunci total — guru tetap bisa membuka & melihat semua
- * data. Yang dikunci hanya aksi menambah siswa baru & mencatat pembayaran
- * baru (ditegakkan juga di database, lihat 0013_langganan.sql).
+ * Aplikasi TIDAK dikunci total — semua akun tetap bisa membuka & melihat
+ * data. Yang dikunci: catat pembayaran, tambah siswa, catat kas, saldo awal
+ * kas, dan pembatalan (ditegakkan juga di database, 0013 & 0029).
  */
 import { useNavigate } from 'react-router-dom'
 import { Ikon } from './ui.jsx'
 import { hitungLangganan, alasanKunci, waAdmin } from '../lib/langganan.js'
+import { useData } from '../lib/store.jsx'
 
 export default function SpandukLangganan({ pengaturan }) {
   const nav = useNavigate()
+  const { boleh } = useData() || {}
+  // Halaman Langganan hanya untuk akun berhak "sekolah" (biasanya kepala sekolah).
+  const bisaBayar = boleh ? boleh('sekolah') : true
   const l = hitungLangganan(pengaturan)
 
   // Aktif dan masih lama → tidak perlu mengganggu.
@@ -33,17 +37,17 @@ export default function SpandukLangganan({ pengaturan }) {
     const teks = {
       admin: {
         judul: 'Aplikasi sedang dinonaktifkan admin',
-        isi: 'Menambah siswa & mencatat pembayaran sementara dikunci. Data yang sudah ada tetap aman dan tetap bisa dilihat. Silakan hubungi admin aplikasi.',
+        isi: 'Semua transaksi (catat pembayaran, siswa baru, kas, pembatalan) sementara dikunci. Data yang sudah ada tetap aman dan tetap bisa dilihat. Silakan hubungi admin aplikasi.',
         tombol: 'Hubungi admin',
       },
       sewa: {
         judul: 'Masa sewa aplikasi tidak aktif',
-        isi: 'Sudah jatuh tempo — menambah siswa & mencatat pembayaran sementara dikunci. Data yang sudah ada tetap aman dan tetap bisa dilihat.',
+        isi: 'Sudah jatuh tempo — semua transaksi (catat pembayaran, siswa baru, kas, pembatalan) sementara dikunci. Data yang sudah ada tetap aman dan tetap bisa dilihat.',
         tombol: 'Perpanjang sekarang',
       },
       trial: {
         judul: 'Masa uji coba sudah habis',
-        isi: 'Sewa aplikasi untuk mengaktifkan lagi — menambah siswa & mencatat pembayaran sementara dikunci. Data yang sudah ada tetap aman dan tetap bisa dilihat.',
+        isi: 'Sewa aplikasi untuk mengaktifkan lagi — semua transaksi (catat pembayaran, siswa baru, kas, pembatalan) sementara dikunci. Data yang sudah ada tetap aman dan tetap bisa dilihat.',
         tombol: 'Sewa sekarang',
       },
     }[alasan]
@@ -63,10 +67,14 @@ export default function SpandukLangganan({ pengaturan }) {
           <a href={waAdmin(pengaturan)} target="_blank" rel="noreferrer" className={kelasTombol}>
             {teks.tombol}
           </a>
-        ) : (
+        ) : bisaBayar ? (
           <button onClick={() => nav('/guru/langganan')} className={kelasTombol}>
             {teks.tombol}
           </button>
+        ) : (
+          <div className="mt-3 rounded-xl bg-white/70 px-3 py-2 text-center text-[12.5px] font-bold text-danger">
+            Minta kepala sekolah memperpanjang sewa aplikasi.
+          </div>
         )}
       </div>
     )
@@ -86,7 +94,7 @@ export default function SpandukLangganan({ pengaturan }) {
 
   return (
     <button
-      onClick={() => nav('/guru/langganan')}
+      onClick={() => bisaBayar && nav('/guru/langganan')}
       className={`mt-3 flex w-full items-center gap-3 rounded-2xl border ${warna} px-3.5 py-3 text-left lg:mt-5`}
     >
       <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/70 ${teksWarna}`}>

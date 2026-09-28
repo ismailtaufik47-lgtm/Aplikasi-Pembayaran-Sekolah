@@ -4,7 +4,7 @@
  *
  * Dua jalur:
  *  - "Saya kepala sekolah/admin" → daftarkan_sekolah(), jadi peran 'kepala'
- *  - "Saya guru/TU"              → aktivasi_kode(), pakai kode dari kepsek
+ *  - "Saya Admin/TU"             → aktivasi_kode(), pakai kode dari kepsek
  *
  * Begitu salah satu berhasil, `onSelesai` dipanggil supaya GuruApp
  * memuat ulang data — sejak itu `muatDataGuru()` akan menemukan profil
@@ -51,7 +51,7 @@ function Pilih({ ke }) {
 
       <Kartu
         warna="text-brand bg-brand-soft"
-        judul="Saya guru / petugas TU"
+        judul="Saya Admin/TU sekolah"
         sub="Punya kode aktivasi dari kepala sekolah"
         ikon={<Ikon.siswa size={22} />}
         onClick={() => ke('kode')}

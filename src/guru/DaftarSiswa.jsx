@@ -23,8 +23,8 @@ const STATUS_LABEL = { lunas: 'Lunas', sebagian: 'Sebagian', belum: 'Menunggak' 
 const STATUS_WARNA = { lunas: 'green', sebagian: 'amber', belum: 'red' }
 
 export default function DaftarSiswa({ onTambah, onUbah, terkunci = false }) {
-  const { siswa, biaya, pengaturan, peran, hapusSiswa, segarkan, toast } = useData()
-  const readOnly = peran === 'kepala'
+  const { siswa, biaya, pengaturan, hapusSiswa, segarkan, toast, boleh } = useData()
+  const readOnly = !boleh('siswa')
   const nav = useNavigate()
   const [showImport, setShowImport] = useState(false)
 
@@ -102,13 +102,15 @@ export default function DaftarSiswa({ onTambah, onUbah, terkunci = false }) {
       <div className="flex items-center justify-between gap-3 pb-1.5 pt-3.5 lg:hidden">
         <h1 className="text-xl font-extrabold">Siswa</h1>
         <div className="flex items-center gap-2">
-          <button
-            className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-2xl border border-line bg-white active:scale-95"
-            onClick={() => setShowKenaikanKelas(true)}
-            title="Kenaikan Kelas"
-          >
-            🎓
-          </button>
+          {!readOnly && (
+            <button
+              className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-2xl border border-line bg-white active:scale-95"
+              onClick={() => setShowKenaikanKelas(true)}
+              title="Kenaikan Kelas"
+            >
+              🎓
+            </button>
+          )}
           {!readOnly && (
             <>
               <button
@@ -157,13 +159,15 @@ export default function DaftarSiswa({ onTambah, onUbah, terkunci = false }) {
             className="flex-1 bg-transparent font-medium outline-none"
           />
         </div>
-        <button
-          onClick={() => setShowKenaikanKelas(true)}
-          className="hidden shrink-0 items-center gap-1.5 rounded-2xl border border-line bg-white px-3.5 py-3 text-[13px] font-bold text-ink lg:flex"
-          title="Kenaikan Kelas"
-        >
-          🎓 <span className="whitespace-nowrap">Kenaikan Kelas</span>
-        </button>
+        {!readOnly && (
+          <button
+            onClick={() => setShowKenaikanKelas(true)}
+            className="hidden shrink-0 items-center gap-1.5 rounded-2xl border border-line bg-white px-3.5 py-3 text-[13px] font-bold text-ink lg:flex"
+            title="Kenaikan Kelas"
+          >
+            🎓 <span className="whitespace-nowrap">Kenaikan Kelas</span>
+          </button>
+        )}
         {!readOnly && (
           <button
             onClick={bukaImport}

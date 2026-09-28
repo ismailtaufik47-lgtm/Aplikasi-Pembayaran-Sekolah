@@ -4,23 +4,27 @@
  * (karena satu periode boleh dicicil lewat beberapa transaksi), dan
  * form untuk menambah pembayaran baru — bisa penuh atau sebagian.
  *
- * `readOnly` (dipakai untuk peran kepala sekolah): sembunyikan tombol
- * catat/hapus pembayaran, tampilkan progres & riwayat saja.
+ * Tombol "Catat pembayaran" & "Batalkan" mengikuti hak akses akun
+ * (fitur pembayaran & batal). `readOnly` memaksa hanya-lihat.
  */
 import { useEffect, useState } from 'react'
 import { Ikon, Kosong, Sheet, Track } from '../components/ui.jsx'
 import InputNominal from '../components/InputNominal.jsx'
+import FormBatal from './FormBatal.jsx'
 import { useData } from '../lib/store.jsx'
 import { BULAN, bulanBerjalan, dibayarKegiatan, dibayarSpp, persenBayar, rp, statusSpp, tanggalISO } from '../lib/format.js'
 
 export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, readOnly = false }) {
-  const { siswa, biaya, pengaturan, pembayaran, catatPembayaran, batalkanPembayaran, toast } = useData()
+  const { siswa, biaya, pengaturan, pembayaran, catatPembayaran, batalkanPembayaran, toast, boleh, cegahKunci } = useData()
+  const bisaCatat = !readOnly && boleh('pembayaran')
+  const bisaBatal = boleh('batal')
   const [mode, setMode] = useState('lihat') // 'lihat' | 'bayar' | 'sukses'
   const [nominal, setNominal] = useState('')
   const [metode, setMetode] = useState('Tunai')
   const [tanggal, setTanggal] = useState(tanggalISO())
   const [hapusId, setHapusId] = useState(null)
   const [sibuk, setSibuk] = useState(false)
+  const [sibukBatal, setSibukBatal] = useState(false)
   const [sukses, setSukses] = useState(null) // { nominal, lunasSetelah } | null
 
   useEffect(() => {
@@ -49,6 +53,7 @@ export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, read
   const lebihBayar = nominalAngka > sisa && sisa > 0
 
   const bukaFormBayar = () => {
+    if (cegahKunci('bayar')) return
     setNominal(sisa || target)
     setMode('bayar')
   }
@@ -68,13 +73,21 @@ export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, read
     }
   }
 
-  const hapusTransaksi = async (id) => {
-    setHapusId(null)
+  const mintaBatal = (id) => {
+    if (cegahKunci('batal')) return
+    setHapusId(id)
+  }
+
+  const batalkanTransaksi = async (id, alasan) => {
+    setSibukBatal(true)
     try {
-      await batalkanPembayaran(id)
+      await batalkanPembayaran(id, alasan)
+      setHapusId(null)
       toast('Pembayaran dibatalkan')
     } catch {
       /* pesan galat sudah ditangani store */
+    } finally {
+      setSibukBatal(false)
     }
   }
 
@@ -127,7 +140,7 @@ export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, read
             )}
           </div>
 
-          {!readOnly && !lunas && (
+          {bisaCatat && !lunas && (
             <button className="bigbtn mb-5" onClick={bukaFormBayar}>
               {dibayar > 0 ? 'Lanjutkan bayar sisa' : 'Catat pembayaran'}
             </button>
@@ -141,22 +154,13 @@ export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, read
               {transaksi.map((t) => (
                 <div key={t.id}>
                   {hapusId === t.id ? (
-                    <div className="row items-center gap-2.5">
-                      <span className="min-w-0 flex-1 text-[13px] font-semibold text-danger">
-                        Hapus pembayaran {rp(t.nominal)} ini?
-                      </span>
-                      <button
-                        className="shrink-0 rounded-lg bg-danger px-3 py-1.5 text-xs font-bold text-white"
-                        onClick={() => hapusTransaksi(t.id)}
-                      >
-                        Ya, hapus
-                      </button>
-                      <button
-                        className="shrink-0 rounded-lg bg-[#F1F2F6] px-3 py-1.5 text-xs font-bold text-muted"
-                        onClick={() => setHapusId(null)}
-                      >
-                        Batal
-                      </button>
+                    <div className="py-2">
+                      <FormBatal
+                        nominal={t.nominal}
+                        sibuk={sibukBatal}
+                        onKirim={(alasan) => batalkanTransaksi(t.id, alasan)}
+                        onBatal={() => setHapusId(null)}
+                      />
                     </div>
                   ) : (
                     <div className="row">
@@ -167,12 +171,12 @@ export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, read
                         <span className="block text-[14px] font-bold">{rp(t.nominal)}</span>
                         <span className="block text-xs text-muted">{t.waktu} · {t.metode}</span>
                       </span>
-                      {!readOnly && (
+                      {bisaBatal && (
                         <button
-                          className="shrink-0 rounded-lg bg-[#F1F2F6] px-2.5 py-1.5 text-xs font-bold text-muted"
-                          onClick={() => setHapusId(t.id)}
+                          className="shrink-0 rounded-lg bg-danger-soft px-2.5 py-1.5 text-xs font-bold text-danger"
+                          onClick={() => mintaBatal(t.id)}
                         >
-                          Hapus
+                          Batalkan
                         </button>
                       )}
                     </div>

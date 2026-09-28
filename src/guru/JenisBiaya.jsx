@@ -7,7 +7,8 @@ import { AKHIR_BULAN, adaInfoKegiatan, jatuhTempoAkhirBulan, rp, tanggalKegiatan
 import { FONT_EMOJI, PILIHAN_EMOJI, emojiKegiatan, tebakEmoji } from '../lib/emojiKegiatan.js'
 
 export default function JenisBiaya() {
-  const { biaya, pengaturan, tambahBiaya, hapusBiaya, ubahEmojiBiaya, ubahInfoBiaya, ubahPengaturan, toast } = useData()
+  const { biaya, pengaturan, tambahBiaya, hapusBiaya, ubahEmojiBiaya, ubahInfoBiaya, ubahPengaturan, toast, boleh } = useData()
+  const ro = !boleh('biaya') // hak akses "lihat" saja
   const nav = useNavigate()
   const [buka, setBuka] = useState(false)
   const [nama, setNama] = useState('')
@@ -69,11 +70,13 @@ export default function JenisBiaya() {
       </div>
       <PageHead
         judul="Jenis biaya"
-        sub="Daftar biaya di sini dipakai untuk semua siswa di sekolah ini"
-        aksi={<BtnKecil utama onClick={() => setBuka(true)}><Ikon.plus size={16} />Tambah kegiatan</BtnKecil>}
+        sub={ro ? 'Hanya bisa dilihat — perubahan dilakukan petugas yang berwenang' : 'Daftar biaya di sini dipakai untuk semua siswa di sekolah ini'}
+        aksi={!ro && <BtnKecil utama onClick={() => setBuka(true)}><Ikon.plus size={16} />Tambah kegiatan</BtnKecil>}
       />
       <p className="mb-4 text-[13.5px] text-muted lg:hidden">
-        Daftar biaya di sini dipakai untuk semua siswa. Setiap sekolah bisa mengaturnya sendiri sesuai kegiatan masing-masing.
+        {ro
+          ? '👀 Hanya bisa dilihat. Perubahan nominal & kegiatan dilakukan petugas yang berwenang.'
+          : 'Daftar biaya di sini dipakai untuk semua siswa. Setiap sekolah bisa mengaturnya sendiri sesuai kegiatan masing-masing.'}
       </p>
 
       <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:pt-4">
@@ -85,6 +88,7 @@ export default function JenisBiaya() {
             <div className="text-[12.5px] text-muted">Siklus Juli–Juni</div>
           </div>
         </div>
+        <fieldset disabled={ro} className={ro ? 'opacity-80' : ''}>
         <label className="mb-1.5 block text-[13px] font-bold">Nominal per bulan</label>
         <InputNominal className="mb-3.5" value={spp} onChange={setSpp} placeholder="150.000" />
         <label className="mb-1.5 block text-[13px] font-bold">Jatuh tempo setiap bulan</label>
@@ -121,7 +125,8 @@ export default function JenisBiaya() {
             <p className="mb-4 text-xs text-muted">Maksimal tanggal 28 supaya berlaku di semua bulan. Untuk tanggal 30/31 pilih "Akhir bulan".</p>
           </>
         )}
-        <button
+        </fieldset>
+        {!ro && <button
           className="bigbtn"
           onClick={async () => {
             await ubahPengaturan({ sppNominal: Number(spp) || 0, tanggalJatuhTempo: jatuhTempoAkhirBulan(tempo) ? AKHIR_BULAN : Math.min(28, Math.max(1, Number(tempo) || 10)) })
@@ -129,13 +134,13 @@ export default function JenisBiaya() {
           }}
         >
           Simpan
-        </button>
+        </button>}
        </div>
 
        <div>
       <div className="seghead lg:mt-0">
         <h2>Biaya kegiatan</h2>
-        <button className="text-[13px] font-bold text-brand lg:hidden" onClick={() => setBuka(true)}>+ Tambah</button>
+        {!ro && <button className="text-[13px] font-bold text-brand lg:hidden" onClick={() => setBuka(true)}>+ Tambah</button>}
       </div>
       <div className="card">
         {biaya.length === 0 ? (
@@ -146,7 +151,8 @@ export default function JenisBiaya() {
               <button
                 className="relative grid h-11 w-11 shrink-0 place-items-center rounded-[13px] text-[22px] active:scale-95"
                 style={{ background: LATAR[i % LATAR.length], ...FONT_EMOJI }}
-                onClick={() => setPilihEmoji({ untuk: i })}
+                onClick={() => !ro && setPilihEmoji({ untuk: i })}
+                disabled={ro}
                 title="Ganti emoji"
                 aria-label={`Ganti emoji ${b.nama}`}
               >
@@ -154,23 +160,26 @@ export default function JenisBiaya() {
               </button>
               <button
                 className="min-w-0 flex-1 text-left"
-                onClick={() => setEdit({ i, info: ambilInfo(b) })}
+                onClick={() => !ro && setEdit({ i, info: ambilInfo(b) })}
+                disabled={ro}
                 title="Info kegiatan untuk orang tua"
               >
                 <div className="truncate text-[14.5px] font-bold">{b.nama}</div>
                 <div className="truncate text-[12.5px] text-muted">
                   {rp(b.nominal)} ·{' '}
                   {adaInfoKegiatan(b)
-                    ? <span className="font-bold text-brand">{b.tanggal ? `📅 ${tanggalKegiatan(b, true)}` : 'ℹ️ Info terisi'} ›</span>
-                    : <span className="font-bold text-warn-deep">+ Isi info kegiatan</span>}
+                    ? <span className="font-bold text-brand">{b.tanggal ? `📅 ${tanggalKegiatan(b, true)}` : 'ℹ️ Info terisi'}{ro ? '' : ' ›'}</span>
+                    : ro ? <span className="text-muted">belum ada info</span> : <span className="font-bold text-warn-deep">+ Isi info kegiatan</span>}
                 </div>
               </button>
-              <button
-                className="shrink-0 rounded-xl bg-[#F1F2F6] px-3 py-2 text-xs font-bold text-muted"
-                onClick={async () => { await hapusBiaya(i); toast(`${b.nama} dihapus`) }}
-              >
-                Hapus
-              </button>
+              {!ro && (
+                <button
+                  className="shrink-0 rounded-xl bg-[#F1F2F6] px-3 py-2 text-xs font-bold text-muted"
+                  onClick={async () => { await hapusBiaya(i); toast(`${b.nama} dihapus`) }}
+                >
+                  Hapus
+                </button>
+              )}
             </div>
           ))
         )}

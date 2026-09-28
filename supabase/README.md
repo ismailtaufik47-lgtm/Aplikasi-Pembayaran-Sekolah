@@ -182,6 +182,82 @@ masing-masing. Tempatnya: tombol ☀️/🌙 di menu samping (laptop), kartu
 *Tampilan* di Lainnya / Profil akun (guru), Bantuan (portal orang tua), dan
 Pengaturan (panel admin). Default-nya terang.
 
+## 9. Info kegiatan untuk orang tua & lonceng pemberitahuan
+
+1. Jalankan `supabase/migrations/0026_info_kegiatan.sql` di SQL Editor.
+   (Hanya menambah kolom di tabel `biaya` — data lama tidak berubah.)
+2. Staf sekolah membuka **Jenis biaya** → ketuk nama kegiatan → isi tanggal,
+   waktu, lokasi, keterangan, dan barang bawaan → **Simpan info kegiatan**.
+3. Orang tua melihatnya di portal: **Tagihan → Biaya kegiatan → ketuk kegiatannya**.
+   Kegiatan yang tinggal 7 hari lagi otomatis muncul di lonceng pemberitahuan.
+
+**Angka di lonceng** sekarang hanya menghitung pemberitahuan yang *belum dibaca*.
+Setelah lonceng dibuka angkanya hilang, dan baru muncul lagi kalau ada hal baru
+(bulan SPP baru jatuh tempo, kegiatan baru, atau kegiatan yang makin dekat).
+Status "sudah dibaca" disimpan di perangkat masing-masing, tanpa database.
+
+## 10. Tampilan baru portal orang tua
+
+1. Jalankan `supabase/migrations/0027_logo_portal.sql` di SQL Editor.
+   Isinya satu fungsi kecil untuk mengambil logo sekolah. Selama belum
+   dijalankan, portal tetap normal — pojok kiri atas memakai ikon 🏫.
+2. Logo diambil dari **Profil sekolah → Logo sekolah** (fitur 0025),
+   jadi tidak perlu unggah ulang.
+
+Menu bawah portal: Beranda · Tagihan · Riwayat · Kegiatan · Bantuan.
+
+## 11. Kas sekolah (pengeluaran & laporan kas bulanan)
+
+1. Jalankan `supabase/migrations/0028_kas.sql` di SQL Editor.
+2. Kepala sekolah / admin membuka **Kas sekolah** (menu samping, atau Lainnya di HP)
+   lalu **Isi saldo awal** sekali: uang kas yang ada saat mulai memakai fitur ini.
+3. Catat **pengeluaran** dan **pemasukan lain** (donasi, dana BOP, …). Pemasukan
+   SPP & biaya kegiatan tidak perlu dicatat ulang — diambil otomatis dari pembayaran.
+4. Laporan per bulan bisa diunduh PDF (kop + tanda tangan dari Profil sekolah) atau Excel.
+
+Hak akses: semua staf bisa melihat; hanya kepala sekolah & admin yang bisa mencatat
+dan membatalkan. Transaksi tidak pernah dihapus — yang salah dibatalkan dengan alasan
+dan tetap terlihat dicoret.
+
+## 12. Dua peran, hak akses per sekolah, pembatalan & kunci sewa
+
+Jalankan `supabase/migrations/0029_hak_akses_pembatalan.sql` di SQL Editor
+(butuh 0024–0028; aman dijalankan berulang).
+
+**Dua peran saja.** Guru kelas tidak memakai aplikasi. Peran sekolah:
+**Kepala sekolah** (`kepala`) dan **Admin/TU** (`admin`). Akun & kode aktivasi
+lama berperan `guru` otomatis menjadi `admin`.
+
+**Hak akses per sekolah** — panel admin → Sekolah → ⋯ → 🔐 Hak akses. Pilih susunan
+siap pakai atau atur per fitur (Tidak · Lihat · Kelola):
+
+| Fitur | Kepala (standar) | Admin/TU (standar) |
+|---|---|---|
+| Data siswa | Lihat | Kelola |
+| Pembayaran | Lihat | Kelola |
+| Pembatalan transaksi | Kelola | Kelola |
+| Kas sekolah | Lihat | Kelola |
+| Laporan pembayaran / keuangan | Lihat | Lihat |
+| Tanya AI | Kelola | Kelola |
+| Jenis biaya & SPP | Lihat | Kelola |
+| Profil sekolah, kode aktivasi, langganan | Kelola (selalu) | Tidak |
+
+Ditegakkan di database (RLS & fungsi), bukan hanya menu. Pengaman: minimal satu
+peran harus bisa mencatat pembayaran, mengelola siswa, dan mengatur jenis biaya.
+
+**Pembatalan, bukan hapus.** Pembayaran dibatalkan lewat `batalkan_pembayaran(id, alasan)`:
+baris dipindah ke arsip `pembayaran_batal` (siapa, kapan, alasan) sehingga status SPP,
+laporan, portal orang tua & Tanya AI otomatis tidak menghitungnya. Kuitansinya tampil
+**DIBATALKAN** saat QR dicek. Kas dibatalkan dengan `kas_batalkan` (tetap tampil dicoret).
+Semua pembatalan terlihat di **Pembayaran → tab Dibatalkan**.
+
+**Sewa habis → transaksi terkunci:** catat pembayaran, tambah siswa, catat kas, saldo awal
+kas, dan pembatalan ditolak database sampai sewa diperpanjang. Data tetap bisa dilihat.
+
+Uji coba mode demo (tanpa Supabase), di konsol browser:
+`localStorage.setItem('tk_demo_peran','kepala')` · `localStorage.setItem('tk_demo_habis','1')`
+lalu muat ulang halaman.
+
 ## Struktur tabel
 
 | Tabel | Isi |
@@ -189,7 +265,7 @@ Pengaturan (panel admin). Default-nya terang.
 | `sekolah` | identitas sekolah, nominal SPP, tanggal jatuh tempo, rekening |
 | `profil` | staf yang boleh login, terhubung ke `auth.users` |
 | `siswa` | data siswa; `jenis_kelamin` menentukan bentuk avatar |
-| `biaya` | jenis biaya kegiatan, berbeda-beda tiap sekolah |
+| `biaya` | jenis biaya kegiatan, berbeda-beda tiap sekolah, plus info kegiatan untuk orang tua |
 | `pembayaran` | satu baris per pembayaran (SPP per bulan atau per kegiatan) |
 | `wali` / `wali_siswa` | wali murid dan anak-anaknya, untuk tautan portal |
 

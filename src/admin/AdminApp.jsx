@@ -108,18 +108,22 @@ function Panel({ email, keluar }) {
           >
             Muat ulang data
           </button>
-          <div className="mt-auto flex items-center gap-3 border-t border-line px-2 pt-3">
-            <span className="grid h-[38px] w-[38px] place-items-center rounded-full bg-brand-soft text-[13px] font-extrabold text-brand">
-              {(email || 'A')[0].toUpperCase()}
-            </span>
-            <span className="min-w-0 flex-1">
-              <b className="block truncate text-[13px] font-extrabold">{email}</b>
-              <span className="text-[11.5px] font-semibold text-muted">Admin</span>
-            </span>
-            <TombolTema />
-            <button className="rounded-lg px-2 py-1.5 text-[11.5px] font-bold text-danger" onClick={keluar}>
-              Keluar
-            </button>
+          <div className="mt-auto border-t border-line px-1 pt-3">
+            <div className="flex items-center gap-2.5 p-1">
+              <span className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-full bg-brand-soft text-[13px] font-extrabold text-brand">
+                {(email || 'A')[0].toUpperCase()}
+              </span>
+              <span className="min-w-0 flex-1">
+                <b className="block break-all text-[13px] font-extrabold leading-tight">{email}</b>
+                <span className="text-[11.5px] font-semibold text-muted">Admin</span>
+              </span>
+            </div>
+            <div className="mt-2 flex items-center gap-2 px-1">
+              <TombolTema />
+              <button className="h-9 flex-1 rounded-xl bg-danger-soft text-[12.5px] font-bold text-danger" onClick={keluar}>
+                Keluar
+              </button>
+            </div>
           </div>
         </Sidebar>
       }

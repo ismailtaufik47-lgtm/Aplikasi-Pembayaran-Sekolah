@@ -283,7 +283,7 @@ export function SheetCaraBayar({ buka, tutup, anak }) {
       <div className="mt-4 flex items-start gap-3 rounded-2xl bg-warn-soft p-3.5">
         <Tile warna="amber" className="h-[34px] w-[34px] rounded-[11px]"><Ikon.info size={18} /></Tile>
         <div className="text-[13px] font-semibold leading-snug text-warn-deep">
-          Status di aplikasi berubah setelah guru mencatat pembayaran, biasanya di hari yang sama.
+          Status di aplikasi berubah setelah petugas sekolah mencatat pembayaran, biasanya di hari yang sama.
         </div>
       </div>
 
@@ -293,7 +293,7 @@ export function SheetCaraBayar({ buka, tutup, anak }) {
           Kirim bukti transfer via WhatsApp
         </a>
       ) : (
-        <button className="bigbtn-wa opacity-50" onClick={() => toast('Nomor WhatsApp sekolah belum diatur. Hubungi guru kelas secara langsung.')}>
+        <button className="bigbtn-wa opacity-50" onClick={() => toast('Nomor WhatsApp sekolah belum diatur. Hubungi TU sekolah secara langsung.')}>
           Kirim bukti transfer via WhatsApp
         </button>
       )}
@@ -452,7 +452,7 @@ export function SheetKegiatan({ id, tutup, anak, bukaCaraBayar }) {
         <div className="mt-4 flex items-start gap-3 rounded-2xl bg-brand-soft p-3.5">
           <Tile warna="blue" className="h-[34px] w-[34px] rounded-[11px]"><Ikon.info size={18} /></Tile>
           <div className="text-[13px] font-semibold leading-snug text-brand">
-            Sekolah belum menambahkan keterangan untuk kegiatan ini. Silakan tanyakan ke guru kelas untuk informasi lebih lanjut.
+            Sekolah belum menambahkan keterangan untuk kegiatan ini. Silakan tanyakan ke pihak sekolah untuk informasi lebih lanjut.
           </div>
         </div>
       )}

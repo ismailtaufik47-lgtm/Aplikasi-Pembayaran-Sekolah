@@ -3,10 +3,10 @@ import { waSekolah } from '../lib/format.js'
 import { useData } from '../lib/store.jsx'
 
 const TANYA = [
-  ['Bagaimana cara membayar SPP?', 'Bisa tunai langsung ke guru kelas, atau transfer ke rekening sekolah. Setelah transfer, kirim buktinya lewat tombol konfirmasi WhatsApp supaya guru bisa mencatatnya.'],
-  ['Kenapa pembayaran saya belum tercatat?', 'Pencatatan dilakukan manual oleh guru pada jam kerja. Kalau lebih dari satu hari kerja statusnya belum berubah, hubungi guru kelas.'],
-  ['Bisakah membayar beberapa bulan sekaligus?', 'Bisa. Sampaikan saat membayar berapa bulan yang dilunasi, nanti guru menandai bulan-bulan tersebut sekaligus.'],
-  ['Bagaimana kalau ada biaya yang terasa keliru?', 'Buka rincian tagihan, catat nama biaya dan nominalnya, lalu konfirmasi ke guru kelas. Perubahan hanya bisa dilakukan pihak sekolah.'],
+  ['Bagaimana cara membayar SPP?', 'Bisa tunai langsung ke bagian TU (tata usaha) sekolah, atau transfer ke rekening sekolah. Setelah transfer, kirim buktinya lewat tombol konfirmasi WhatsApp supaya petugas sekolah bisa mencatatnya.'],
+  ['Kenapa pembayaran saya belum tercatat?', 'Pencatatan dilakukan petugas TU sekolah pada jam kerja. Kalau lebih dari satu hari kerja statusnya belum berubah, hubungi TU sekolah.'],
+  ['Bisakah membayar beberapa bulan sekaligus?', 'Bisa. Sampaikan saat membayar berapa bulan yang dilunasi, nanti petugas sekolah mencatat bulan-bulan tersebut sekaligus.'],
+  ['Bagaimana kalau ada biaya yang terasa keliru?', 'Buka rincian tagihan, catat nama biaya dan nominalnya, lalu konfirmasi ke TU sekolah. Perubahan hanya bisa dilakukan pihak sekolah.'],
 ]
 
 export default function Bantuan({ aktif }) {

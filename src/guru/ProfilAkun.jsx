@@ -1,5 +1,5 @@
 /**
- * Profil akun pribadi — dipakai guru/TU maupun kepala sekolah.
+ * Profil akun pribadi — dipakai Admin/TU maupun kepala sekolah.
  * Nama tampilan dan PIN login bisa diubah dari sini (peran & sekolah
  * ditentukan lewat kode aktivasi / pendaftaran, bukan diri sendiri).
  */
@@ -11,7 +11,7 @@ import { useAuth } from '../lib/auth.jsx'
 import { pinLemah } from '../lib/api.js'
 import { AVATAR_STAF, AvatarStaf } from '../components/Avatar.jsx'
 
-const labelPeran = { kepala: 'Kepala sekolah', admin: 'Admin', guru: 'Guru' }
+const labelPeran = { kepala: 'Kepala sekolah', admin: 'Admin/TU' }
 
 export default function ProfilAkun() {
   const { petugas, peran, pengaturan, pinAktif, modeDemo, ubahNamaSaya, aturPinAkun, matikanPinAkun, avatarSaya, ubahAvatarSaya, toast } = useData()

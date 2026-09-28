@@ -1,7 +1,7 @@
 /**
  * Lembar aksi untuk satu sekolah — dipakai halaman Ringkasan & Sekolah.
  *
- *   aksi = { jenis: 'perpanjang' | 'menu' | 'nonaktif' | 'tarif', s } | null
+ *   aksi = { jenis: 'perpanjang' | 'menu' | 'nonaktif' | 'tarif' | 'kuota' | 'akses', s } | null
  *
  * Setiap aksi yang mengubah data selalu lewat konfirmasi dulu (nominal,
  * tanggal lama → baru), supaya tidak ada perpanjangan karena salah klik.
@@ -13,6 +13,7 @@ import { rp } from '../lib/format.js'
 import { AI_BATAS_DEFAULT, HARGA_PER_SISWA_DEFAULT } from '../lib/langganan.js'
 import { labelStatus, perkiraanPerpanjang, tglPendek, useAdmin } from './storeAdmin.jsx'
 import * as api from './apiAdmin.js'
+import { SheetHakAkses } from './HakAkses.jsx'
 
 export default function AksiSekolah({ aksi, setAksi }) {
   const tutup = () => setAksi(null)
@@ -24,6 +25,7 @@ export default function AksiSekolah({ aksi, setAksi }) {
       <SheetNonaktif s={aksi?.jenis === 'nonaktif' ? s : null} tutup={tutup} />
       <SheetTarif s={aksi?.jenis === 'tarif' ? s : null} tutup={tutup} />
       <SheetKuotaAI s={aksi?.jenis === 'kuota' ? s : null} tutup={tutup} />
+      <SheetHakAkses s={aksi?.jenis === 'akses' ? s : null} tutup={tutup} />
     </>
   )
 }
@@ -134,6 +136,9 @@ function SheetMenu({ s, tutup, buka }) {
       </button>
       <button className="bigbtn-ghost mb-2.5" onClick={() => buka('tarif')}>
         Ubah tarif per siswa
+      </button>
+      <button className="bigbtn-ghost mb-2.5" onClick={() => buka('akses')}>
+        🔐 Hak akses kepala sekolah & Admin/TU
       </button>
       <button className="bigbtn-ghost mb-2.5" onClick={() => buka('kuota')}>
         🤖 Kuota Tanya AI · {kuota}

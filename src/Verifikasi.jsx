@@ -40,7 +40,27 @@ export default function Verifikasi() {
 
         {galat && <div className="card py-8 text-center text-[14px] font-semibold text-danger">Gagal memeriksa: {galat}</div>}
 
-        {hasil && !hasil.sah && (
+        {hasil?.dibatalkan && (
+          <div className="card">
+            <div className="text-center">
+              <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-full bg-danger-soft text-3xl">🚫</div>
+              <h1 className="text-[19px] font-extrabold text-danger">Kuitansi DIBATALKAN</h1>
+              <p className="mt-1 text-[13px] leading-relaxed text-muted">
+                Transaksi ini pernah tercatat, tetapi sudah dibatalkan oleh sekolah pada {tgl(hasil.dibatalkanPada)}.
+                Kuitansi ini tidak berlaku lagi. Silakan konfirmasi ke pihak sekolah.
+              </p>
+            </div>
+            <div className="mt-5 rounded-2xl bg-[#F7F8FC] px-4 py-1.5">
+              <Baris k="Nomor" v={hasil.nomor} />
+              <Baris k="Sekolah" v={hasil.sekolah} />
+              <Baris k="Untuk" v={hasil.keterangan} />
+              <Baris k="Tanggal bayar" v={tgl(hasil.tanggal)} />
+              <Baris k="Jumlah" v={<span className="text-[16px] text-muted line-through">{rp(hasil.nominal)}</span>} />
+            </div>
+          </div>
+        )}
+
+        {hasil && !hasil.sah && !hasil.dibatalkan && (
           <div className="card text-center">
             <div className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-full bg-danger-soft text-3xl">⚠️</div>
             <h1 className="text-[19px] font-extrabold text-danger">Kuitansi tidak ditemukan</h1>

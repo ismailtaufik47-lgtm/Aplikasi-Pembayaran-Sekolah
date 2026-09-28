@@ -96,3 +96,28 @@ export const waliDemo = { nama: 'Ibu Wulan', anak: ['s1', 's4'] }
 export function bentukDemo() {
   return { sekolah, biaya, siswa, pembayaran, wali: null }
 }
+
+/* ---------- buku kas demo (0028) ---------- */
+const tgl = (n) => {
+  const d = new Date(Date.now() - n * 864e5)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+const awalBulanLalu = () => {
+  const d = new Date()
+  const a = new Date(d.getFullYear(), d.getMonth() - 1, 1)
+  return `${a.getFullYear()}-${String(a.getMonth() + 1).padStart(2, '0')}-01`
+}
+
+export const kasPengaturanDemo = { saldo_awal: 2500000, mulai: awalBulanLalu() }
+
+export const kasDemo = [
+  { id: 'k1', jenis: 'keluar', tanggal: tgl(40), kategori: 'Honor guru', nominal: 1500000, keterangan: 'Honor Bu Rina & Bu Yanti bulan lalu', dicatat_nama: 'Bu Kepsek' },
+  { id: 'k2', jenis: 'keluar', tanggal: tgl(33), kategori: 'ATK', nominal: 185000, keterangan: 'Kertas HVS, krayon, lem', dicatat_nama: 'Bu Rina' },
+  { id: 'k3', jenis: 'masuk', tanggal: tgl(30), kategori: 'Donasi', nominal: 750000, keterangan: 'Donasi alumni untuk mainan outdoor', dicatat_nama: 'Bu Kepsek' },
+  { id: 'k4', jenis: 'keluar', tanggal: tgl(21), kategori: 'Kegiatan', nominal: 1200000, keterangan: 'Sewa bus outing class', dicatat_nama: 'Bu Rina' },
+  { id: 'k5', jenis: 'keluar', tanggal: tgl(12), kategori: 'Honor guru', nominal: 1500000, keterangan: 'Honor Bu Rina & Bu Yanti', dicatat_nama: 'Bu Kepsek' },
+  { id: 'k6', jenis: 'keluar', tanggal: tgl(9), kategori: 'Listrik & air', nominal: 320000, keterangan: 'Token listrik & PDAM', dicatat_nama: 'Bu Rina' },
+  { id: 'k7', jenis: 'keluar', tanggal: tgl(6), kategori: 'Konsumsi', nominal: 240000, keterangan: 'Snack rapat wali murid', dicatat_nama: 'Bu Rina' },
+  { id: 'k8', jenis: 'keluar', tanggal: tgl(6), kategori: 'Konsumsi', nominal: 420000, keterangan: 'Salah ketik nominal', dicatat_nama: 'Bu Rina', dibatalkan_pada: new Date().toISOString(), dibatalkan_nama: 'Bu Kepsek', alasan_batal: 'Nominal salah, dicatat ulang' },
+  { id: 'k9', jenis: 'masuk', tanggal: tgl(3), kategori: 'Dana BOP', nominal: 2000000, keterangan: 'BOP PAUD tahap 2', dicatat_nama: 'Bu Kepsek' },
+]

@@ -13,6 +13,7 @@
 import { supabase, modeDemo } from './supabase.js'
 import * as mock from './mock.js'
 import { waktuTampil, tanggalKeTimestamp, tahunAjaranBerjalan } from './format.js'
+import { lengkapiAkses } from './akses.js'
 
 export { modeDemo }
 
@@ -123,10 +124,23 @@ function bentuk({ sekolah, biaya, siswa, pembayaran, wali }) {
 
 /** Dipakai panel guru. Membutuhkan sesi login yang aktif. */
 export async function muatDataGuru() {
-  // 'admin' dipilih supaya mode demo menunjukkan kemampuan paling lengkap
-  // (catat pembayaran + kode aktivasi). Untuk mencoba tampilan kepala
-  // sekolah yang lebih terbatas, ganti sementara jadi 'kepala' di sini.
-  if (modeDemo) return { ...bentuk(mock.bentukDemo()), petugas: 'Bu Rina', peran: 'admin', pinAktif: false, avatarSaya: null }
+  // Mode demo: peran bawaan 'admin' (Admin/TU). Untuk mencoba tampilan
+  // kepala sekolah, jalankan di konsol browser:
+  //   localStorage.setItem('tk_demo_peran', 'kepala'); location.reload()
+  //   localStorage.setItem('tk_demo_habis', '1')  → coba tampilan sewa habis (transaksi terkunci)
+  if (modeDemo) {
+    const peran = demoPeran()
+    const d = bentuk(mock.bentukDemo())
+    if (demoHabis()) d.pengaturan = { ...d.pengaturan, trialMulai: '2025-01-01', langgananSampai: '2025-02-01' }
+    return {
+      ...d,
+      petugas: peran === 'kepala' ? 'Bu Kepsek' : 'Bu Rina',
+      peran,
+      akses: lengkapiAkses(peran, null),
+      pinAktif: false,
+      avatarSaya: null,
+    }
+  }
 
   const { data: pengguna } = await supabase.auth.getUser()
   const { data: profil, error: eProfil } = await supabase
@@ -138,24 +152,31 @@ export async function muatDataGuru() {
   if (eProfil) throw new Error('Akun ini belum terhubung ke sekolah mana pun')
 
   const sekolahId = profil.sekolah.id
-  const [siswa, biaya, pembayaran] = await Promise.all([
+  const [siswa, biaya, pembayaran, logo, hak] = await Promise.all([
     supabase.from('siswa').select('*').eq('sekolah_id', sekolahId).eq('aktif', true).order('nama'),
     supabase.from('biaya').select('*').eq('sekolah_id', sekolahId).eq('aktif', true).order('urutan'),
     supabase.from('pembayaran').select('*').eq('sekolah_id', sekolahId).order('dibayar_pada', { ascending: false }),
+    // Logo sekolah (Profil sekolah → Logo). Kalau gagal/belum ada, aplikasi tetap jalan pakai ikon 🏫.
+    supabase.from('sekolah_ttd').select('logo').eq('sekolah_id', sekolahId).maybeSingle().then((r) => (r.error ? null : r.data?.logo || null), () => null),
+    // Hak akses per fitur (0029). Kalau fungsinya belum ada → pakai standar peran.
+    supabase.rpc('hak_akses_saya').then((r) => (r.error ? null : r.data), () => null),
   ])
 
   const gagal = [siswa, biaya, pembayaran].find((r) => r.error)
   if (gagal) throw new Error(gagal.error.message)
 
-  return {
-    ...bentuk({
+  const hasil = bentuk({
       sekolah: profil.sekolah,
       biaya: biaya.data,
       siswa: siswa.data,
       pembayaran: pembayaran.data,
-    }),
+    })
+  return {
+    ...hasil,
+    pengaturan: { ...hasil.pengaturan, logo },
     petugas: profil.nama,
     peran: profil.peran,
+    akses: lengkapiAkses(profil.peran, hak?.akses || null),
     pinAktif: profil.pin_aktif,
     avatarSaya: Number.isInteger(profil.avatar) ? profil.avatar : null,
   }
@@ -226,11 +247,45 @@ export async function catatPembayaran({ sekolahId, siswaId, jenis, periode, biay
   return data
 }
 
-export async function hapusPembayaran(id) {
-  if (modeDemo) return true
-  const { error } = await supabase.from('pembayaran').delete().eq('id', id)
-  if (error) throw new Error(error.message)
+/**
+ * Membatalkan satu pembayaran (0029). Bukan hapus: baris dipindah ke arsip
+ * pembatalan lengkap dengan alasan, siapa & kapan. Kuitansinya jadi
+ * "DIBATALKAN" saat QR-nya dicek.
+ */
+export async function batalkanPembayaran(id, alasan, demo) {
+  if (modeDemo) {
+    if (demo) batalDemo.unshift({ ...demo, dibatalkanPada: new Date().toISOString(), alasan })
+    return true
+  }
+  const { error } = await supabase.rpc('batalkan_pembayaran', { p_id: id, p_alasan: alasan })
+  if (error) throw new Error(pesanBatal(error))
   return true
+}
+
+// Mode demo: pembatalan disimpan di memori selama halaman terbuka.
+const batalDemo = []
+
+/** Riwayat transaksi yang dibatalkan (pembayaran + kas), terbaru dulu. */
+export async function riwayatPembatalan() {
+  if (modeDemo) {
+    const kas = (kasMemori || []).filter((k) => k.dibatalkan_pada).map((k) => ({
+      id: k.id, sumber: 'kas', jenis: k.jenis, uraian: k.kategori + (k.keterangan ? ' — ' + k.keterangan : ''),
+      nominal: k.nominal, tanggal: k.tanggal, petugas: k.dicatat_nama,
+      dibatalkanPada: k.dibatalkan_pada, dibatalkanNama: k.dibatalkan_nama, alasan: k.alasan_batal,
+    }))
+    return [...batalDemo, ...kas].sort((a, b) => String(b.dibatalkanPada).localeCompare(String(a.dibatalkanPada)))
+  }
+  const { data, error } = await supabase.rpc('riwayat_pembatalan', { p_batas: 300 })
+  if (error) throw new Error(pesanBatal(error))
+  return data || []
+}
+
+function pesanBatal(error) {
+  const m = error?.message || String(error)
+  if (/could not find the function|schema cache/i.test(m)) {
+    return 'Fitur pembatalan belum aktif di database. Jalankan file 0029_hak_akses_pembatalan.sql di Supabase SQL Editor.'
+  }
+  return m
 }
 
 /* ---------- data siswa ---------- */
@@ -698,11 +753,11 @@ export async function daftarkanSekolah({ nama }) {
 }
 
 /**
- * Dipanggil saat akun Google baru memilih "Saya guru/TU" dan memasukkan
+ * Dipanggil saat akun Google baru memilih "Saya admin/TU" dan memasukkan
  * kode aktivasi yang didapat dari kepala sekolah.
  */
 export async function aktivasiKode(kode) {
-  if (modeDemo) return { sekolahId: 'demo', sekolah: 'Sekolah Demo', peran: 'guru' }
+  if (modeDemo) return { sekolahId: 'demo', sekolah: 'Sekolah Demo', peran: 'admin' }
   const { data, error } = await supabase.rpc('aktivasi_kode', {
     p_kode: (kode || '').trim().toUpperCase(),
   })
@@ -711,7 +766,7 @@ export async function aktivasiKode(kode) {
 }
 
 /** Dipanggil kepala sekolah/admin dari dasbornya untuk membuat kode baru. */
-export async function buatKodeAktivasi(peran = 'guru') {
+export async function buatKodeAktivasi(peran = 'admin') {
   if (modeDemo) return { kode: 'DEMO01', peran }
   const { data, error } = await supabase.rpc('buat_kode_aktivasi', { p_peran: peran })
   if (error) throw new Error(error.message)
@@ -884,4 +939,116 @@ function pesanOnboarding(pesan) {
     return 'Kode salah atau sudah dipakai. Cek lagi dengan kepala sekolah.'
   if (/nama sekolah belum diisi/i.test(pesan)) return 'Isi nama sekolah dulu.'
   return pesan
+}
+/* ===================== buku kas (0028_kas.sql) ===================== */
+
+const bentukKas = (k) => ({
+  id: k.id,
+  jenis: k.jenis,
+  tanggal: k.tanggal,
+  kategori: k.kategori,
+  nominal: Number(k.nominal),
+  keterangan: k.keterangan || '',
+  dicatatNama: k.dicatat_nama || '',
+  dibuatPada: k.dibuat_pada || null,
+  dibatalkanPada: k.dibatalkan_pada || null,
+  dibatalkanNama: k.dibatalkan_nama || '',
+  alasanBatal: k.alasan_batal || '',
+  adaNota: k.ada_nota ?? !!k.nota,
+})
+
+// Mode demo: data kas disimpan di memori selama halaman terbuka.
+let kasMemori = null
+const kasDemoAwal = () => (kasMemori ||= mock.kasDemo.map((k) => ({ ...k })))
+
+/** Semua transaksi kas + saldo awal. Foto nota TIDAK ikut (diambil saat dibuka). */
+export async function muatKas() {
+  if (modeDemo) {
+    return {
+      pengaturan: { saldoAwal: mock.kasPengaturanDemo.saldo_awal, mulai: mock.kasPengaturanDemo.mulai },
+      kas: kasDemoAwal().map(bentukKas),
+    }
+  }
+  const [k, p] = await Promise.all([
+    supabase
+      .from('kas')
+      .select('id, jenis, tanggal, kategori, nominal, keterangan, dicatat_nama, dibuat_pada, dibatalkan_pada, dibatalkan_nama, alasan_batal, ada_nota')
+      .order('tanggal', { ascending: true })
+      .order('dibuat_pada', { ascending: true }),
+    supabase.from('kas_pengaturan').select('saldo_awal, mulai').maybeSingle(),
+  ])
+  if (k.error) throw new Error(pesanKas(k.error))
+  if (p.error) throw new Error(pesanKas(p.error))
+  return {
+    pengaturan: p.data ? { saldoAwal: Number(p.data.saldo_awal), mulai: p.data.mulai } : null,
+    kas: k.data.map(bentukKas),
+  }
+}
+
+/** Foto nota satu transaksi (data URL) atau null. */
+export async function notaKas(id) {
+  if (modeDemo) return kasDemoAwal().find((k) => k.id === id)?.nota || null
+  const { data, error } = await supabase.from('kas').select('nota').eq('id', id).maybeSingle()
+  if (error) throw new Error(pesanKas(error))
+  return data?.nota || null
+}
+
+export async function catatKas({ jenis, tanggal, kategori, nominal, keterangan, nota, pencatat }) {
+  if (modeDemo) {
+    const baru = { id: 'k' + Date.now(), jenis, tanggal, kategori, nominal, keterangan, nota, dicatat_nama: pencatat || 'Demo', dibuat_pada: new Date().toISOString() }
+    kasDemoAwal().push(baru)
+    return bentukKas(baru)
+  }
+  const { data: id, error } = await supabase.rpc('kas_catat', {
+    p_jenis: jenis, p_tanggal: tanggal, p_kategori: kategori, p_nominal: nominal,
+    p_keterangan: keterangan || null, p_nota: nota || null,
+  })
+  if (error) throw new Error(pesanKas(error))
+  return bentukKas({ id, jenis, tanggal, kategori, nominal, keterangan, nota, dicatat_nama: pencatat, dibuat_pada: new Date().toISOString() })
+}
+
+export async function batalkanKas(id, alasan, oleh) {
+  if (modeDemo) {
+    const k = kasDemoAwal().find((x) => x.id === id)
+    Object.assign(k, { dibatalkan_pada: new Date().toISOString(), dibatalkan_nama: oleh || 'Demo', alasan_batal: alasan })
+    return true
+  }
+  const { error } = await supabase.rpc('kas_batalkan', { p_id: id, p_alasan: alasan })
+  if (error) throw new Error(pesanKas(error))
+  return true
+}
+
+export async function aturSaldoAwalKas(saldo, mulai) {
+  if (modeDemo) {
+    Object.assign(mock.kasPengaturanDemo, { saldo_awal: saldo, mulai })
+    return true
+  }
+  const { error } = await supabase.rpc('kas_atur_saldo_awal', { p_saldo: saldo, p_mulai: mulai })
+  if (error) throw new Error(pesanKas(error))
+  return true
+}
+
+function pesanKas(error) {
+  const m = error?.message || String(error)
+  if (/relation .*kas.* does not exist|could not find the (function|table)|schema cache/i.test(m)) {
+    return 'Fitur kas belum aktif di database. Jalankan file 0028_kas.sql di Supabase SQL Editor.'
+  }
+  return m
+}
+
+/** Peran yang dipakai mode demo ('admin' kecuali diganti lewat localStorage). */
+function demoPeran() {
+  try {
+    return localStorage.getItem('tk_demo_peran') === 'kepala' ? 'kepala' : 'admin'
+  } catch {
+    return 'admin'
+  }
+}
+
+function demoHabis() {
+  try {
+    return localStorage.getItem('tk_demo_habis') === '1'
+  } catch {
+    return false
+  }
 }

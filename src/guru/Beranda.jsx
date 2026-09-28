@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Avatar from '../components/Avatar.jsx'
-import { BtnKecil, Chip, Chevron, Ikon, Kosong, PageHead, Sheet, Tile, Track } from '../components/ui.jsx'
+import { BtnKecil, Chip, Chevron, Ikon, Kosong, PageHead, Sheet, Tile, Track, LogoSekolah } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import { useAuth } from '../lib/auth.jsx'
 import { GrafikPembayaran, StatusPembayaran } from './GrafikBeranda.jsx'
@@ -31,8 +31,10 @@ function jatuhTempoBerikut(tgl, now = new Date()) {
 }
 
 export default function Beranda({ onCatat }) {
-  const { pengaturan, siswa, pembayaran, petugas, peran, segarkan, toast } = useData()
+  const { pengaturan, siswa, pembayaran, petugas, peran, segarkan, toast, boleh } = useData()
   const kepala = peran === 'kepala'
+  const bisaCatat = boleh('pembayaran')
+  const bisaRiwayat = boleh('pembayaran', 'lihat') || boleh('batal', 'lihat')
   const { keluar, modeDemo } = useAuth()
   const [menu, setMenu] = useState(false)
   const nav = useNavigate()
@@ -69,9 +71,9 @@ export default function Beranda({ onCatat }) {
         <button className="tile bg-white shadow-soft" onClick={() => setMenu(true)}>
           <Ikon.menu size={20} />
         </button>
-        <div className="flex items-center gap-2 text-[15px] font-bold">
-          <span className="grid h-[38px] w-[38px] place-items-center rounded-full bg-white text-lg shadow-soft">🏫</span>
-          {pengaturan.namaSekolah}
+        <div className="flex min-w-0 items-center gap-2 text-[15px] font-bold">
+          <LogoSekolah logo={pengaturan.logo} ukuran={38} bulat className="shadow-soft" />
+          <span className="line-clamp-2 leading-tight">{pengaturan.namaSekolah}</span>
         </div>
         <button className="tile relative ml-auto bg-white shadow-soft" onClick={() => toast(`${menunggak.length} siswa perlu ditagih`)}>
           <Ikon.lonceng size={20} />
@@ -95,7 +97,7 @@ export default function Beranda({ onCatat }) {
         aksi={
           <>
             <BtnKecil onClick={() => { segarkan(); toast('Data disegarkan') }}>Muat ulang</BtnKecil>
-            {!kepala && (
+            {bisaCatat && (
               <BtnKecil utama onClick={() => onCatat(null)}>
                 <Ikon.plus size={16} />
                 Catat pembayaran
@@ -115,22 +117,17 @@ export default function Beranda({ onCatat }) {
       <div className="seghead"><h2>Aksi cepat</h2></div>
       <div className="card p-3.5">
         <div className="noscroll -mx-1 flex gap-2.5 overflow-x-auto px-1 lg:mx-0 lg:grid lg:grid-cols-5 lg:overflow-visible lg:px-0">
-          {kepala ? (
-            <>
-              <Aksi warna="bg-ok" latar="bg-[#F5FCF8]" ikon={<Ikon.orang size={20} />} label="Data siswa" onClick={() => nav('/guru/siswa')} />
-              <Aksi warna="bg-grape" latar="bg-[#FAF7FF]" ikon={<Ikon.grafik size={20} />} label="Laporan" onClick={() => nav('/guru/laporan')} />
-              <Aksi warna="bg-grape" latar="bg-[#FAF5FF]" ikon={<Ikon.info size={20} />} label="Kode aktivasi" onClick={() => nav('/guru/kode-aktivasi')} />
-              <Aksi warna="bg-brand" latar="bg-[#F7F9FF]" ikon={<Ikon.rumah size={20} />} label="Profil sekolah" onClick={() => nav('/guru/profil-sekolah')} />
-            </>
-          ) : (
-            <>
-              <Aksi warna="bg-brand" latar="bg-[#F7F9FF]" ikon={<Ikon.plus size={20} />} label="Catat pembayaran" onClick={() => onCatat(null)} />
-              <Aksi warna="bg-ok" latar="bg-[#F5FCF8]" ikon={<Ikon.orang size={20} />} label="Pilih siswa" onClick={() => nav('/guru/siswa')} />
-              <Aksi warna="bg-warn" latar="bg-[#FFFBF3]" ikon={<Ikon.dokumen size={20} />} label="Jenis biaya" onClick={() => nav('/guru/biaya')} />
-              <Aksi warna="bg-rose" latar="bg-[#FFF7FA]" ikon={<Ikon.kalender size={20} />} label="Jadwal tagihan" onClick={() => toast('Atur jadwal & pengingat tagihan')} />
-              <Aksi warna="bg-grape" latar="bg-[#FAF7FF]" ikon={<Ikon.grafik size={20} />} label="Laporan" onClick={() => nav('/guru/laporan')} />
-            </>
-          )}
+          {[
+            bisaCatat && { k: 'catat', warna: 'bg-brand', latar: 'bg-[#F7F9FF]', ikon: <Ikon.plus size={20} />, label: 'Catat pembayaran', aksi: () => onCatat(null) },
+            boleh('siswa', 'lihat') && { k: 'siswa', warna: 'bg-ok', latar: 'bg-[#F5FCF8]', ikon: <Ikon.orang size={20} />, label: bisaCatat ? 'Pilih siswa' : 'Data siswa', aksi: () => nav('/guru/siswa') },
+            bisaRiwayat && { k: 'riwayat', warna: 'bg-rose', latar: 'bg-[#FFF7FA]', ikon: <Ikon.jam size={20} />, label: 'Riwayat & pembatalan', aksi: () => nav('/guru/pembayaran') },
+            (boleh('lap_pembayaran', 'lihat') || boleh('lap_keuangan', 'lihat')) && { k: 'laporan', warna: 'bg-grape', latar: 'bg-[#FAF7FF]', ikon: <Ikon.grafik size={20} />, label: 'Laporan', aksi: () => nav('/guru/laporan') },
+            boleh('kas', 'lihat') && { k: 'kas', warna: 'bg-warn', latar: 'bg-[#FFFBF3]', ikon: <Ikon.dompet size={20} />, label: 'Kas sekolah', aksi: () => nav('/guru/kas') },
+            boleh('biaya') && { k: 'biaya', warna: 'bg-warn', latar: 'bg-[#FFFBF3]', ikon: <Ikon.dokumen size={20} />, label: 'Jenis biaya', aksi: () => nav('/guru/biaya') },
+            boleh('sekolah') && { k: 'sekolah', warna: 'bg-brand', latar: 'bg-[#F7F9FF]', ikon: <Ikon.rumah size={20} />, label: 'Profil sekolah', aksi: () => nav('/guru/profil-sekolah') },
+          ].filter(Boolean).slice(0, 5).map((a) => (
+            <Aksi key={a.k} warna={a.warna} latar={a.latar} ikon={a.ikon} label={a.label} onClick={a.aksi} />
+          ))}
         </div>
       </div>
 
@@ -174,9 +171,9 @@ export default function Beranda({ onCatat }) {
       <Sheet buka={menu} tutup={() => setMenu(false)} judul={pengaturan.namaSekolah} lead={pengaturan.alamat || `Tahun ajaran ${pengaturan.tahunAjaran}`}>
         <button
           className="bigbtn-ghost mb-2.5"
-          onClick={() => { setMenu(false); nav(kepala ? '/guru/profil-sekolah' : '/guru/biaya') }}
+          onClick={() => { setMenu(false); nav(boleh('sekolah') ? '/guru/profil-sekolah' : boleh('biaya', 'lihat') ? '/guru/biaya' : '/guru/lainnya') }}
         >
-          {kepala ? 'Profil sekolah' : 'Pengaturan jenis biaya'}
+          {boleh('sekolah') ? 'Profil sekolah' : boleh('biaya', 'lihat') ? 'Pengaturan jenis biaya' : 'Menu lainnya'}
         </button>
         <button className="bigbtn-ghost mb-2.5" onClick={() => { setMenu(false); segarkan(); toast('Data disegarkan') }}>
           Muat ulang data
@@ -197,7 +194,7 @@ export default function Beranda({ onCatat }) {
        <div>
       <div className="seghead">
         <h2>Pembayaran terbaru</h2>
-        {!kepala && (
+        {bisaRiwayat && (
           <button className="text-[13px] font-bold text-brand" onClick={() => nav('/guru/pembayaran')}>Lihat semua</button>
         )}
       </div>
@@ -235,7 +232,7 @@ function Stat({ warna, ikon, label, nilai, kaki, titik, bar }) {
     <div className="card min-w-[158px] snap-start p-[15px] lg:min-w-0 lg:p-[18px]">
       <Tile warna={warna}>{ikon}</Tile>
       <div className="mt-3 text-[13px] font-medium text-muted">{label}</div>
-      <div className="mt-0.5 text-[21px] font-extrabold tracking-tight lg:text-2xl">{nilai}</div>
+      <div className="mt-0.5 whitespace-nowrap text-[19px] font-extrabold tracking-tight lg:text-2xl">{nilai}</div>
       <div className="mt-2 flex items-center gap-1.5 text-xs font-semibold text-muted">
         {titik && <i className="h-[7px] w-[7px] shrink-0 rounded-full" style={{ background: titik }} />}
         {kaki}
