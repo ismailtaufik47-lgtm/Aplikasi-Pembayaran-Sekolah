@@ -75,7 +75,7 @@ export default function GuruApp() {
   // Tab bar mobile merangkum halaman yang tidak punya tab ke "Lainnya".
   const tabAktif = tab.some((t) => t.id === halaman) ? halaman : halaman === 'beranda' ? 'beranda' : 'lainnya'
 
-  // Tanya AI punya tata letak sendiri (kolom ketik menempel di bawah),
+  // SAKU (asisten AI) punya tata letak sendiri (kolom ketik menempel di bawah),
   // jadi tidak dibungkus area gulir biasa.
   const halamanAI = ada('ai') && /\/tanya-ai\/?$/.test(pathname)
 

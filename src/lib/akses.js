@@ -28,7 +28,7 @@ export const FITUR = [
   { id: 'kas', label: 'Kas sekolah', emoji: '💰', ket: 'Catat pengeluaran & pemasukan lain, saldo awal', pilihan: ['tidak', 'lihat', 'kelola'] },
   { id: 'lap_pembayaran', label: 'Laporan pembayaran', emoji: '📊', ket: 'Ketertiban bayar SPP & kegiatan', pilihan: ['tidak', 'lihat'] },
   { id: 'lap_keuangan', label: 'Laporan keuangan', emoji: '📒', ket: 'Arus kas masuk–keluar & saldo', pilihan: ['tidak', 'lihat'] },
-  { id: 'ai', label: 'Tanya AI', emoji: '🤖', ket: 'Tanya soal data sekolah ke asisten AI', pilihan: ['tidak', 'kelola'] },
+  { id: 'ai', label: 'SAKU (asisten AI)', emoji: '🤖', ket: 'Tanya kondisi keuangan & pembayaran ke SAKU', pilihan: ['tidak', 'kelola'] },
   { id: 'biaya', label: 'Jenis biaya & SPP', emoji: '🏷️', ket: 'Nominal SPP, jatuh tempo, biaya kegiatan', pilihan: ['tidak', 'lihat', 'kelola'] },
   { id: 'sekolah', label: 'Profil sekolah & akun', emoji: '🏫', ket: 'Profil, logo, kode aktivasi, langganan', pilihan: ['tidak', 'kelola'] },
 ]
@@ -109,7 +109,7 @@ export function menuSekolah(boleh) {
     { id: 'pembayaran', label: 'Pembayaran', emoji: 'pembayaran', ke: '/guru/pembayaran', grup: 'menu', sub: 'Riwayat transaksi & pembatalan', ada: boleh('pembayaran', 'lihat') || boleh('batal', 'lihat') },
     { id: 'laporan', label: 'Laporan', emoji: 'laporan', ke: '/guru/laporan', grup: 'menu', sub: 'Laporan pembayaran & keuangan', ada: lihatLaporan },
     { id: 'kas', label: 'Kas sekolah', emoji: 'kas', ke: '/guru/kas', grup: 'menu', sub: 'Pengeluaran, pemasukan & saldo kas', ada: boleh('kas', 'lihat') },
-    { id: 'ai', label: 'Tanya AI', emoji: 'ai', ke: '/guru/tanya-ai', grup: 'menu', sub: 'Tanya soal data sekolah', ada: boleh('ai') },
+    { id: 'ai', label: 'Tanya SAKU', emoji: 'ai', ke: '/guru/tanya-ai', grup: 'menu', sub: 'Sahabat Keuangan Sekolah — asisten 24 jam', ada: boleh('ai') },
     { id: 'biaya', label: 'Jenis biaya', emoji: 'biaya', ke: '/guru/biaya', grup: 'atur', sub: 'Nominal SPP & biaya kegiatan', ada: boleh('biaya', 'lihat') },
     { id: 'kode-aktivasi', label: 'Kode aktivasi', emoji: 'kode', ke: '/guru/kode-aktivasi', grup: 'atur', sub: 'Undang akun Admin/TU baru', ada: boleh('sekolah') },
     { id: 'profil-sekolah', label: 'Profil sekolah', emoji: 'sekolah', ke: '/guru/profil-sekolah', grup: 'atur', sub: 'Identitas, logo & rekening sekolah', ada: boleh('sekolah') },
@@ -128,7 +128,7 @@ export function pilihTab(menu, bisaCatat) {
     bisaCatat && { id: 'bayar', emoji: 'bayar', label: 'Bayar', catat: true },
     ada('pembayaran') && { id: 'pembayaran', emoji: 'pembayaran', label: 'Riwayat', ke: '/guru/pembayaran' },
     ada('laporan') && { id: 'laporan', emoji: 'laporan', label: 'Laporan', ke: '/guru/laporan' },
-    ada('ai') && { id: 'ai', emoji: 'ai', label: 'Tanya AI', ke: '/guru/tanya-ai' },
+    ada('ai') && { id: 'ai', emoji: 'ai', label: 'SAKU', ke: '/guru/tanya-ai' },
     ada('kas') && { id: 'kas', emoji: 'kas', label: 'Kas', ke: '/guru/kas' },
   ].filter(Boolean)
   return [{ id: 'beranda', emoji: 'beranda', label: 'Beranda', ke: '/guru' }, ...urutan.slice(0, 3)]

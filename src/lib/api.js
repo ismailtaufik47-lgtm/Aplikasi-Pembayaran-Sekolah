@@ -14,6 +14,7 @@ import { supabase, modeDemo } from './supabase.js'
 import * as mock from './mock.js'
 import { waktuTampil, tanggalKeTimestamp, tahunAjaranBerjalan } from './format.js'
 import { lengkapiAkses } from './akses.js'
+import * as kas from './kas.js'
 
 export { modeDemo }
 
@@ -904,7 +905,7 @@ export async function verifikasiDokumen(kode) {
   return panggil('verifikasi_dokumen', { p_kode: kode })
 }
 
-/* ===================== Tanya AI (khusus kepala sekolah) ===================== */
+/* ===================== SAKU — Sahabat Keuangan Sekolah (asisten AI) ===================== */
 
 /**
  * Kirim pertanyaan ke Edge Function "tanya-ai" (supabase/functions/tanya-ai).
@@ -917,16 +918,16 @@ export async function tanyaAI(pesan, riwayat = []) {
   const { data, error } = await supabase.functions.invoke('tanya-ai', { body: { pesan, riwayat } })
   if (error) {
     // Detail lengkap untuk dicek di DevTools (F12 → Console).
-    console.error('[Tanya AI]', error.name, error.context || error)
+    console.error('[SAKU]', error.name, error.context || error)
     const status = error.context?.status
-    if (status === 404) throw new Error('Tanya AI belum aktif: fungsi "tanya-ai" belum di-deploy ke Supabase (lihat supabase/README.md bagian 6).')
+    if (status === 404) throw new Error('SAKU belum aktif: fungsi "tanya-ai" belum di-deploy ke Supabase (lihat supabase/README.md bagian 6).')
     if (status === 401) throw new Error('Sesi login habis. Silakan keluar lalu masuk lagi.')
     if (error.name === 'FunctionsFetchError') {
       // Fungsi yang belum di-deploy juga jatuh ke sini: browser memblokir
       // jawaban 404 tanpa header CORS, jadi terlihat seperti gagal koneksi.
-      throw new Error('Tidak bisa menghubungi fungsi Tanya AI di Supabase. Paling sering karena fungsi "tanya-ai" belum di-deploy (lihat supabase/README.md bagian 6). Kalau sudah, cek koneksi internet.')
+      throw new Error('Tidak bisa menghubungi SAKU (fungsi tanya-ai) di Supabase. Paling sering karena fungsi "tanya-ai" belum di-deploy (lihat supabase/README.md bagian 6). Kalau sudah, cek koneksi internet.')
     }
-    throw new Error(`Server Tanya AI bermasalah (kode ${status || error.name}). Cek log di Dashboard Supabase → Edge Functions → tanya-ai → Logs.`)
+    throw new Error(`Server SAKU bermasalah (kode ${status || error.name}). Cek log di Dashboard Supabase → Edge Functions → tanya-ai → Logs.`)
   }
   if (data?.galat) throw new Error(data.galat)
   return data
@@ -940,7 +941,15 @@ function pesanOnboarding(pesan) {
   if (/nama sekolah belum diisi/i.test(pesan)) return 'Isi nama sekolah dulu.'
   return pesan
 }
-/* ===================== buku kas (0028_kas.sql) ===================== */
+/* ===================== buku kas (0028 + 0030) ===================== */
+/*
+ * Sejak 0030 semua angka kas (saldo, laporan bulanan, arus kas, riwayat)
+ * dihitung DATABASE, dan aturan uang ditegakkan di sana:
+ *   • saldo tidak boleh minus (pengeluaran, batal pemasukan/pembayaran, saldo awal)
+ *   • tanggal transaksi tidak boleh sebelum tanggal mulai saldo awal
+ * Browser hanya mengambil yang ditampilkan (riwayat per halaman), jadi tetap
+ * ringan walau transaksinya sudah ribuan.
+ */
 
 const bentukKas = (k) => ({
   id: k.id,
@@ -957,32 +966,107 @@ const bentukKas = (k) => ({
   adaNota: k.ada_nota ?? !!k.nota,
 })
 
-// Mode demo: data kas disimpan di memori selama halaman terbuka.
-let kasMemori = null
-const kasDemoAwal = () => (kasMemori ||= mock.kasDemo.map((k) => ({ ...k })))
+async function rpcKas(nama, param) {
+  const { data, error } = await supabase.rpc(nama, param)
+  if (error) throw new Error(pesanKas(error))
+  return data
+}
 
-/** Semua transaksi kas + saldo awal. Foto nota TIDAK ikut (diambil saat dibuka). */
-export async function muatKas() {
+function pesanKas(error) {
+  const m = error?.message || String(error)
+  if (/could not find the function public\.kas_(ringkasan|laporan_bulan|arus|riwayat|saldo_tersedia)/i.test(m)) {
+    return 'Pembaruan kas belum aktif di database. Jalankan file 0030_kas_saldo.sql di Supabase SQL Editor.'
+  }
+  if (/relation .*kas.* does not exist|could not find the (function|table)|schema cache/i.test(m)) {
+    return 'Fitur kas belum aktif di database. Jalankan file 0028_kas.sql lalu 0030_kas_saldo.sql di Supabase SQL Editor.'
+  }
+  return m
+}
+
+// ---------- mode demo: data kas di memori selama halaman terbuka ----------
+let kasMemori = null
+const kasDemoAwal = () => (kasMemori ||= mock.kasDemo.map((k) => ({ dibuat_pada: k.tanggal + 'T08:00:00', ...k })))
+const kasDemoAtur = () => ({ saldoAwal: mock.kasPengaturanDemo.saldo_awal, mulai: mock.kasPengaturanDemo.mulai })
+/** `demo.pembayaran` = pembayaran di layar (supaya pembayaran yang dicatat saat demo ikut terhitung). */
+function kasDemo(demo) {
+  const atur = kasDemoAtur()
+  const pembayaran = demo?.pembayaran || bentuk(mock.bentukDemo()).pembayaran
+  const gerakan = kas.gerakanKas({ pembayaran, kas: kasDemoAwal().map(bentukKas), mulai: atur.mulai })
+  return { atur, gerakan }
+}
+
+/** Saldo sekarang, saldo awal, bulan pertama laporan, peringatan data lama. */
+export async function kasRingkasan(demo) {
   if (modeDemo) {
+    const { atur, gerakan } = kasDemo(demo)
+    const hariIni = tanggalISOLokal()
+    const sebelum = kasDemoAwal().filter((k) => !k.dibatalkan_pada && k.tanggal < atur.mulai)
+    const kategori = (j) => [...new Set(kasDemoAwal().filter((k) => k.jenis === j).map((k) => k.kategori))]
     return {
-      pengaturan: { saldoAwal: mock.kasPengaturanDemo.saldo_awal, mulai: mock.kasPengaturanDemo.mulai },
-      kas: kasDemoAwal().map(bentukKas),
+      pengaturan: atur,
+      saldoKini: kas.saldoPer(gerakan, atur.saldoAwal, hariIni),
+      hariIni,
+      bulanPertama: atur.mulai.slice(0, 7),
+      terendah: kas.saldoTerendah(gerakan, atur.saldoAwal, atur.mulai),
+      sebelumMulai: { jumlah: sebelum.length, pertama: sebelum.map((k) => k.tanggal).sort()[0] || null },
+      kategori: { masuk: kategori('masuk'), keluar: kategori('keluar') },
     }
   }
-  const [k, p] = await Promise.all([
-    supabase
-      .from('kas')
-      .select('id, jenis, tanggal, kategori, nominal, keterangan, dicatat_nama, dibuat_pada, dibatalkan_pada, dibatalkan_nama, alasan_batal, ada_nota')
-      .order('tanggal', { ascending: true })
-      .order('dibuat_pada', { ascending: true }),
-    supabase.from('kas_pengaturan').select('saldo_awal, mulai').maybeSingle(),
-  ])
-  if (k.error) throw new Error(pesanKas(k.error))
-  if (p.error) throw new Error(pesanKas(p.error))
+  const d = await rpcKas('kas_ringkasan')
   return {
-    pengaturan: p.data ? { saldoAwal: Number(p.data.saldo_awal), mulai: p.data.mulai } : null,
-    kas: k.data.map(bentukKas),
+    ...d,
+    saldoKini: Number(d.saldoKini),
+    pengaturan: d.pengaturan ? { ...d.pengaturan, saldoAwal: Number(d.pengaturan.saldoAwal) } : null,
+    terendah: d.terendah ? { ...d.terendah, saldo: Number(d.terendah.saldo) } : null,
+    sebelumMulai: d.sebelumMulai || { jumlah: 0, pertama: null },
   }
+}
+
+const angkaLap = (l) => ({
+  ...l,
+  saldoAwal: Number(l.saldoAwal), totalMasuk: Number(l.totalMasuk), totalKeluar: Number(l.totalKeluar),
+  saldoAkhir: Number(l.saldoAkhir), jumlahKeluar: Number(l.jumlahKeluar || 0),
+  masukPerKategori: (l.masukPerKategori || []).map((k) => ({ ...k, nominal: Number(k.nominal) })),
+  keluarPerKategori: (l.keluarPerKategori || []).map((k) => ({ ...k, nominal: Number(k.nominal) })),
+  baris: (l.baris || []).map((b) => ({ ...b, masuk: Number(b.masuk), keluar: Number(b.keluar), saldo: Number(b.saldo) })),
+})
+
+/** Laporan satu bulan ("YYYY-MM"): saldo awal/akhir, total, per kategori, baris buku kas. */
+export async function kasLaporanBulan(bulan, demo) {
+  if (modeDemo) {
+    const { atur, gerakan } = kasDemo(demo)
+    return kas.laporanBulan({ gerakan, saldoAwalKas: atur.saldoAwal, bulan })
+  }
+  return angkaLap(await rpcKas('kas_laporan_bulan', { p_bulan: bulan }))
+}
+
+/** Pemasukan & pengeluaran per bulan (n bulan berakhir di `sampai`). */
+export async function kasArus(sampai, n = 6, demo) {
+  if (modeDemo) return kas.arusKas(kasDemo(demo).gerakan, sampai, n)
+  const d = await rpcKas('kas_arus', { p_sampai: sampai, p_n: n })
+  return (d || []).map((b) => ({ bulan: b.bulan, masuk: Number(b.masuk), keluar: Number(b.keluar) }))
+}
+
+/** Riwayat transaksi rentang tanggal, per halaman. → { item, lanjut, total } */
+export async function kasRiwayat({ dari, sampai, mulaiDari = 0, batas = 30 }, demo) {
+  if (modeDemo) return kas.riwayatKas(kasDemo(demo).gerakan, { dari, sampai, mulaiDari, batas })
+  const d = await rpcKas('kas_riwayat', { p_dari: dari, p_sampai: sampai, p_mulai_dari: mulaiDari, p_batas: batas })
+  return {
+    item: (d.item || []).map((x) => ({ ...x, nominal: Number(x.nominal) })),
+    lanjut: !!d.lanjut,
+    total: { masuk: Number(d.total?.masuk || 0), keluar: Number(d.total?.keluar || 0), jumlah: Number(d.total?.jumlah || 0) },
+  }
+}
+
+/** Berapa yang masih bisa dikeluarkan pada tanggal itu tanpa membuat saldo minus. */
+export async function kasSaldoTersedia(tanggal, demo) {
+  if (modeDemo) {
+    const { atur, gerakan } = kasDemo(demo)
+    const r = kas.saldoTerendah(gerakan, atur.saldoAwal, tanggal)
+    return { tersedia: Math.max(0, r.saldo), saldoTanggal: kas.saldoPer(gerakan, atur.saldoAwal, tanggal), dibatasiTanggal: r.tanggal !== tanggal ? r.tanggal : null }
+  }
+  const d = await rpcKas('kas_saldo_tersedia', { p_tanggal: tanggal })
+  return { tersedia: Number(d.tersedia), saldoTanggal: Number(d.saldoTanggal), dibatasiTanggal: d.dibatasiTanggal || null }
 }
 
 /** Foto nota satu transaksi (data URL) atau null. */
@@ -993,47 +1077,72 @@ export async function notaKas(id) {
   return data?.nota || null
 }
 
-export async function catatKas({ jenis, tanggal, kategori, nominal, keterangan, nota, pencatat }) {
+const rpDemo = (n) => (n < 0 ? '-' : '') + 'Rp' + Math.abs(n).toLocaleString('id-ID')
+
+export async function catatKas({ jenis, tanggal, kategori, nominal, keterangan, nota, pencatat }, demo) {
   if (modeDemo) {
+    const { atur, gerakan } = kasDemo(demo)
+    if (tanggal < atur.mulai) throw new Error(`Tanggal ${kas.tglKas(tanggal, true)} sebelum tanggal mulai kas (${kas.tglKas(atur.mulai, true)}). Transaksi sebelum tanggal itu sudah termasuk saldo awal — kalau memang perlu dicatat, ubah dulu tanggal mulai saldo awal.`)
+    if (jenis === 'keluar') {
+      const r = kas.saldoTerendah(gerakan, atur.saldoAwal, tanggal)
+      if (nominal > r.saldo) {
+        throw new Error(r.tanggal === tanggal
+          ? `Saldo kas tidak cukup. Saldo per ${kas.tglKas(tanggal, true)} hanya ${rpDemo(r.saldo)}, pengeluaran ${rpDemo(nominal)}.`
+          : `Saldo kas tidak cukup. Pengeluaran tanggal ${kas.tglKas(tanggal, true)} paling banyak ${rpDemo(Math.max(0, r.saldo))} supaya saldo tidak minus pada ${kas.tglKas(r.tanggal, true)}.`)
+      }
+    }
     const baru = { id: 'k' + Date.now(), jenis, tanggal, kategori, nominal, keterangan, nota, dicatat_nama: pencatat || 'Demo', dibuat_pada: new Date().toISOString() }
     kasDemoAwal().push(baru)
     return bentukKas(baru)
   }
-  const { data: id, error } = await supabase.rpc('kas_catat', {
+  const id = await rpcKas('kas_catat', {
     p_jenis: jenis, p_tanggal: tanggal, p_kategori: kategori, p_nominal: nominal,
     p_keterangan: keterangan || null, p_nota: nota || null,
   })
-  if (error) throw new Error(pesanKas(error))
   return bentukKas({ id, jenis, tanggal, kategori, nominal, keterangan, nota, dicatat_nama: pencatat, dibuat_pada: new Date().toISOString() })
 }
 
-export async function batalkanKas(id, alasan, oleh) {
+export async function batalkanKas(id, alasan, oleh, demo) {
   if (modeDemo) {
     const k = kasDemoAwal().find((x) => x.id === id)
+    const salinan = { ...k }
     Object.assign(k, { dibatalkan_pada: new Date().toISOString(), dibatalkan_nama: oleh || 'Demo', alasan_batal: alasan })
+    if (k.jenis === 'masuk') {
+      const { atur, gerakan } = kasDemo(demo)
+      const r = kas.saldoTerendah(gerakan, atur.saldoAwal, k.tanggal)
+      if (r.saldo < 0) {
+        Object.keys(k).forEach((x) => delete k[x])
+        Object.assign(k, salinan)
+        throw new Error(`Pemasukan ini tidak bisa dibatalkan: saldo kas akan minus (${rpDemo(r.saldo)} pada ${kas.tglKas(r.tanggal, true)}). Uangnya sudah terpakai — batalkan dulu pengeluaran yang memakainya, atau catat pemasukan penggantinya dulu.`)
+      }
+    }
     return true
   }
-  const { error } = await supabase.rpc('kas_batalkan', { p_id: id, p_alasan: alasan })
-  if (error) throw new Error(pesanKas(error))
+  await rpcKas('kas_batalkan', { p_id: id, p_alasan: alasan })
   return true
 }
 
-export async function aturSaldoAwalKas(saldo, mulai) {
+export async function aturSaldoAwalKas(saldo, mulai, demo) {
   if (modeDemo) {
+    if (saldo < 0) throw new Error('Saldo awal tidak boleh minus.')
+    const awal = kasDemoAwal().filter((k) => !k.dibatalkan_pada).map((k) => k.tanggal).sort()[0]
+    if (awal && mulai > awal) throw new Error(`Sudah ada transaksi kas tanggal ${kas.tglKas(awal, true)}. Tanggal mulai saldo awal paling lambat ${kas.tglKas(awal, true)} (atau batalkan dulu transaksi itu).`)
+    const lama = { ...mock.kasPengaturanDemo }
+    const minLama = kas.saldoTerendah(kasDemo(demo).gerakan, lama.saldo_awal, lama.mulai).saldo
     Object.assign(mock.kasPengaturanDemo, { saldo_awal: saldo, mulai })
+    const r = kas.saldoTerendah(kasDemo(demo).gerakan, saldo, mulai)
+    if (r.saldo < 0 && r.saldo < minLama) {
+      Object.assign(mock.kasPengaturanDemo, lama)
+      throw new Error(`Dengan saldo awal ini, saldo kas akan minus (${rpDemo(r.saldo)} pada ${kas.tglKas(r.tanggal, true)}). Periksa lagi nominal saldo awal dan tanggal mulainya.`)
+    }
     return true
   }
-  const { error } = await supabase.rpc('kas_atur_saldo_awal', { p_saldo: saldo, p_mulai: mulai })
-  if (error) throw new Error(pesanKas(error))
+  await rpcKas('kas_atur_saldo_awal', { p_saldo: saldo, p_mulai: mulai })
   return true
 }
 
-function pesanKas(error) {
-  const m = error?.message || String(error)
-  if (/relation .*kas.* does not exist|could not find the (function|table)|schema cache/i.test(m)) {
-    return 'Fitur kas belum aktif di database. Jalankan file 0028_kas.sql di Supabase SQL Editor.'
-  }
-  return m
+function tanggalISOLokal(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
 
 /** Peran yang dipakai mode demo ('admin' kecuali diganti lewat localStorage). */

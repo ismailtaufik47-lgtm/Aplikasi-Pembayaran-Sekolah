@@ -258,6 +258,30 @@ Uji coba mode demo (tanpa Supabase), di konsol browser:
 `localStorage.setItem('tk_demo_peran','kepala')` · `localStorage.setItem('tk_demo_habis','1')`
 lalu muat ulang halaman.
 
+## 13. Kas: saldo tidak boleh minus & laporan dihitung server
+
+Jalankan `supabase/migrations/0030_kas_saldo.sql` di SQL Editor (butuh 0028 & 0029;
+aman dijalankan berulang).
+
+Aturan yang ditegakkan database:
+
+- Saldo awal kas wajib diisi dulu (tidak boleh minus) sebelum mencatat transaksi kas.
+- Tanggal transaksi kas tidak boleh sebelum **tanggal mulai** saldo awal. Mau mencatat
+  transaksi bulan lalu → ubah dulu tanggal mulai saldo awal ke tanggal yang lebih awal.
+- Saldo kas tidak boleh minus di tanggal mana pun: pengeluaran melebihi saldo,
+  pengeluaran tanggal mundur yang membuat saldo hari berikutnya minus, membatalkan
+  pemasukan/pembayaran yang uangnya sudah terpakai, dan mengubah saldo awal yang
+  membuat saldo minus — semuanya ditolak dengan pesan yang menjelaskan cara membetulkannya.
+- Dua petugas mencatat bersamaan tidak bisa menembus saldo (diantrekan per sekolah).
+
+Saldo, laporan bulanan, arus kas, dan riwayat sekarang dihitung server
+(`kas_ringkasan`, `kas_laporan_bulan`, `kas_arus`, `kas_riwayat`, `kas_saldo_tersedia`),
+jadi tetap benar walau transaksi sudah ribuan. Halaman Kas menampilkan riwayat 7 hari
+terakhir (bisa pilih 30 hari, bulan ini, atau tanggal sendiri), dimuat 30 baris per halaman.
+
+Data lama yang tanggalnya sebelum tanggal mulai tidak dihitung dan ditandai
+"Tidak dihitung" di halaman Kas, lengkap dengan petunjuk membetulkannya.
+
 ## Struktur tabel
 
 | Tabel | Isi |

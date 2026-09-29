@@ -102,13 +102,13 @@ const tgl = (n) => {
   const d = new Date(Date.now() - n * 864e5)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
 }
-const awalBulanLalu = () => {
+const awalBulan = (geser) => {
   const d = new Date()
-  const a = new Date(d.getFullYear(), d.getMonth() - 1, 1)
+  const a = new Date(d.getFullYear(), d.getMonth() + geser, 1)
   return `${a.getFullYear()}-${String(a.getMonth() + 1).padStart(2, '0')}-01`
 }
 
-export const kasPengaturanDemo = { saldo_awal: 2500000, mulai: awalBulanLalu() }
+export const kasPengaturanDemo = { saldo_awal: 2500000, mulai: awalBulan(-2) }
 
 export const kasDemo = [
   { id: 'k1', jenis: 'keluar', tanggal: tgl(40), kategori: 'Honor guru', nominal: 1500000, keterangan: 'Honor Bu Rina & Bu Yanti bulan lalu', dicatat_nama: 'Bu Kepsek' },

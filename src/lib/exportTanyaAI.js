@@ -1,5 +1,5 @@
 /**
- * Unduh Excel dari satu jawaban Tanya AI.
+ * Unduh Excel dari satu jawaban SAKU (asisten AI).
  *
  * Yang diekspor BUKAN teks jawaban AI, tapi data mentah hasil fungsi
  * database (tools) yang dipakai untuk menjawab — jadi isinya lengkap
@@ -156,7 +156,44 @@ function lembarRekap(wb, h, sekolah) {
   ])
 }
 
+function lembarKas(wb, h, sekolah) {
+  const ws = sheet(wb, 'Buku kas')
+  const kolom = [
+    { label: 'Tanggal', lebar: 12 }, { label: 'Kategori / uraian', lebar: 34, wrap: true }, { label: 'Keterangan', lebar: 28, wrap: true },
+    { label: 'Masuk', lebar: 15, rp: true }, { label: 'Keluar', lebar: 15, rp: true }, { label: 'Dicatat oleh', lebar: 16 },
+  ]
+  judulLembar(ws, kolom.length, `Buku kas — ${sekolah}`, `${h.periode.dari} s.d. ${h.periode.sampai} · dicetak ${tanggalPanjang()}`)
+  let r = tabel(ws, 4, [{ label: 'Ringkasan', lebar: 34 }, { label: 'Nominal', lebar: 18, rp: true }], [
+    ['Saldo awal periode', h.saldo_awal_periode],
+    ['Pemasukan — SPP', h.pemasukan?.spp ?? 0],
+    ['Pemasukan — biaya kegiatan', h.pemasukan?.kegiatan ?? 0],
+    ['Pemasukan — lain (donasi, BOP, …)', h.pemasukan?.lain ?? 0],
+    ['Total pemasukan', h.pemasukan?.total ?? 0],
+    ['Total pengeluaran', h.pengeluaran?.total ?? 0],
+    ['Saldo akhir periode', h.saldo_akhir_periode],
+    ['Saldo kas saat ini', h.saldo_kas_saat_ini],
+  ])
+  if (h.pengeluaran_per_kategori?.length) {
+    r = tabel(ws, r + 1, [{ label: 'Pengeluaran per kategori', lebar: 34 }, { label: 'Nominal', lebar: 18, rp: true }],
+      h.pengeluaran_per_kategori.map((k) => [k.kategori, k.nominal]))
+  }
+  tabel(ws, r + 1, kolom, (h.transaksi || []).map((t) => [
+    t.tanggal, t.kategori, t.keterangan || '', t.jenis === 'masuk' ? t.nominal : '', t.jenis === 'keluar' ? t.nominal : '', t.dicatat_oleh || '',
+  ]))
+}
+
+function lembarKasBulanan(wb, h, sekolah) {
+  const ws = sheet(wb, 'Kas per bulan')
+  judulLembar(ws, 5, `Kas per bulan — ${sekolah}`, `Saldo kas saat ini ${rp(h.saldo_kas_saat_ini)} · dicetak ${tanggalPanjang()}`)
+  tabel(ws, 4, [
+    { label: 'Bulan', lebar: 18 }, { label: 'Pemasukan', lebar: 16, rp: true }, { label: 'Pengeluaran', lebar: 16, rp: true },
+    { label: 'Selisih', lebar: 16, rp: true }, { label: 'Saldo akhir', lebar: 16, rp: true },
+  ], (h.bulan || []).map((b) => [b.bulan, b.pemasukan, b.pengeluaran, b.selisih, b.saldo_akhir]))
+}
+
 const PEMBUAT = {
+  kas: lembarKas,
+  kas_per_bulan: lembarKasBulanan,
   daftar_tunggakan: lembarTunggakan,
   transaksi: lembarTransaksi,
   perbandingan_kelas: lembarKelas,
@@ -173,5 +210,5 @@ export async function unduhExcelTanyaAI(data, sekolah) {
     PEMBUAT[d.alat](wb, d.hasil, sekolah)
   })
   const buf = await wb.xlsx.writeBuffer()
-  saveAs(new Blob([buf], { type: 'application/octet-stream' }), `TanyaAI-${sekolah.replace(/[^a-z0-9]+/gi, '-')}-${tanggalISO()}.xlsx`)
+  saveAs(new Blob([buf], { type: 'application/octet-stream' }), `SAKU-${sekolah.replace(/[^a-z0-9]+/gi, '-')}-${tanggalISO()}.xlsx`)
 }

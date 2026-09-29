@@ -34,7 +34,8 @@ export function DataProvider({ children }) {
   function toast(teks) {
     setPesan(teks)
     clearTimeout(toast._t)
-    toast._t = setTimeout(() => setPesan(''), 2600)
+    // Pesan panjang (mis. alasan penolakan saldo kas) diberi waktu baca lebih lama.
+    toast._t = setTimeout(() => setPesan(''), Math.min(9000, 2600 + String(teks).length * 35))
   }
 
   const terapkan = (d) => {

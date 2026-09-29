@@ -1,7 +1,9 @@
 /**
- * Tanya AI — khusus kepala sekolah.
+ * SAKU — Sahabat Keuangan Sekolah (asisten AI sekolah, siap membantu 24 jam).
+ * Bisa membaca pembayaran SPP & kegiatan serta buku kas (saldo, pemasukan,
+ * pengeluaran) — kas hanya untuk akun yang punya hak akses kas.
  *
- * Kepala sekolah bisa MENGETIK BEBAS, atau mengetuk contoh pertanyaan
+ * Pengguna bisa MENGETIK BEBAS, atau mengetuk contoh pertanyaan
  * (chip) yang langsung terkirim sebagai pesan biasa. Chip hanya jalan
  * pintas, bukan batasan: AI memilih sendiri fungsi data mana yang
  * dipakai (lihat supabase/functions/tanya-ai), jadi pertanyaan dengan
@@ -16,7 +18,7 @@ import TeksAI from '../components/TeksAI.jsx'
 import SpandukLangganan from '../components/Spanduklangganan.jsx'
 import { useData } from '../lib/store.jsx'
 import * as api from '../lib/api.js'
-import { BULAN, bulanBerjalan } from '../lib/format.js'
+import { BULAN, bulanBerjalan, rp } from '../lib/format.js'
 import { hitungLangganan } from '../lib/langganan.js'
 
 const FONT_EMOJI = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', lineHeight: 1 }
@@ -29,20 +31,24 @@ const bisaDiunduh = (data = []) =>
     if (d.alat === 'status_siswa') return h.siswa?.length > 0
     if (d.alat === 'transaksi') return h.jumlah_transaksi > 0
     if (d.alat === 'daftar_tunggakan') return h.jumlah_siswa > 0
-    return d.alat === 'perbandingan_kelas' || d.alat === 'rekap_bulan'
+    return ['perbandingan_kelas', 'rekap_bulan', 'kas', 'kas_per_bulan'].includes(d.alat)
   })
 
 // Percakapan tetap ada saat pindah menu (selama aplikasi tidak dimuat ulang).
 let simpanan = { pemilik: null, pesan: [], kuota: null }
 
-function daftarSaran() {
+function daftarSaran(bolehKas) {
   const kini = bulanBerjalan()
   return [
-    { e: '🧾', label: 'Siapa yang belum bayar SPP?', tanya: 'Siapa saja yang belum bayar SPP?' },
-    { e: '📊', label: `Rekap ${BULAN[kini]}`, tanya: `Buatkan rekap pembayaran bulan ${BULAN[kini]}` },
-    ...(kini > 0 ? [{ e: '📅', label: `Rekap ${BULAN[kini - 1]}`, tanya: `Buatkan rekap pembayaran bulan ${BULAN[kini - 1]}` }] : []),
+    ...(bolehKas ? [
+      { e: '💰', label: 'Berapa pemasukan bulan ini?', tanya: 'Berapa pemasukan bulan ini?' },
+      { e: '📉', label: 'Berapa pengeluaran bulan ini?', tanya: 'Berapa pengeluaran bulan ini dan untuk apa saja?' },
+    ] : []),
+    { e: '👨‍👩‍👧', label: 'Siapa yang belum bayar SPP?', tanya: 'Siapa saja yang belum bayar SPP?' },
+    ...(bolehKas ? [{ e: '📊', label: 'Ringkasan keuangan minggu ini', tanya: 'Buatkan ringkasan keuangan minggu ini' }] : []),
+    { e: '📅', label: `Rekap SPP ${BULAN[kini]}`, tanya: `Buatkan rekap pembayaran bulan ${BULAN[kini]}` },
     { e: '🏫', label: 'Kelas mana paling banyak nunggak?', tanya: 'Kelas mana yang tunggakannya paling banyak?' },
-    { e: '💵', label: 'Transaksi hari ini', tanya: 'Siapa saja yang bayar hari ini?' },
+    { e: '💵', label: 'Siapa yang bayar hari ini?', tanya: 'Siapa saja yang bayar hari ini?' },
     { e: '🔎', label: 'Cek status satu siswa…', isi: 'Bagaimana status pembayaran ' },
   ]
 }
@@ -59,7 +65,9 @@ const Robot = ({ size = 32, tampil = 'grid' }) => (
 )
 
 export default function TanyaAI() {
-  const { siswa, biaya, pembayaran, pengaturan, petugas, modeDemo, toast } = useData()
+  const { siswa, biaya, pembayaran, pengaturan, petugas, modeDemo, toast, boleh } = useData()
+  const bolehKas = boleh('kas', 'lihat') || boleh('lap_keuangan', 'lihat')
+  const [kas, setKas] = useState(null) // ringkasan kas untuk kartu sapaan
   const [pesan, setPesan] = useState(() => (simpanan.pemilik === petugas ? simpanan.pesan : []))
   const [kuota, setKuota] = useState(() => (simpanan.pemilik === petugas ? simpanan.kuota : null))
   const [teks, setTeks] = useState('')
@@ -70,7 +78,15 @@ export default function TanyaAI() {
 
   const terkunci = hitungLangganan(pengaturan).status === 'kadaluarsa'
   const kuotaHabis = kuota && kuota.terpakai >= kuota.batas
-  const saran = daftarSaran()
+  const saran = daftarSaran(bolehKas)
+
+  // Saldo kas untuk kartu sapaan (hanya akun yang boleh melihat kas).
+  useEffect(() => {
+    if (!bolehKas) return
+    let aktif = true
+    api.kasRingkasan({ pembayaran }).then((d) => aktif && setKas(d)).catch(() => aktif && setKas(false))
+    return () => { aktif = false }
+  }, [bolehKas]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     simpanan = { pemilik: petugas, pesan, kuota }
@@ -156,7 +172,10 @@ export default function TanyaAI() {
 
           <div className="flex items-center gap-3 pb-1.5 pt-2.5 lg:hidden">
             <EmojiMenu id="ai" size={38} />
-            <h2 className="flex-1 text-[17px] font-extrabold">Tanya AI</h2>
+            <div className="min-w-0 flex-1 leading-tight">
+              <h2 className="text-[17px] font-extrabold">SAKU</h2>
+              <span className="block text-[11.5px] font-bold text-muted">Sahabat Keuangan Sekolah</span>
+            </div>
             {!kosong && (
               <button onClick={baru} className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-bold">
                 + Baru
@@ -164,8 +183,8 @@ export default function TanyaAI() {
             )}
           </div>
           <PageHead
-            judul="Tanya AI"
-            sub="Tanya apa saja soal pembayaran sekolah — angkanya dihitung langsung dari data aplikasi."
+            judul="SAKU — Sahabat Keuangan Sekolah"
+            sub="Tanyakan kondisi keuangan sekolah kapan saja — angkanya dihitung langsung dari data aplikasi."
             aksi={!kosong && <BtnKecil onClick={baru}>+ Percakapan baru</BtnKecil>}
           />
 
@@ -174,14 +193,27 @@ export default function TanyaAI() {
               <div className="flex items-start gap-3.5">
                 <Robot size={52} />
                 <div className="min-w-0">
-                  <b className="block text-[17px] font-extrabold lg:text-[19px]">Halo, {petugas || 'Bapak/Ibu'}!</b>
-                  <p className="mt-1 text-[13.5px] leading-relaxed text-muted">
-                    Saya asisten laporan sekolah {pengaturan.namaSekolah}. Ketik pertanyaan dengan bahasa sehari-hari,
-                    atau ketuk salah satu contoh di bawah.
+                  <b className="block text-[17px] font-extrabold lg:text-[19px]">👋 Halo, saya SAKU</b>
+                  <span className="block text-[13px] font-extrabold text-brand">Sahabat Keuangan Sekolah</span>
+                  <p className="mt-1.5 text-[14px] font-semibold leading-relaxed">
+                    Saya siap membantu Anda melihat kondisi keuangan {pengaturan.namaSekolah}.
+                  </p>
+                  <p className="mt-1 text-[12.5px] leading-relaxed text-muted">
+                    Asisten digital sekolah, siap membantu 24 jam. Ketik pertanyaan dengan bahasa sehari-hari, atau ketuk contoh di bawah.
                   </p>
                 </div>
               </div>
-              <div className="mt-5 grid gap-2 sm:grid-cols-2">
+              {bolehKas && kas !== false && (
+                <div className="mt-4 rounded-[18px] bg-brand px-4 py-3.5 text-white" style={{ colorScheme: 'light' }}>
+                  <div className="text-[12.5px] font-semibold opacity-90">Saldo kas saat ini</div>
+                  <div className="mt-0.5 break-all text-[26px] font-extrabold leading-tight tracking-tight">
+                    {kas ? (kas.saldoKini < 0 ? '−' + rp(-kas.saldoKini) : rp(kas.saldoKini)) : '…'}
+                  </div>
+                  {kas && !kas.pengaturan && <div className="mt-1 text-[11.5px] font-semibold opacity-90">Saldo awal kas belum diisi — dihitung dari nol</div>}
+                </div>
+              )}
+              <div className="mb-2 mt-5 text-[12.5px] font-extrabold text-muted">Coba tanyakan:</div>
+              <div className="grid gap-2 sm:grid-cols-2">
                 {saran.map((s) => (
                   <button
                     key={s.label}
@@ -196,8 +228,9 @@ export default function TanyaAI() {
               </div>
               <div className="mt-5 rounded-[14px] bg-[#F5F6FA] px-4 py-3 text-[12.5px] leading-relaxed text-muted">
                 <b className="text-ink">Contoh pertanyaan bebas:</b> “Yang nunggak lebih dari 2 bulan siapa saja?”,
-                “Berapa pemasukan minggu ini?”, “Siapa di kelas B yang belum bayar manasik?”
-                <span className="mt-1.5 block">🔒 AI hanya bisa membaca data, tidak bisa mengubah apa pun. Nomor HP & alamat tidak pernah dikirim ke AI.</span>
+                {bolehKas && ' “Uang keluar bulan ini paling banyak untuk apa?”, “Bandingkan pengeluaran 3 bulan terakhir”,'}
+                {' '}“Siapa di kelas B yang belum bayar manasik?”
+                <span className="mt-1.5 block">🔒 SAKU hanya bisa membaca data, tidak bisa mengubah apa pun. Nomor HP & alamat tidak pernah dikirim ke AI.</span>
               </div>
             </div>
           ) : (
@@ -251,7 +284,7 @@ export default function TanyaAI() {
                         <span key={i} className="h-1.5 w-1.5 animate-bounce rounded-full bg-brand" style={{ animationDelay: `${i * 0.15}s` }} />
                       ))}
                     </span>
-                    Sedang mengecek data sekolah…
+                    SAKU sedang mengecek data sekolah…
                   </div>
                 </div>
               )}
@@ -300,9 +333,9 @@ export default function TanyaAI() {
                 }
               }}
               placeholder={
-                terkunci ? 'Tanya AI aktif lagi setelah langganan diperpanjang'
+                terkunci ? 'SAKU aktif lagi setelah langganan diperpanjang'
                   : kuotaHabis ? 'Batas pertanyaan hari ini sudah habis'
-                  : 'Ketik pertanyaan di sini…'
+                  : 'Tanya SAKU di sini…'
               }
               className="min-h-[40px] flex-1 resize-none bg-transparent py-2.5 text-[14.5px] font-semibold outline-none placeholder:font-medium placeholder:text-muted disabled:cursor-not-allowed"
             />
@@ -320,7 +353,7 @@ export default function TanyaAI() {
           <p className="mt-1.5 text-center text-[11px] font-semibold text-muted">
             {kuota && `Sisa ${Math.max(0, kuota.batas - kuota.terpakai)}/${kuota.batas} pertanyaan hari ini`}
             <span className={kuota ? 'hidden sm:inline' : ''}>
-              {kuota && ' · '}AI bisa salah paham pertanyaan — cek ulang di Laporan untuk keputusan penting
+              {kuota && ' · '}SAKU bisa salah paham pertanyaan — cek ulang di Laporan untuk keputusan penting
             </span>
           </p>
         </div>

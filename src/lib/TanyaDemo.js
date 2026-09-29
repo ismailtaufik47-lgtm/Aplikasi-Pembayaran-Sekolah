@@ -1,5 +1,5 @@
 /**
- * Jawaban contoh Tanya AI untuk MODE DEMO (tanpa Supabase/AI sungguhan).
+ * Jawaban contoh SAKU untuk MODE DEMO (tanpa Supabase/AI sungguhan).
  * Menebak maksud pertanyaan dari kata kunci lalu menyusun jawaban dari
  * data demo — bentuk datanya sama dengan hasil fungsi database, jadi
  * tampilan & tombol Unduh Excel bisa dicoba tanpa server.
@@ -96,9 +96,93 @@ function rekap({ siswa, pembayaran, pengaturan }) {
   return { jawaban, data: [] }
 }
 
+/** Buku kas demo — bentuk hasilnya sama dengan ai_kas() di database. */
+async function kasDemo(p, { pembayaran }) {
+  const api = await import('./api.js')
+  const demo = { pembayaran }
+  const hariIni = tanggalISO()
+  const d = new Date()
+  let dari = hariIni.slice(0, 8) + '01'
+  let periode = 'bulan ini'
+  if (/minggu/.test(p)) {
+    d.setDate(d.getDate() - ((d.getDay() + 6) % 7))
+    dari = tanggalISO(d)
+    periode = 'minggu ini'
+  }
+  const sebelum = new Date(dari + 'T00:00:00')
+  sebelum.setDate(sebelum.getDate() - 1)
+  const [r, ring, awal] = await Promise.all([
+    api.kasRiwayat({ dari, sampai: hariIni, batas: 500 }, demo),
+    api.kasRingkasan(demo),
+    api.kasSaldoTersedia(tanggalISO(sebelum), demo),
+  ])
+  const mulai = ring.pengaturan?.mulai
+  const bayar = pembayaran.filter((x) => {
+    const t = tanggalISO(new Date(x.tanggal))
+    return t >= dari && t <= hariIni && (!mulai || t >= mulai)
+  })
+  const kasSah = r.item.filter((i) => i.sumber === 'kas' && !i.dibatalkanPada && !i.sebelumMulai)
+  const perKategori = (jenis) => {
+    const m = new Map()
+    kasSah.filter((i) => i.jenis === jenis).forEach((i) => m.set(i.kategori, (m.get(i.kategori) || 0) + i.nominal))
+    return [...m].map(([kategori, nominal]) => ({ kategori, nominal })).sort((a, b) => b.nominal - a.nominal)
+  }
+  const spp = bayar.filter((x) => x.jenis === 'spp').reduce((t, x) => t + x.nominal, 0)
+  const kegiatan = bayar.filter((x) => x.jenis !== 'spp').reduce((t, x) => t + x.nominal, 0)
+  const lain = kasSah.filter((i) => i.jenis === 'masuk').reduce((t, i) => t + i.nominal, 0)
+  const keluar = perKategori('keluar')
+  const hasil = {
+    periode: { dari, sampai: hariIni },
+    buku_kas: { saldo_awal_diisi: !!ring.pengaturan, saldo_awal: ring.pengaturan?.saldoAwal, tanggal_mulai_kas: mulai },
+    saldo_kas_saat_ini: ring.saldoKini,
+    saldo_awal_periode: awal.saldoTanggal,
+    saldo_akhir_periode: ring.saldoKini,
+    pemasukan: { total: r.total.masuk, spp, kegiatan, lain },
+    pengeluaran: { total: r.total.keluar, jumlah_transaksi: kasSah.filter((i) => i.jenis === 'keluar').length },
+    selisih_masuk_keluar: r.total.masuk - r.total.keluar,
+    pemasukan_per_kategori: [
+      ...(spp ? [{ kategori: 'SPP', nominal: spp }] : []),
+      ...(kegiatan ? [{ kategori: 'Biaya kegiatan', nominal: kegiatan }] : []),
+      ...perKategori('masuk'),
+    ],
+    pengeluaran_per_kategori: keluar,
+    transaksi: r.item.filter((i) => !i.dibatalkanPada && !i.sebelumMulai).map((i) => ({
+      tanggal: i.tanggal, jenis: i.jenis,
+      kategori: i.sumber === 'bayar' ? `Pembayaran orang tua (${i.jumlah} transaksi SPP/kegiatan)` : i.kategori,
+      nominal: i.nominal, keterangan: i.keterangan || null, dicatat_oleh: i.dicatatNama || null,
+    })),
+  }
+  const tabel = (xs) => '| Kategori | Nominal |\n|---|---|\n' + xs.slice(0, 15).map((k) => `| ${k.kategori} | ${rp(k.nominal)} |`).join('\n')
+  let jawaban
+  if (/pengeluaran|keluar|belanja/.test(p)) {
+    jawaban = hasil.pengeluaran.total
+      ? `Pengeluaran ${periode} **${rp(hasil.pengeluaran.total)}** dari ${hasil.pengeluaran.jumlah_transaksi} transaksi. Paling besar untuk **${keluar[0].kategori}** (${rp(keluar[0].nominal)}).\n\n${tabel(keluar)}\n\nSaldo kas saat ini **${rp(hasil.saldo_kas_saat_ini)}**.`
+      : `Belum ada pengeluaran kas ${periode}. Saldo kas saat ini **${rp(hasil.saldo_kas_saat_ini)}**.`
+  } else if (/pemasukan|masuk/.test(p) && !/ringkas/.test(p)) {
+    jawaban = `Pemasukan ${periode} **${rp(hasil.pemasukan.total)}**: SPP ${rp(spp)}, biaya kegiatan ${rp(kegiatan)}, pemasukan lain ${rp(lain)}.\n\n` +
+      (hasil.pemasukan_per_kategori.length ? tabel(hasil.pemasukan_per_kategori) : '') +
+      `\n\nSaldo kas saat ini **${rp(hasil.saldo_kas_saat_ini)}**.`
+  } else {
+    jawaban = `Ringkasan keuangan ${periode} (${dari} s.d. ${hariIni}):\n\n` +
+      `| Keterangan | Nominal |\n|---|---|\n` +
+      `| Saldo awal | ${rp(hasil.saldo_awal_periode)} |\n| Pemasukan | ${rp(hasil.pemasukan.total)} |\n` +
+      `| Pengeluaran | ${rp(hasil.pengeluaran.total)} |\n| **Saldo kas sekarang** | **${rp(hasil.saldo_kas_saat_ini)}** |\n\n` +
+      (!hasil.pemasukan.total && !hasil.pengeluaran.total
+        ? `Belum ada pemasukan maupun pengeluaran ${periode}.`
+        : hasil.selisih_masuk_keluar >= 0
+        ? `Kas ${periode} **surplus ${rp(hasil.selisih_masuk_keluar)}**.`
+        : `Kas ${periode} **defisit ${rp(-hasil.selisih_masuk_keluar)}** — pengeluaran lebih besar dari pemasukan.`)
+  }
+  return { jawaban, data: [{ alat: 'kas', hasil }] }
+}
+
 export async function jawabDemo(pesan, data) {
   await new Promise((r) => setTimeout(r, 900))
   const p = pesan.toLowerCase()
+  if (/saldo|pengeluaran|pemasukan|uang keluar|uang masuk|keuangan|kas\b/.test(p)) {
+    const h = await kasDemo(p, data)
+    return { ...h, jawaban: h.jawaban + CATATAN, kuota: { terpakai: 1, batas: 30 } }
+  }
   const hasil =
     /hari ini|transaksi|yang bayar|kemarin/.test(p) ? transaksiHariIni(data)
     : /kelas mana|per kelas|bandingkan|kelas/.test(p) ? perKelas(data)

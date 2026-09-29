@@ -141,7 +141,7 @@ function SheetMenu({ s, tutup, buka }) {
         🔐 Hak akses kepala sekolah & Admin/TU
       </button>
       <button className="bigbtn-ghost mb-2.5" onClick={() => buka('kuota')}>
-        🤖 Kuota Tanya AI · {kuota}
+        🤖 Kuota SAKU (asisten AI) · {kuota}
       </button>
       {s.dinonaktifkanAdmin ? (
         <button className="w-full rounded-2xl bg-ok-soft py-3.5 text-[15px] font-extrabold text-ok-deep" onClick={() => buka('nonaktif')}>
@@ -199,7 +199,7 @@ function SheetNonaktif({ s, tutup }) {
   )
 }
 
-/* ---------- kuota Tanya AI per sekolah ---------- */
+/* ---------- kuota SAKU (asisten AI) per sekolah ---------- */
 function SheetKuotaAI({ s, tutup }) {
   const { ubahKuotaAI, sibuk } = useAdmin()
   const [batas, setBatas] = useState('')
@@ -220,7 +220,7 @@ function SheetKuotaAI({ s, tutup }) {
   const angka = batas === '' ? null : Math.max(0, Math.min(500, Number(batas) || 0))
 
   return (
-    <Sheet buka tutup={tutup} judul="Kuota Tanya AI" lead={`${s.nama} · terpakai hari ini ${s.aiTerpakaiHariIni || 0} pertanyaan`}>
+    <Sheet buka tutup={tutup} judul="Kuota SAKU (asisten AI)" lead={`${s.nama} · terpakai hari ini ${s.aiTerpakaiHariIni || 0} pertanyaan`}>
       <label className="mb-1.5 block text-[12.5px] font-bold text-muted">
         Pertanyaan per hari (kosongkan = default {AI_BATAS_DEFAULT}, isi 0 = matikan)
       </label>
@@ -243,7 +243,7 @@ function SheetKuotaAI({ s, tutup }) {
         Setiap pertanyaan memakai saldo API AI Anda.
       </p>
       <button className="bigbtn disabled:opacity-60" onClick={() => simpan(angka)} disabled={sibuk}>
-        {sibuk ? 'Menyimpan…' : angka === 0 ? 'Matikan Tanya AI' : `Simpan · ${angka ?? AI_BATAS_DEFAULT}/hari`}
+        {sibuk ? 'Menyimpan…' : angka === 0 ? 'Matikan SAKU' : `Simpan · ${angka ?? AI_BATAS_DEFAULT}/hari`}
       </button>
     </Sheet>
   )

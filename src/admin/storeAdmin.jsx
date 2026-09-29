@@ -160,7 +160,7 @@ export function AdminProvider({ children }) {
     ubahKuotaAI: (s, batas) =>
       jalankan(
         () => api.ubahKuotaAI(s.id, batas),
-        batas === 0 ? `Tanya AI ${s.nama} dimatikan` : `Kuota Tanya AI ${s.nama} disimpan`
+        batas === 0 ? `SAKU ${s.nama} dimatikan` : `Kuota SAKU ${s.nama} disimpan`
       ),
     aturHakAkses: (s, hak) =>
       jalankan(

@@ -43,7 +43,7 @@ export const batalkan = (riwayatId) => rpc('admin_batalkan_perpanjang', { p_riwa
 export const setNonaktif = (sekolahId, nonaktif) =>
   rpc('admin_set_nonaktif', { p_sekolah_id: sekolahId, p_nonaktif: nonaktif })
 
-/** Kuota Tanya AI per hari untuk satu sekolah. null = default, 0 = matikan. */
+/** Kuota SAKU (asisten AI) per hari untuk satu sekolah. null = default, 0 = matikan. */
 export const ubahKuotaAI = (sekolahId, batas) =>
   rpc('admin_ubah_kuota_ai', { p_sekolah_id: sekolahId, p_batas: batas })
 

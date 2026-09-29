@@ -1,18 +1,17 @@
 /**
  * Tab "Keuangan" di menu Laporan — hanya melihat & mengunduh laporan kas.
  * Mencatat pengeluaran / pemasukan lain tetap di menu Kas sekolah.
- * Angka dihitung oleh lib/kas.js (sama persis dengan halaman Kas).
+ * Angka dihitung DATABASE (0030: kas_ringkasan, kas_laporan_bulan, kas_arus)
+ * — sama persis dengan halaman Kas, dan tetap benar walau transaksi ribuan.
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Kosong } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import * as api from '../lib/api.js'
 import { rp, tanggalISO } from '../lib/format.js'
 import { FONT_EMOJI } from '../lib/emojiKegiatan.js'
-import {
-  NAMA_BULAN, barisBukuKas, daftarBulan, emojiKategori, gerakanKas, geserBulan, kunciBulan, labelBulan, laporanBulan,
-} from '../lib/kas.js'
+import { NAMA_BULAN, daftarBulan, emojiKategori, kunciBulan, labelBulan } from '../lib/kas.js'
 import {
   Banner, GrafikBatang, KartuJudul, KartuKpi, KepalaLaporan, Pilihan, PilihRentang, SERI, TombolAksi,
 } from './GrafikLaporan.jsx'
@@ -34,41 +33,52 @@ export default function LaporanKeuangan() {
   const { pembayaran, pengaturan, toast, boleh } = useData()
   const nav = useNavigate()
   const bisaCatat = boleh('kas')
-  const [data, setData] = useState(null)
+  const demo = useRef({})
+  demo.current = { pembayaran } // hanya dipakai mode demo (tanpa database)
+  const [info, setInfo] = useState(null)
+  const [lap, setLap] = useState(null)
+  const [arus, setArus] = useState(null)
   const [galat, setGalat] = useState('')
   const [bulan, setBulan] = useState(kunciBulan(tanggalISO()))
   const [rentang, setRentang] = useState(6)
   const [unduh, setUnduh] = useState('')
+  const [ulang, setUlang] = useState(0)
 
-  const muat = () => {
+  useEffect(() => {
+    let aktif = true
     setGalat('')
-    api.muatKas().then(setData).catch((e) => setGalat(e.message))
-  }
-  useEffect(muat, [])
+    api.kasRingkasan(demo.current).then((d) => aktif && setInfo(d)).catch((e) => aktif && setGalat(e.message))
+    return () => { aktif = false }
+  }, [ulang])
+  useEffect(() => {
+    let aktif = true
+    setLap(null)
+    setArus(null)
+    Promise.all([api.kasLaporanBulan(bulan, demo.current), api.kasArus(bulan, Math.max(rentang, 2), demo.current)])
+      .then(([l, a]) => { if (aktif) { setLap(l); setArus(a) } })
+      .catch((e) => aktif && setGalat(e.message))
+    return () => { aktif = false }
+  }, [bulan, rentang, ulang])
+  const muat = () => setUlang((u) => u + 1)
 
-  const mulai = data?.pengaturan?.mulai || null
-  const saldoAwalKas = data?.pengaturan?.saldoAwal || 0
-  const gerakan = useMemo(() => (data ? gerakanKas({ pembayaran, kas: data.kas, mulai }) : []), [data, pembayaran, mulai])
-  const bulanTersedia = useMemo(() => daftarBulan(gerakan, mulai), [gerakan, mulai])
-  const lap = useMemo(() => laporanBulan({ gerakan, saldoAwalKas, bulan }), [gerakan, saldoAwalKas, bulan])
-  const lapLalu = useMemo(() => laporanBulan({ gerakan, saldoAwalKas, bulan: geserBulan(bulan, -1) }), [gerakan, saldoAwalKas, bulan])
-
-  const dataGrafik = useMemo(() => {
-    const out = []
-    for (let n = rentang - 1; n >= 0; n--) {
-      const k = geserBulan(bulan, -n)
-      const l = laporanBulan({ gerakan, saldoAwalKas, bulan: k })
-      out.push({ label: NAMA_BULAN[Number(k.slice(5)) - 1].slice(0, 3), judul: labelBulan(k), nilai: [l.totalMasuk, l.totalKeluar] })
-    }
-    return out
-  }, [gerakan, saldoAwalKas, bulan, rentang])
+  const data = info && lap && arus ? info : null
+  const bulanTersedia = daftarBulan(info?.bulanPertama)
+  const saldoAwalKas = info?.pengaturan?.saldoAwal || 0
+  // Bulan terpilih di luar daftar (sebelum tanggal mulai kas) → pindah ke bulan pertama.
+  useEffect(() => {
+    if (info && !bulanTersedia.includes(bulan)) setBulan(bulan < bulanTersedia[0] ? bulanTersedia[0] : bulanTersedia[bulanTersedia.length - 1])
+  }, [info]) // eslint-disable-line react-hooks/exhaustive-deps
+  const lalu = arus?.[arus.length - 2] || { masuk: 0, keluar: 0 }
+  const dataGrafik = (arus || []).slice(-rentang).map((b) => ({
+    label: NAMA_BULAN[Number(b.bulan.slice(5)) - 1].slice(0, 3), judul: labelBulan(b.bulan), nilai: [b.masuk, b.keluar],
+  }))
 
   const unduhLaporan = async (jenis) => {
-    if (unduh || !data) return
+    if (unduh || !lap) return
     setUnduh(jenis)
     try {
       const [m, ttd] = await Promise.all([import('../lib/exportKas.js'), api.muatTtdSekolah(pengaturan.id).catch(() => null)])
-      const d = { lap, baris: barisBukuKas(lap), pengaturan, ttd }
+      const d = { lap, baris: lap.baris, pengaturan, ttd }
       if (jenis === 'pdf') m.unduhPdfKas(d)
       else await m.unduhExcelKas(d)
       toast('Laporan kas diunduh')
@@ -108,8 +118,8 @@ export default function LaporanKeuangan() {
   if (!data) return <>{kepala}<div className="card mt-4"><Kosong>Memuat laporan keuangan…</Kosong></div></>
 
   const namaBulan = NAMA_BULAN[Number(bulan.slice(5)) - 1]
-  const tMasuk = persenUbah(lap.totalMasuk, lapLalu.totalMasuk)
-  const tKeluar = persenUbah(lap.totalKeluar, lapLalu.totalKeluar)
+  const tMasuk = persenUbah(lap.totalMasuk, lalu.masuk)
+  const tKeluar = persenUbah(lap.totalKeluar, lalu.keluar)
   const selisih = lap.totalMasuk - lap.totalKeluar
   const masukLain = lap.masukPerKategori.filter((k) => k.kategori !== 'SPP' && k.kategori !== 'Biaya kegiatan').reduce((t, k) => t + k.nominal, 0)
   const sumber = [
@@ -118,7 +128,7 @@ export default function LaporanKeuangan() {
     { nama: 'Pemasukan lain', e: '🤲', nilai: masukLain },
   ]
   const maksArus = Math.max(lap.totalMasuk, lap.totalKeluar, 1)
-  const baris = barisBukuKas(lap).slice().reverse()
+  const baris = lap.baris.slice().reverse()
 
   return (
     <>
@@ -142,7 +152,7 @@ export default function LaporanKeuangan() {
             <KartuKpi
               warna="amber" e="📤" label="Pengeluaran" nilai={rp(lap.totalKeluar)}
               tren={tKeluar === null ? null : { teks: `${Math.abs(tKeluar)}% dari bulan lalu`, arah: tKeluar > 0 ? 'naik' : tKeluar < 0 ? 'turun' : 'datar', baik: tKeluar === 0 ? null : tKeluar < 0 }}
-              kaki={`${lap.transaksi.filter((g) => g.jenis === 'keluar' && !g.batal).length} transaksi`}
+              kaki={`${lap.jumlahKeluar} transaksi`}
             />
             <KartuKpi
               warna="green" e="💼" label="Saldo akhir bulan" nilai={rp(lap.saldoAkhir)}
