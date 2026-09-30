@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Avatar from '../components/Avatar.jsx'
-import { Chip, Ikon, Kosong, Segment, Sheet, Track } from '../components/ui.jsx'
+import { Chip, Ikon, IkonWhatsappPolos, Kosong, Segment, Sheet, Track } from '../components/ui.jsx'
+import { GambarKegiatan } from '../components/Gambar.jsx'
 import SheetPeriode from './SheetPeriode.jsx'
 import { useData } from '../lib/store.jsx'
 import { emojiKegiatan } from '../lib/emojiKegiatan.js'
@@ -90,58 +91,61 @@ export default function DetailSiswa({ onCatat, onUbah }) {
 
   return (
     <>
-      <div className="flex items-center gap-3 pb-1.5 pt-2.5 lg:pt-7">
-        <button className="grid h-[38px] w-[38px] place-items-center rounded-xl bg-white border border-line" onClick={() => nav('/guru/siswa')}>
-          <Ikon.kembali size={18} />
+      <div className="relative z-[2] mb-3.5 flex items-center gap-3 lg:mb-5 lg:mt-7">
+        <button className="tombol-bilah grid h-10 w-10 shrink-0 place-items-center rounded-[14px] active:scale-95" onClick={() => nav('/guru/siswa')} aria-label="Kembali ke daftar siswa">
+          <Ikon.kembali size={20} />
         </button>
-        <h2 className="text-[17px] font-extrabold">Kartu pembayaran</h2>
+        <h2 className="judul-halaman font-display text-[20px] font-semibold lg:text-[24px]">Kartu pembayaran</h2>
         {bisaUbah && (
           <button
-            className="ml-auto rounded-xl bg-white border border-line px-3 py-2 text-xs font-extrabold"
+            className="tombol-putih ml-auto flex items-center gap-1.5 rounded-[14px] px-3.5 py-2 text-[13px] font-extrabold"
             onClick={() => onUbah(s.id)}
           >
-            Ubah data
+            <Ikon.pensil size={16} />
+            Ubah
           </button>
         )}
       </div>
 
-      <div className="lg:grid lg:grid-cols-[320px_1fr] lg:items-start lg:gap-7 2xl:grid-cols-[360px_1fr]">
+      <div className="lg:grid lg:grid-cols-[340px_1fr] lg:items-start lg:gap-7 2xl:grid-cols-[380px_1fr]">
         <div className="lg:sticky lg:top-7">
-          <div className="rounded-3xl bg-gradient-to-br from-brand to-[#7B95FF] p-[18px] text-white shadow-hero">
-            <div className="flex items-center gap-3">
-              <Avatar nama={s.nama} jenis={s.jenis} avatar={s.avatar} foto={s.foto} size={54} ring />
+          <div className="kartu-profil-siswa relative overflow-hidden rounded-[28px] p-[18px] text-white">
+            <div className="flex items-center gap-3.5">
+              <Avatar nama={s.nama} jenis={s.jenis} avatar={s.avatar} foto={s.foto} size={68} className="ring-4 ring-white/90" />
               <div className="min-w-0">
-                <div className="truncate text-[18px] font-extrabold tracking-tight">{s.nama}</div>
-                <div className="text-[12.5px] opacity-85">Kelas {s.kelas} · NIS {s.nis}</div>
-                <div className="truncate text-[12.5px] opacity-85">{s.wali} · {s.hp}</div>
+                <div className="line-clamp-2 font-display text-[22px] font-bold leading-[1.1] tracking-[-.2px]">{s.nama}</div>
+                <div className="mt-1 text-[12.5px] font-bold opacity-90">Kelas {s.kelas} · NIS {s.nis}</div>
+                <div className="truncate text-[12.5px] font-bold opacity-90">{s.wali || 'Wali belum diisi'}{s.hp ? ` · ${s.hp}` : ''}</div>
               </div>
             </div>
             <div className="mt-4 flex gap-2.5">
               <div className="flex-1 rounded-2xl bg-white/15 px-3 py-2.5">
-                <div className="text-[11.5px] font-semibold opacity-85">Sudah dibayar</div>
-                <div className="mt-0.5 text-[15px] font-extrabold">{rp(dibayar)}</div>
+                <div className="text-[11.5px] font-bold opacity-90">Sudah dibayar</div>
+                <div className="mt-0.5 font-display text-[19px] font-semibold leading-tight">{rp(dibayar)}</div>
               </div>
               <div className="flex-1 rounded-2xl bg-white/15 px-3 py-2.5">
-                <div className="text-[11.5px] font-semibold opacity-85">Sisa pembayaran</div>
-                <div className="mt-0.5 text-[15px] font-extrabold">
-                  {perluSekarang > 0 ? rp(perluSekarang) : 'Lunas ✅'}
+                <div className="text-[11.5px] font-bold opacity-90">Sisa pembayaran</div>
+                <div className="mt-0.5 font-display text-[19px] font-semibold leading-tight">
+                  {perluSekarang > 0 ? rp(perluSekarang) : 'Lunas ✓'}
                 </div>
               </div>
             </div>
             {sisaTahunAjaran > perluSekarang && (
-              <div className="mt-2.5 text-[11.5px] leading-snug opacity-80">
+              <div className="mt-2.5 text-[11.5px] font-semibold leading-snug opacity-85">
                 Sisa tahun ajaran (termasuk bulan yang belum jatuh tempo): {rp(sisaTahunAjaran)}
               </div>
             )}
             {(bisaCatat || bisaUbah) && (
-              <div className="mt-3 flex gap-2.5">
+              <div className="mt-3.5 flex gap-2.5">
                 {bisaCatat && (
-                  <button className="flex-1 rounded-2xl bg-white py-2.5 text-[13.5px] font-extrabold text-brand" onClick={() => onCatat(s.id)}>
+                  <button className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-[#FFFFFF] py-3 text-[13.5px] font-extrabold text-[#3B6EF6] shadow-[inset_0_-3px_0_#D6E2FF] active:translate-y-px" onClick={() => onCatat(s.id)}>
+                    <Ikon.plus size={17} />
                     Catat pembayaran
                   </button>
                 )}
                 {bisaUbah && (
-                  <button className="flex-1 rounded-2xl bg-white/20 py-2.5 text-[13.5px] font-extrabold text-white" onClick={bukaLinkOrtu}>
+                  <button className="flex flex-1 items-center justify-center gap-1.5 rounded-2xl bg-ok py-3 text-[13.5px] font-extrabold text-white shadow-[inset_0_-3px_0_#169A48] active:translate-y-px" onClick={bukaLinkOrtu}>
+                    <IkonWhatsappPolos size={16} />
                     Kirim ke ortu
                   </button>
                 )}
@@ -153,7 +157,7 @@ export default function DetailSiswa({ onCatat, onUbah }) {
               kalau cuma berisi kartu biru, jadi diisi ringkasan progres
               yang memang berguna, bukan sekadar dekorasi. */}
           <div className="card mt-4 hidden lg:block">
-            <div className="mb-3.5 text-[13px] font-extrabold">Ringkasan tahun ajaran</div>
+            <div className="judul-kartu mb-3.5 text-[17px]">Ringkasan tahun ajaran</div>
             <div className="mb-3">
               <div className="mb-1.5 flex items-center justify-between text-xs font-semibold">
                 <span className="text-muted">Iuran SPP</span>
@@ -256,11 +260,11 @@ export default function DetailSiswa({ onCatat, onUbah }) {
  * atau yang sama sekali belum disentuh.
  */
 function Kartu({ nomor, ikon, judul, dibayar, target, status, onClick }) {
-  const warnaBadge =
-    status.warna === 'green' ? 'bg-ok-soft text-ok'
-    : status.warna === 'red' ? 'bg-danger-soft text-danger'
-    : status.warna === 'amber' ? 'bg-warn-soft text-warn'
-    : 'bg-[#F2F4F9] text-muted'
+  const permen =
+    status.warna === 'green' ? 'permen-tosca'
+    : status.warna === 'red' ? 'permen-pink'
+    : status.warna === 'amber' ? 'permen-kuning'
+    : 'permen-abu'
   const warnaBar =
     status.warna === 'green' ? '#22C55E'
     : status.warna === 'amber' ? '#F5A524'
@@ -270,21 +274,25 @@ function Kartu({ nomor, ikon, judul, dibayar, target, status, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="mb-2.5 w-full rounded-2xl border border-line bg-white px-3.5 py-3 text-left shadow-soft transition hover:-translate-y-[1px] hover:border-transparent hover:shadow-[0_6px_16px_rgba(21,26,38,.1)] lg:mb-0 lg:p-4"
+      className="mb-2.5 w-full rounded-[20px] bg-kartu px-3.5 py-3 text-left shadow-[0_8px_24px_rgba(30,64,140,.08)] transition hover:-translate-y-[1px] hover:shadow-[0_10px_26px_rgba(30,64,140,.14)] dark:shadow-[0_8px_24px_rgba(0,0,0,.3)] lg:mb-0 lg:p-4"
     >
       <div className="flex items-center gap-3">
-        <span className={`grid h-[38px] w-[38px] shrink-0 place-items-center rounded-xl font-extrabold ${ikon ? 'text-[19px]' : 'text-xs'} ${warnaBadge}`}>
-          {ikon || (status.label === 'Lunas' ? '✓' : String(nomor).padStart(2, '0'))}
-        </span>
+        {ikon ? (
+          <GambarKegiatan emoji={ikon} size={44} className="rounded-[14px]" />
+        ) : (
+          <span className={`permen permen-kecil ${permen} grid h-[44px] w-[44px] shrink-0 place-items-center rounded-[14px] font-display text-[14px] font-bold`}>
+            {judul.slice(0, 3) || String(nomor).padStart(2, '0')}
+          </span>
+        )}
         <span className="min-w-0 flex-1">
-          <span className="block truncate text-[14.5px] font-bold">{judul}</span>
-          <span className="block truncate text-xs text-muted">
+          <span className="block truncate text-[14.5px] font-extrabold">{judul}</span>
+          <span className="block truncate text-xs font-semibold text-muted">
             {rp(dibayar)} <span className="opacity-60">/ {rp(target)}</span>
           </span>
         </span>
         <Chip warna={status.warna}>{status.label}</Chip>
       </div>
-      <div className="mt-3.5">
+      <div className="mt-3">
         <Track persen={persenBayar(dibayar, target)} warna={warnaBar} tinggi={6} />
       </div>
     </button>

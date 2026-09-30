@@ -6,7 +6,8 @@
  */
 import { useMemo, useState } from 'react'
 import { useNavigate, useSearchParams } from 'react-router-dom'
-import { Chip } from '../components/ui.jsx'
+import { Chip, KepalaHalaman } from '../components/ui.jsx'
+import { GambarKegiatan } from '../components/Gambar.jsx'
 import { useData } from '../lib/store.jsx'
 import { FONT_EMOJI, emojiKegiatan } from '../lib/emojiKegiatan.js'
 import {
@@ -28,6 +29,7 @@ export default function Laporan() {
   const pilih = (t) => setQ({ tab: t }, { replace: true })
   return (
     <>
+      <KepalaHalaman judul="Laporan" gambar="grafik" sub="Laporan pembayaran siswa & keuangan sekolah" />
       <TabLaporan tab={tab} pilih={pilih} ada={ada} />
       {tab === 'keuangan' ? <LaporanKeuangan /> : <LaporanPembayaran />}
     </>
@@ -172,9 +174,9 @@ function LaporanPembayaran() {
         {/* ringkasan periode */}
         <div className="card flex flex-col">
           <div className="mb-3 flex items-center gap-2.5">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-ok-soft text-[17px]" style={FONT_EMOJI}>✅</span>
+            <span className="permen permen-kecil permen-tosca grid h-9 w-9 place-items-center rounded-[12px] text-[17px]" style={FONT_EMOJI}>✅</span>
             <div>
-              <div className="text-[15px] font-extrabold leading-tight">Ringkasan pembayaran</div>
+              <div className="judul-kartu text-[17px] leading-tight">Ringkasan pembayaran</div>
               <div className="text-[12px] text-muted">SPP {namaPeriode(periode)}</div>
             </div>
           </div>
@@ -256,7 +258,7 @@ function LaporanPembayaran() {
             <div className="space-y-2.5">
               {jenis.slice(0, 6).map((j) => (
                 <div key={j.nama} className="flex items-center gap-2.5">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-isi text-[15px]" style={FONT_EMOJI}>{j.e}</span>
+                  <GambarKegiatan emoji={j.e} size={34} className="rounded-[11px]" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-2 text-[12.5px]">
                       <span className="truncate font-semibold">{j.nama}</span>

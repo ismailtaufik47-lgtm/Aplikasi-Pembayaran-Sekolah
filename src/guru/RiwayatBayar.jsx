@@ -10,7 +10,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Avatar from '../components/Avatar.jsx'
-import { Chip, Ikon, Kosong, PageHead, Sheet, Tile } from '../components/ui.jsx'
+import { Chip, Ikon, KepalaHalaman, Kosong, Pil, Sheet, Tile } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import * as api from '../lib/api.js'
 import { hariTampil, rp, tanggalISO, tanggalKunci, tanggalPanjang, waktuTampil } from '../lib/format.js'
@@ -68,15 +68,14 @@ export default function RiwayatBayar() {
 
   const judul = (
     <>
-      <h1 className="pb-1.5 pt-3.5 text-xl font-extrabold lg:hidden">Riwayat pembayaran</h1>
-      <PageHead judul="Riwayat pembayaran" sub="Semua transaksi yang tercatat tahun ajaran ini" />
+      <KepalaHalaman judul="Riwayat pembayaran" gambar="koin" sub="Semua transaksi yang tercatat tahun ajaran ini" />
       {lihatBatal && boleh('pembayaran', 'lihat') && (
-        <div className="mb-3 mt-1 flex rounded-2xl bg-white p-1 shadow-soft lg:mt-4 lg:max-w-sm">
+        <div className="mb-3 flex gap-1 rounded-[18px] bg-kartu/70 p-1 shadow-[0_4px_14px_rgba(30,64,140,.06)] dark:bg-white/5 lg:max-w-sm">
           {[['transaksi', 'Transaksi'], ['batal', 'Dibatalkan']].map(([id, label]) => (
             <button
               key={id}
               onClick={() => setTab(id)}
-              className={`flex-1 rounded-xl py-2.5 text-[13.5px] font-extrabold ${tab === id ? 'bg-brand text-white' : 'text-muted'}`}
+              className={`flex-1 rounded-[14px] py-2.5 text-[13.5px] font-extrabold ${tab === id ? `permen permen-kecil ${id === 'batal' ? 'permen-pink' : 'permen-biru'}` : 'text-muted'}`}
             >
               {label}
             </button>
@@ -100,8 +99,8 @@ export default function RiwayatBayar() {
 
       {/* ---------- filter tanggal ---------- */}
       <div className="mb-1 mt-1 flex flex-wrap items-center gap-2.5 lg:mt-3">
-        <div className="flex items-center gap-2 rounded-2xl bg-white px-3 py-2 shadow-soft">
-          <span className="text-muted"><Ikon.kalender size={17} /></span>
+        <div className="flex items-center gap-2 rounded-pill border-[1.5px] border-[#DCE6F4] bg-kartu px-3.5 py-2 dark:border-line">
+          <span className="text-[#7C8AA5]"><Ikon.kalender size={17} /></span>
           <input
             type="date"
             className="bg-transparent text-[13.5px] font-semibold outline-none"
@@ -111,23 +110,14 @@ export default function RiwayatBayar() {
           />
         </div>
         {tglFilter && (
-          <button
-            className="rounded-2xl bg-white border border-brand px-3.5 py-2.5 text-[13px] font-bold text-brand"
-            onClick={() => setTglFilter('')}
-          >
-            Tampilkan semua
-          </button>
+          <Pil on onClick={() => setTglFilter('')}>Tampilkan semua</Pil>
         )}
         {!tglFilter && tanggalTersedia.length > 0 && (
           <div className="noscroll flex gap-2 overflow-x-auto">
             {tanggalTersedia.slice(0, 6).map((t) => (
-              <button
-                key={t}
-                onClick={() => setTglFilter(t)}
-                className="whitespace-nowrap rounded-pill bg-white border border-line px-3 py-2 text-[12.5px] font-bold text-muted"
-              >
+              <Pil key={t} onClick={() => setTglFilter(t)} className="!py-[7px] text-[12.5px]">
                 {hariTampil(new Date(t + 'T00:00:00').toISOString())}
-              </button>
+              </Pil>
             ))}
           </div>
         )}
@@ -180,10 +170,10 @@ export default function RiwayatBayar() {
                         onClick={() => unduhKuitansi(p, s)}
                         title="Unduh kuitansi PDF"
                         aria-label={`Unduh kuitansi ${s.nama}`}
-                        className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line bg-white text-[17px] hover:border-brand disabled:opacity-50"
+                        className="permen permen-kecil permen-biru grid h-10 w-10 shrink-0 place-items-center rounded-[13px] disabled:opacity-50"
                         disabled={!!unduh}
                       >
-                        {unduh === p.id ? '⏳' : '📄'}
+                        {unduh === p.id ? <Ikon.jam size={18} /> : <Ikon.unduh size={18} />}
                       </button>
                     </div>
                   )
@@ -255,13 +245,13 @@ function SheetTransaksi({ p, s, tutup, unduh, onKuitansi, onKartu }) {
 
       <div className="mt-3 flex gap-2.5">
         <button
-          className="flex-1 rounded-2xl border border-line bg-white py-3 text-[13.5px] font-bold disabled:opacity-50"
+          className="tombol-putih flex flex-1 items-center justify-center gap-1.5 rounded-2xl py-3 text-[13.5px] font-extrabold disabled:opacity-50"
           onClick={() => onKuitansi(p, s)}
           disabled={!!unduh}
         >
-          {unduh === p.id ? '⏳ Membuat…' : '📄 Kuitansi'}
+          {unduh === p.id ? <><Ikon.jam size={17} /> Membuat…</> : <><Ikon.unduh size={17} /> Kuitansi</>}
         </button>
-        <button className="flex-1 rounded-2xl border border-line bg-white py-3 text-[13.5px] font-bold" onClick={() => onKartu(s.id)}>
+        <button className="tombol-putih flex-1 rounded-2xl py-3 text-[13.5px] font-extrabold" onClick={() => onKartu(s.id)}>
           🧒 Kartu siswa
         </button>
       </div>
@@ -335,6 +325,6 @@ const Stat = ({ warna, ikon, label, nilai }) => (
   <div className="card min-w-[150px] p-[15px] lg:min-w-0 lg:p-[18px]">
     <Tile warna={warna}>{ikon}</Tile>
     <div className="mt-3 text-[13px] font-medium text-muted">{label}</div>
-    <div className="mt-0.5 text-[21px] font-extrabold tracking-tight">{nilai}</div>
+    <div className="judul-halaman mt-0.5 font-display text-[22px] font-semibold leading-tight">{nilai}</div>
   </div>
 )

@@ -11,6 +11,7 @@ import { useData } from '../lib/store.jsx'
 import * as api from '../lib/api.js'
 import { rp, tanggalISO } from '../lib/format.js'
 import { FONT_EMOJI } from '../lib/emojiKegiatan.js'
+import { GambarKegiatan } from '../components/Gambar.jsx'
 import { NAMA_BULAN, daftarBulan, emojiKategori, kunciBulan, labelBulan } from '../lib/kas.js'
 import {
   Banner, GrafikBatang, KartuJudul, KartuKpi, KepalaLaporan, Pilihan, PilihRentang, SERI, TombolAksi,
@@ -165,9 +166,9 @@ export default function LaporanKeuangan() {
         {/* ringkasan arus kas */}
         <div className="card flex flex-col">
           <div className="mb-3 flex items-center gap-2.5">
-            <span className="grid h-9 w-9 place-items-center rounded-xl bg-brand-soft text-[17px]" style={FONT_EMOJI}>⚖️</span>
+            <span className="permen permen-kecil permen-biru grid h-9 w-9 place-items-center rounded-[12px] text-[17px]" style={FONT_EMOJI}>⚖️</span>
             <div>
-              <div className="text-[15px] font-extrabold leading-tight">Ringkasan kas</div>
+              <div className="judul-kartu text-[17px] leading-tight">Ringkasan kas</div>
               <div className="text-[12px] text-muted">{labelBulan(bulan)}</div>
             </div>
           </div>
@@ -228,7 +229,7 @@ export default function LaporanKeuangan() {
             <div className="space-y-2.5">
               {lap.keluarPerKategori.slice(0, 6).map((k) => (
                 <div key={k.kategori} className="flex items-center gap-2.5">
-                  <span className="grid h-8 w-8 shrink-0 place-items-center rounded-lg bg-isi text-[15px]" style={FONT_EMOJI}>{emojiKategori(k.kategori, 'keluar')}</span>
+                  <GambarKegiatan emoji={emojiKategori(k.kategori, 'keluar')} size={34} className="rounded-[11px]" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-2 text-[12.5px]">
                       <span className="truncate font-semibold">{k.kategori}</span>

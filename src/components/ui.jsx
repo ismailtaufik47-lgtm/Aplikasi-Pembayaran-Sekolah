@@ -1,6 +1,9 @@
 /** Komponen tampilan yang dipakai bersama panel guru dan portal orang tua. */
 import { useEffect, useRef } from 'react'
 import { useTema } from '../lib/tema.js'
+import { LogoKasceria, TulisanKasceria } from './Kasceria.jsx'
+import { Awan, BintangWajah, BukuPensil, Bukit, BukitLebar, Bulan, Bintang, Bunga, GedungTK, Pelangi } from './IlustrasiMasuk.jsx'
+import { AnakUtuhLaki, AnakUtuhPerempuan, KoinMaskot, KoinSaku, PapanGrafik, TumpukanKoin } from './Gambar.jsx'
 
 /**
  * Kerangka aplikasi.
@@ -8,11 +11,13 @@ import { useTema } from '../lib/tema.js'
  * Sampai lebar 1024px tampilannya seperti aplikasi HP: bingkai sempit,
  * navigasi di bawah. Mulai 1024px berubah jadi aplikasi web biasa —
  * bingkai hilang, sidebar muncul di kiri, konten memenuhi layar.
+ *
+ * `ceria` (panel sekolah): latar langit biru, sidebar jadi kartu melayang.
  */
-export function Shell({ children, sidebar, topbar, tabbar, fab }) {
+export function Shell({ children, sidebar, topbar, tabbar, fab, ceria = false }) {
   return (
-    <div className="flex min-h-dvh justify-center sm:py-6 lg:bg-[#F0F2F7] lg:py-0">
-      <div className="relative flex h-dvh w-full max-w-[430px] flex-col overflow-hidden bg-canvas sm:h-[min(900px,calc(100dvh-48px))] sm:rounded-[36px] sm:shadow-phone lg:h-dvh lg:max-w-none lg:flex-row lg:rounded-none lg:shadow-none">
+    <div className={`flex min-h-dvh justify-center sm:py-6 lg:py-0 ${ceria ? 'latar-luar-ceria' : 'lg:bg-[#F0F2F7]'}`}>
+      <div className={`relative flex h-dvh w-full max-w-[430px] flex-col overflow-hidden ${ceria ? 'langit-app' : 'bg-canvas'} sm:h-[min(900px,calc(100dvh-48px))] sm:rounded-[36px] sm:shadow-phone lg:h-dvh lg:max-w-none lg:flex-row lg:rounded-none lg:shadow-none`}>
         {sidebar}
         <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
           {topbar}
@@ -26,10 +31,36 @@ export function Shell({ children, sidebar, topbar, tabbar, fab }) {
 }
 
 /* ---------- sidebar (hanya desktop) ---------- */
-export const Sidebar = ({ children }) => (
-  <aside className="noscroll hidden w-[250px] shrink-0 flex-col gap-1.5 overflow-y-auto border-r border-line bg-white px-4 py-5 lg:flex">
+export const Sidebar = ({ children, ceria = false }) => (
+  <aside
+    className={
+      ceria
+        ? 'sidebar-ceria noscroll relative z-[2] m-4 mr-0 hidden w-[256px] shrink-0 flex-col gap-[3px] overflow-y-auto rounded-[28px] bg-kartu px-3.5 py-[18px] lg:flex'
+        : 'noscroll hidden w-[250px] shrink-0 flex-col gap-1.5 overflow-y-auto border-r border-line bg-white px-4 py-5 lg:flex'
+    }
+  >
     {children}
   </aside>
+)
+
+/**
+ * Kepala sidebar panel sekolah: logo & tulisan Kasceria, lalu kartu kecil
+ * berisi logo + nama + alamat sekolah.
+ */
+export const MerekSidebar = ({ nama, sub, logo }) => (
+  <>
+    <div className="flex items-center gap-2.5 px-1.5 pb-2.5">
+      <LogoKasceria size={42} />
+      <TulisanKasceria className="text-[25px]" tepi={false} />
+    </div>
+    <div className="kartu-sekolah-sidebar mb-1 flex items-center gap-2.5 rounded-2xl px-2.5 py-2">
+      <LogoSekolah logo={logo} ukuran={36} />
+      <span className="min-w-0">
+        <b className="line-clamp-2 text-[13px] font-extrabold leading-tight">{nama}</b>
+        <span className="block truncate text-[11px] font-semibold text-muted" title={sub}>{sub}</span>
+      </span>
+    </div>
+  </>
 )
 
 /**
@@ -38,12 +69,12 @@ export const Sidebar = ({ children }) => (
  */
 export const LogoSekolah = ({ logo, ukuran = 42, bulat = false, className = '' }) => (
   <span
-    className={`grid shrink-0 place-items-center overflow-hidden ${bulat ? 'rounded-full' : 'rounded-[13px]'} ${logo ? 'border border-line' : 'bg-brand-soft'} ${className}`}
+    className={`grid shrink-0 place-items-center overflow-hidden ${bulat ? 'rounded-full' : 'rounded-[13px]'} ${logo ? 'border border-line' : 'bg-white'} ${className}`}
     style={{ width: ukuran, height: ukuran, ...(logo ? { background: '#fff' } : {}) }}
   >
     {logo
       ? <img src={logo} alt="Logo sekolah" className="h-[82%] w-[82%] object-contain" />
-      : <span style={{ ...FONT_EMOJI, fontSize: ukuran * 0.48 }}>🏫</span>}
+      : <GedungTK className="h-[74%] w-[92%]" />}
   </span>
 )
 
@@ -58,48 +89,78 @@ export const SidebarBrand = ({ nama, sub, logo }) => (
 )
 
 export const NavLabel = ({ children }) => (
-  <div className="px-2.5 pb-1.5 pt-2.5 text-[11px] font-extrabold uppercase tracking-[.09em] text-muted">
+  <div className="px-2.5 pb-1 pt-2 text-[11px] font-extrabold uppercase tracking-[.09em] text-muted">
     {children}
   </div>
 )
 
 /**
- * Emoji berwarna untuk menu navigasi. Tiap menu punya emoji + warna
- * latar pastelnya sendiri, dipakai sama di sidebar desktop, tab bar
- * mobile, dan halaman "Lainnya" supaya orang cepat mengenali menunya.
+ * Ikon menu navigasi: ubin "permen" berwarna + ikon garis. Tiap menu punya
+ * warna sendiri — sama di sidebar PC, tab bar HP, dan halaman "Lainnya" —
+ * supaya orang cepat mengenali menunya. (Nama EMOJI_MENU/EmojiMenu tetap
+ * dipakai supaya kode lama tidak perlu diubah; isinya sekarang gambar.)
  */
+const JALUR_MENU = {
+  rumah: <path d="M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6h-6v6H5a1 1 0 0 1-1-1z" />,
+  siswa: <><circle cx="9.5" cy="8.5" r="3.2" /><path d="M3.5 19c.9-3.2 3.3-4.7 6-4.7s5.1 1.5 6 4.7" /><path d="M16 6.2a3 3 0 0 1 0 5.6M17.5 19c-.3-1.6-.8-2.9-1.6-3.9 2.2.2 3.9 1.6 4.6 3.9" /></>,
+  nota: <><path d="M6 3h8l4 4v14l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.5z" /><path d="M9 10h6M9 14h4" /></>,
+  riwayat: <><path d="M4 12a8 8 0 1 0 2.4-5.7" /><path d="M4 4.5V9h4.5" /><path d="M12 8v4.5l3 2" /></>,
+  plus: <path d="M12 5v14M5 12h14" />,
+  grafik: <path d="M6 20V11M12 20V5M18 20v-6" />,
+  naik: <><path d="M4 17l5-5 4 4 7-7" /><path d="M14 9h6v6" /></>,
+  grid: <><rect x="4" y="4" width="7" height="7" rx="2" /><rect x="13" y="4" width="7" height="7" rx="2" /><rect x="4" y="13" width="7" height="7" rx="2" /><rect x="13" y="13" width="7" height="7" rx="2" /></>,
+  label: <><path d="M3.5 12.2V4.5a1 1 0 0 1 1-1h7.7l8.3 8.3a1.5 1.5 0 0 1 0 2.1l-6.8 6.8a1.5 1.5 0 0 1-2.1 0z" /><circle cx="8.3" cy="8.3" r="1.4" /></>,
+  kunci: <><circle cx="8" cy="15" r="4.5" /><path d="M11.2 11.8L20 3" /><path d="M16.5 6.5l2.5 2.5M14 9l2 2" /></>,
+  sekolah: <><path d="M3 10.5L12 4l9 6.5" /><path d="M5 9.5V20h14V9.5" /><path d="M10 20v-5h4v5" /></>,
+  permata: <><path d="M6 4h12l3 5-9 11L3 9z" /><path d="M3 9h18M9 4l3 16 3-16" /></>,
+  orang: <><circle cx="12" cy="8" r="3.4" /><path d="M5 20c1-3.6 3.8-5.2 7-5.2s6 1.6 7 5.2" /></>,
+  robot: <><rect x="4" y="8" width="16" height="11" rx="4" /><path d="M12 4.5V8" /><circle cx="12" cy="3.6" r="1" /><path d="M9.2 13h.01M14.8 13h.01" strokeWidth="2.8" /><path d="M2 12.5v2.5M22 12.5v2.5" /></>,
+  dompet: <><rect x="3" y="6" width="18" height="13" rx="3" /><path d="M3 10.5h18M16.5 14.8h1" /></>,
+  gerigi: <><circle cx="12" cy="12" r="3" /><path d="M12 2.8v2.4M12 18.8v2.4M4.2 7.5l2 1.2M17.8 15.3l2 1.2M4.2 16.5l2-1.2M17.8 8.7l2-1.2" /><circle cx="12" cy="12" r="6.6" /></>,
+  folder: <><path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" /></>,
+}
+
+/** id menu → { ikon, warna permen }. `e` = emoji lama (cadangan teks). */
 export const EMOJI_MENU = {
-  beranda: { e: '🏠', bg: '#E4EEFF' },
-  siswa: { e: '🧒', bg: '#FFEFD9' },
-  tagihan: { e: '🧾', bg: '#FFF4CC' },
-  pembayaran: { e: '💳', bg: '#DFF6E9' },
-  bayar: { e: '💵', bg: '#DFF6E9' },
-  laporan: { e: '📊', bg: '#EEE6FF' },
-  lainnya: { e: '🧩', bg: '#FFE6EE' },
-  biaya: { e: '🏷️', bg: '#FFE6EE' },
-  kode: { e: '🔑', bg: '#FFF4CC' },
-  sekolah: { e: '🏫', bg: '#DDF4F6' },
-  langganan: { e: '💎', bg: '#E4EEFF' },
-  akun: { e: '🙋', bg: '#FFEADF' },
-  ringkasan: { e: '📈', bg: '#EEE6FF' },
-  riwayat: { e: '🗂️', bg: '#FFF4CC' },
-  ai: { e: '🤖', bg: '#E4F1FF' },
-  kas: { e: '💰', bg: '#DFF6E9' },
-  pengaturan: { e: '⚙️', bg: '#F1F2F6' },
+  beranda: { ikon: 'rumah', warna: 'biru', e: '🏠' },
+  siswa: { ikon: 'siswa', warna: 'kuning', e: '🧒' },
+  tagihan: { ikon: 'nota', warna: 'pink', e: '🧾' },
+  pembayaran: { ikon: 'riwayat', warna: 'tosca', e: '💳' },
+  bayar: { ikon: 'plus', warna: 'biru', e: '💵' },
+  laporan: { ikon: 'grafik', warna: 'ungu', e: '📊' },
+  lainnya: { ikon: 'grid', warna: 'ungu', e: '🧩' },
+  biaya: { ikon: 'label', warna: 'pink', e: '🏷️' },
+  kode: { ikon: 'kunci', warna: 'kuning', e: '🔑' },
+  sekolah: { ikon: 'sekolah', warna: 'tosca', e: '🏫' },
+  langganan: { ikon: 'permata', warna: 'ungu', e: '💎' },
+  akun: { ikon: 'orang', warna: 'biru', e: '🙋' },
+  ringkasan: { ikon: 'naik', warna: 'ungu', e: '📈' },
+  riwayat: { ikon: 'folder', warna: 'kuning', e: '🗂️' },
+  ai: { ikon: 'robot', warna: 'biru', e: '🤖' },
+  kas: { ikon: 'dompet', warna: 'kuning', e: '💰' },
+  pengaturan: { ikon: 'gerigi', warna: 'abu', e: '⚙️' },
 }
 
 const FONT_EMOJI = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', lineHeight: 1 }
 
-/** Kotak emoji menu. `latar=false` → tanpa kotak pastel (emoji saja). */
+/** Ikon garis menu (tanpa ubin). */
+export const IkonMenu = ({ id, size = 20, sw = 2.2, className = '' }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw}
+    strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={`shrink-0 ${className}`}>
+    {JALUR_MENU[EMOJI_MENU[id]?.ikon || id] || JALUR_MENU.grid}
+  </svg>
+)
+
+/** Ubin permen menu. `latar=false` → ikon saja tanpa ubin. */
 export const EmojiMenu = ({ id, size = 34, latar = true, className = '' }) => {
-  const m = EMOJI_MENU[id] || { e: '•', bg: '#F1F4F9' }
+  const m = EMOJI_MENU[id] || { warna: 'abu' }
   return (
     <span
       aria-hidden="true"
-      className={`kotak-emoji grid shrink-0 place-items-center rounded-[11px] transition ${className}`}
-      style={{ width: size, height: size, '--latar-emoji': latar ? m.bg : 'transparent', fontSize: Math.round(size * 0.52), ...FONT_EMOJI }}
+      className={`grid shrink-0 place-items-center ${latar ? `permen permen-kecil permen-${m.warna}` : ''} ${className}`}
+      style={{ width: size, height: size, borderRadius: Math.round(size * 0.33) }}
     >
-      {m.e}
+      <IkonMenu id={id} size={Math.round(size * 0.53)} />
     </span>
   )
 }
@@ -108,37 +169,44 @@ export const NavItem = ({ aktif, onClick, ikon: Icon, emoji, children }) => (
   <button
     onClick={onClick}
     aria-current={aktif ? 'page' : undefined}
-    className={`flex w-full items-center gap-3 rounded-[14px] text-left text-sm font-bold transition ${
-      emoji ? 'px-2 py-[7px]' : 'px-3 py-2.5'
-    } ${aktif ? 'bg-brand-soft text-brand' : 'text-ink hover:bg-[#F7F8FC]'}`}
+    className={`flex w-full items-center gap-3 rounded-[14px] text-left text-sm transition ${
+      emoji ? 'px-2 py-[5px]' : 'px-3 py-2.5'
+    } ${aktif ? 'nav-aktif font-extrabold' : 'font-bold text-ink hover:bg-isi'}`}
   >
-    {emoji ? (
-      <EmojiMenu id={emoji} size={34} className={aktif ? 'bg-white shadow-[0_2px_8px_rgba(59,110,246,.18)]' : ''} />
-    ) : (
-      <Icon size={19} />
-    )}
+    {emoji ? <EmojiMenu id={emoji} size={32} /> : <Icon size={19} />}
     {children}
   </button>
 )
 
-/** Satu item tab bar bawah (mobile) dengan emoji berwarna. */
-export const TabEmoji = ({ id, label, aktif, onClick, redup }) => (
-  <button
-    onClick={onClick}
-    aria-current={aktif ? 'page' : undefined}
-    className="flex flex-1 flex-col items-center justify-center gap-[3px] py-1"
-  >
-    <span
-      className={`kotak-emoji grid h-8 w-[46px] place-items-center rounded-full transition ${aktif ? 'scale-105' : ''} ${redup ? 'opacity-45 grayscale' : ''}`}
-      style={{ '--latar-emoji': aktif ? EMOJI_MENU[id]?.bg : 'transparent' }}
+/**
+ * Satu item tab bar bawah (HP). Tab aktif → ubin permen berwarna;
+ * `catat` → tombol biru "Bayar" (selalu menonjol).
+ */
+export const TabEmoji = ({ id, label, aktif, onClick, redup, catat = false }) => {
+  const m = EMOJI_MENU[id] || { warna: 'abu' }
+  return (
+    <button
+      onClick={onClick}
+      aria-current={aktif ? 'page' : undefined}
+      className="flex flex-1 flex-col items-center justify-center gap-[3px] py-0.5"
     >
-      <span style={{ fontSize: aktif ? 20 : 19, ...FONT_EMOJI }} aria-hidden="true">{EMOJI_MENU[id]?.e}</span>
-    </span>
-    <span className={`text-[10.5px] ${aktif ? 'font-extrabold text-brand' : 'font-bold text-muted'}`}>{label}</span>
-  </button>
-)
+      {catat ? (
+        <span className={`grid h-[38px] w-[46px] place-items-center rounded-[14px] bg-brand text-white shadow-[inset_0_-3px_0_#2A55CC] ${redup ? 'opacity-45 grayscale' : ''}`}>
+          <IkonMenu id="bayar" size={22} sw={2.6} />
+        </span>
+      ) : (
+        <span
+          className={`grid h-8 w-[46px] place-items-center rounded-xl transition ${aktif ? `permen permen-kecil permen-${m.warna}` : 'text-[#7C8AA5] dark:text-muted'} ${redup ? 'opacity-45 grayscale' : ''}`}
+        >
+          <IkonMenu id={id} size={aktif ? 20 : 21} sw={aktif ? 2.3 : 2.1} />
+        </span>
+      )}
+      <span className={`text-[11px] ${catat ? 'font-extrabold text-brand' : aktif ? 'font-extrabold text-[#1B2559] dark:text-ink' : 'font-bold text-[#6B7385] dark:text-muted'}`}>{label}</span>
+    </button>
+  )
+}
 
-/** Judul halaman versi desktop, lengkap dengan tombol aksi di kanan. */
+/** Judul halaman versi desktop (panel admin), lengkap dengan tombol aksi di kanan. */
 export const PageHead = ({ judul, sub, aksi }) => (
   <div className="hidden items-end justify-between gap-5 pb-1.5 pt-7 lg:flex">
     <div>
@@ -149,12 +217,131 @@ export const PageHead = ({ judul, sub, aksi }) => (
   </div>
 )
 
-export const BtnKecil = ({ utama, children, ...p }) => (
+/* ---------- hiasan & kepala halaman panel sekolah ---------- */
+
+/** Dua anak berdiri utuh (sampai kaki) di atas gundukan rumput kecil. */
+export function DuaAnak({ tinggi = 92, className = '' }) {
+  const lebar = Math.round((tinggi * 120) / 230)
+  return (
+    <span className={`relative block ${className}`} style={{ width: lebar * 2 + 8, height: tinggi }} aria-hidden="true">
+      <svg viewBox="0 0 120 20" className="redup-malam absolute -bottom-[5px] left-1/2 w-[128%] -translate-x-1/2" preserveAspectRatio="none" style={{ height: Math.round(tinggi * 0.16) }}>
+        <ellipse cx="60" cy="11" rx="60" ry="9" fill="#9ED98A" />
+        <ellipse cx="62" cy="13" rx="50" ry="7" fill="#8ED373" />
+      </svg>
+      <AnakUtuhLaki className="absolute bottom-0 left-0" style={{ width: lebar, height: tinggi }} />
+      <AnakUtuhPerempuan className="absolute bottom-0 right-0" style={{ width: lebar, height: tinggi }} />
+    </span>
+  )
+}
+
+/** Gambar kecil untuk kepala halaman. */
+function GambarKepala({ gambar, besar = false }) {
+  const s = besar ? 1.12 : 1
+  if (gambar === 'anak') return <DuaAnak tinggi={Math.round(92 * s)} />
+  if (gambar === 'koin') {
+    return (
+      <span className="relative block" style={{ width: 118 * s, height: 86 * s }} aria-hidden="true">
+        <TumpukanKoin className="absolute bottom-0 left-0" style={{ width: 50 * s, height: 50 * s }} />
+        <KoinMaskot className="absolute bottom-0 right-0" style={{ width: 78 * s, height: 78 * s }} />
+      </span>
+    )
+  }
+  if (gambar === 'grafik') {
+    return (
+      <span className="relative block" style={{ width: 122 * s, height: 86 * s }} aria-hidden="true">
+        <PapanGrafik className="absolute bottom-0 left-0" style={{ width: 80 * s, height: 80 * s }} />
+        <KoinMaskot className="absolute -bottom-0.5 right-0" style={{ width: 54 * s, height: 54 * s }} />
+      </span>
+    )
+  }
+  if (gambar === 'saku') return <KoinSaku style={{ width: 84 * s, height: 84 * s }} />
+  if (gambar === 'maskot') return <KoinMaskot style={{ width: 84 * s, height: 84 * s }} />
+  if (gambar === 'sekolah') return <GedungTK className="redup-malam" style={{ width: 132 * s, height: 94 * s }} />
+  return null
+}
+
+/** Pelangi & awan (siang) atau bulan & bintang (malam) di pojok kanan atas. */
+function LangitKepala() {
+  return (
+    <div aria-hidden="true" className="pointer-events-none absolute -right-[18px] -top-[58px] h-[190px] w-[240px] lg:-right-2 lg:-top-3 lg:h-[150px] lg:w-[260px]">
+      <div className="dark:hidden">
+        <Pelangi className="absolute right-[-30px] top-[42px] w-[172px] lg:right-0 lg:top-0 lg:w-[210px]" />
+        <Awan className="absolute left-[-120px] top-[18px] hidden w-[64px] lg:block" />
+      </div>
+      <div className="hidden dark:block">
+        <Bintang className="absolute inset-0 h-full w-full" />
+        <Bulan className="absolute right-[26px] top-[58px] w-[46px] lg:top-2 lg:w-[54px]" />
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Kepala halaman panel sekolah — tampil di HP & PC.
+ *   judul/sub : judul besar (Fredoka) + keterangan
+ *   gambar    : 'anak' | 'koin' | 'grafik' | 'saku' | 'maskot' | 'sekolah' | null
+ *   aksi      : tombol di PC (kanan). Juga dipakai di HP kalau `aksiHp` tidak diisi.
+ *   aksiHp    : tombol khusus HP (baris di bawah judul). `null` = tanpa tombol.
+ *   kembali   : fungsi tombol kembali (opsional, hanya tampil di HP)
+ */
+export function KepalaHalaman({ judul, sub, gambar = 'anak', aksi, aksiHp, kembali, className = '' }) {
+  const hp = aksiHp === undefined ? aksi : aksiHp
+  return (
+    <header className={`relative mb-4 mt-1 lg:mb-5 lg:mt-7 lg:flex lg:min-h-[104px] lg:items-end lg:gap-5 ${className}`}>
+      <LangitKepala />
+      <div className={`relative z-[1] min-w-0 lg:flex-1 ${gambar ? 'min-h-[96px] pr-[128px] lg:min-h-0 lg:pr-0' : ''}`}>
+        <div className="flex items-center gap-2.5">
+          {kembali && (
+            <button type="button" onClick={kembali} aria-label="Kembali" className="tombol-bilah grid h-10 w-10 shrink-0 place-items-center rounded-[14px] active:scale-95 lg:hidden">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M15 5l-7 7 7 7" /></svg>
+            </button>
+          )}
+          <h1 className="judul-halaman min-w-0 font-display text-[29px] font-bold leading-[1.1] tracking-[-.3px] lg:text-[34px]">{judul}</h1>
+        </div>
+        {sub && <p className="sub-halaman mt-1.5 text-[13px] font-bold leading-snug lg:max-w-[560px] lg:text-[14px]">{sub}</p>}
+      </div>
+      {gambar && (
+        <>
+          <div className="pointer-events-none absolute -right-1 top-0 z-[1] flex h-[96px] w-[124px] items-end justify-center lg:hidden">
+            <GambarKepala gambar={gambar} />
+          </div>
+          <div className="pointer-events-none relative z-[1] hidden shrink-0 self-end xl:block">
+            <GambarKepala gambar={gambar} besar />
+          </div>
+        </>
+      )}
+      {hp && <div className="relative z-[2] mt-3 flex flex-wrap items-center gap-2 lg:hidden">{hp}</div>}
+      {aksi && <div className="relative z-[2] hidden shrink-0 flex-wrap items-center justify-end gap-2.5 lg:flex">{aksi}</div>}
+    </header>
+  )
+}
+
+/**
+ * Penutup halaman: bukit rumput + bunga, buku & bintang. Ditaruh paling bawah
+ * area gulir (mt-auto) sehingga bagian bawah layar tidak pernah kosong dan
+ * tidak ada ruang/padding sisa di bawahnya.
+ */
+export function KakiRumput({ className = '' }) {
+  return (
+    <div aria-hidden="true" className={`pointer-events-none relative h-[92px] shrink-0 lg:h-[112px] ${className}`}>
+      <Bukit className="absolute inset-0 h-full w-full lg:hidden" />
+      <BukitLebar className="absolute inset-0 hidden h-full w-full lg:block" />
+      <Bunga warna="#FFFFFF" className="redup-malam absolute bottom-[30px] left-[26%] w-3 lg:bottom-[34px] lg:left-[20%]" />
+      <Bunga warna="#FF9CC2" className="redup-malam absolute bottom-[40px] left-[56%] w-3 lg:left-[46%]" />
+      <Bunga warna="#FFD84D" className="redup-malam absolute bottom-[26px] right-[26%] w-3 lg:right-[30%]" />
+      <Bunga warna="#FF9CC2" className="redup-malam absolute bottom-[34px] hidden w-3 lg:right-[12%] lg:block" />
+      <BukuPensil className="redup-malam absolute bottom-1 left-2 w-[60px] lg:bottom-3 lg:left-6 lg:w-[76px]" />
+      <BintangWajah className="redup-malam absolute bottom-2 right-2.5 w-[46px] lg:bottom-4 lg:right-7 lg:w-[56px]" />
+    </div>
+  )
+}
+
+export const BtnKecil = ({ utama, children, className = '', ...p }) => (
   <button
     {...p}
-    className={`flex items-center gap-2 rounded-[13px] border px-4 py-2.5 text-[13.5px] font-bold disabled:opacity-60 ${
-      utama ? 'border-brand bg-brand text-white' : 'border-line bg-white text-ink'
-    }`}
+    className={`flex items-center gap-2 whitespace-nowrap rounded-[14px] px-4 py-2.5 text-[13.5px] font-extrabold transition active:translate-y-px disabled:opacity-60 ${
+      utama ? 'bg-brand text-white shadow-[inset_0_-3px_0_#2A55CC,0_6px_14px_rgba(59,110,246,.22)]' : 'tombol-putih text-ink'
+    } ${className}`}
   >
     {children}
   </button>
@@ -197,12 +384,12 @@ export const Track = ({ persen, warna = '#22C55E', tinggi = 6 }) => (
 
 /** Layar penuh untuk keadaan memuat / gagal, dengan tombol coba lagi. */
 export const Muat = ({ children, aksi }) => (
-  <div className="grid min-h-dvh place-items-center px-8 text-center">
+  <div className="langit-masuk grid min-h-dvh place-items-center px-8 text-center">
     <div>
-      <div className="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-white text-2xl shadow-soft">🏫</div>
-      <p className="text-sm text-muted">{children}</p>
+      <LogoKasceria size={64} className={`mx-auto mb-3.5 ${aksi ? '' : 'animate-pulse'}`} />
+      <p className="text-sm font-semibold text-[#34405C] dark:text-[#B8C3DC]">{children}</p>
       {aksi && (
-        <button className="mt-4 rounded-2xl bg-white px-5 py-2.5 text-[13px] font-extrabold shadow-soft" onClick={aksi}>
+        <button className="tombol-putih mt-4 rounded-2xl px-5 py-2.5 text-[13px] font-extrabold" onClick={aksi}>
           Coba lagi
         </button>
       )}
@@ -214,6 +401,23 @@ export const Kosong = ({ children }) => (
   <div className="px-5 py-8 text-center text-[13.5px] text-muted">{children}</div>
 )
 
+/**
+ * Keadaan kosong bergambar (gedung TK + dua anak) untuk daftar yang belum
+ * berisi apa pun — mis. belum ada siswa.
+ */
+export const KosongCeria = ({ judul, children, aksi, className = '' }) => (
+  <div className={`flex flex-col items-center px-4 pb-6 pt-4 text-center ${className}`}>
+    <span className="relative block h-[132px] w-[250px]" aria-hidden="true">
+      <GedungTK className="redup-malam absolute bottom-0 left-1/2 w-[190px] -translate-x-1/2" />
+      <AnakUtuhLaki className="absolute bottom-0 left-0" style={{ width: 50, height: 96 }} />
+      <AnakUtuhPerempuan className="absolute bottom-0 right-0" style={{ width: 50, height: 96 }} />
+    </span>
+    <h3 className="judul-halaman mt-3 font-display text-[22px] font-bold leading-tight">{judul}</h3>
+    {children && <p className="mt-1.5 max-w-[340px] text-[13.5px] font-semibold leading-relaxed text-muted">{children}</p>}
+    {aksi && <div className="mt-4 flex w-full max-w-[340px] flex-col gap-2.5">{aksi}</div>}
+  </div>
+)
+
 export const Chevron = () => (
   <svg className="shrink-0 text-[#C8CDD8]" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round">
     <path d="M9 5l7 7-7 7" />
@@ -221,13 +425,13 @@ export const Chevron = () => (
 )
 
 export const Segment = ({ nilai, ubah, opsi }) => (
-  <div className="my-4 flex rounded-[14px] bg-[#EDEFF5] p-1">
+  <div className="my-4 flex gap-1 rounded-[18px] bg-kartu/70 p-1 shadow-[0_4px_14px_rgba(30,64,140,.06)] dark:bg-white/5">
     {opsi.map((o) => (
       <button
         key={o.nilai}
         onClick={() => ubah(o.nilai)}
-        className={`flex-1 rounded-[11px] py-2.5 text-[13.5px] font-bold transition ${
-          nilai === o.nilai ? 'bg-white text-ink shadow-[0_1px_4px_rgba(21,26,38,.08)]' : 'text-muted'
+        className={`flex-1 rounded-[14px] py-2.5 text-[13.5px] font-extrabold transition ${
+          nilai === o.nilai ? 'permen permen-kecil permen-biru' : 'text-muted hover:text-ink'
         }`}
       >
         {o.label}
@@ -353,7 +557,45 @@ export const Ikon = {
   menu: P(<path d="M4 7h16M4 12h16M4 17h16" />),
   orang: P(<><circle cx="12" cy="8" r="3.4" /><path d="M5 20c1-3.6 3.8-5.2 7-5.2s6 1.6 7 5.2" /></>),
   titikTiga: P(<><circle cx="12" cy="5" r="1.3" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.3" fill="currentColor" stroke="none" /><circle cx="12" cy="19" r="1.3" fill="currentColor" stroke="none" /></>),
+  toga: P(<><path d="M2.5 9L12 5l9.5 4L12 13z" /><path d="M6.5 11v4.5c1.6 1.5 3.5 2 5.5 2s3.9-.5 5.5-2V11" /><path d="M21.5 9v5" /></>),
+  unggah: P(<><path d="M12 16V4" /><path d="M7 9l5-5 5 5" /><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" /></>),
+  unduh: P(<><path d="M12 4v12" /><path d="M7 11l5 5 5-5" /><path d="M4 16v3a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-3" /></>),
+  pensil: P(<><path d="M4 20h4L19 9l-4-4L4 16z" /><path d="M13.5 6.5l4 4" /></>),
+  saring: P(<path d="M4 5h16l-6 7.5V19l-4-2v-4.5z" />),
+  excel: P(<><rect x="4" y="3.5" width="16" height="17" rx="2.5" /><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" /></>),
 }
+
+/**
+ * Pil pilihan/saring (mis. Semua · Kelas A · Menunggak).
+ * Aktif → permen biru (atau `warna` lain), tidak aktif → putih bertepi.
+ */
+export const Pil = ({ on, warna = 'biru', ikon, children, className = '', ...p }) => (
+  <button
+    type="button"
+    {...p}
+    aria-pressed={on}
+    className={`flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-pill px-3.5 py-2 text-[13px] font-extrabold transition ${
+      on ? `permen permen-kecil permen-${warna}` : 'border-[1.5px] border-[#DCE6F4] bg-kartu text-ink hover:border-brand/50 dark:border-line'
+    } ${className}`}
+  >
+    {ikon}
+    {children}
+  </button>
+)
+
+/** Kolom cari putih bertepi (kaca pembesar di kiri). */
+export const KolomCari = ({ nilai, ubah, placeholder = 'Cari…', className = '' }) => (
+  <label className={`flex min-w-0 items-center gap-2.5 rounded-[16px] border-[1.5px] border-[#DCE6F4] bg-kartu px-3.5 py-3 shadow-[0_8px_24px_rgba(30,64,140,.06)] focus-within:border-brand dark:border-line ${className}`}>
+    <span className="text-[#7C8AA5]"><Ikon.cari size={19} /></span>
+    <input
+      value={nilai}
+      onChange={(e) => ubah(e.target.value)}
+      placeholder={placeholder}
+      aria-label={placeholder}
+      className="min-w-0 flex-1 bg-transparent text-[14px] font-semibold outline-none placeholder:font-medium placeholder:text-[#8A93A6]"
+    />
+  </label>
+)
 /* ---------- mode terang / gelap ---------- */
 
 /** Pilihan tema lengkap: Terang · Gelap · Otomatis (ikut HP/laptop). */
@@ -387,7 +629,7 @@ export function PilihTema({ className = '' }) {
 /** Kartu "Tampilan" siap pakai untuk halaman pengaturan/menu. */
 export const KartuTema = ({ className = '' }) => (
   <div className={`card ${className}`}>
-    <div className="mb-1 text-[14px] font-extrabold">Tampilan</div>
+    <div className="judul-kartu mb-1 text-[17px]">Tampilan</div>
     <p className="mb-3 text-[12.5px] text-muted">Mode gelap lebih nyaman di malam hari. Pilihan ini hanya berlaku di perangkat ini.</p>
     <PilihTema />
   </div>

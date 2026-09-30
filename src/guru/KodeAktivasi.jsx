@@ -5,12 +5,14 @@
  * (Guru kelas tidak memakai aplikasi ini — hanya kepala sekolah & Admin/TU.)
  */
 import { useState } from 'react'
-import { BtnKecil, Ikon, Kosong, PageHead } from '../components/ui.jsx'
+import { useNavigate } from 'react-router-dom'
+import { BtnKecil, Ikon, KepalaHalaman, Kosong } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import * as api from '../lib/api.js'
 
 export default function KodeAktivasi() {
   const { toast } = useData()
+  const nav = useNavigate()
   const [daftar, setDaftar] = useState([]) // kode yang dibuat sesi ini
   const [sibuk, setSibuk] = useState(false)
 
@@ -34,10 +36,9 @@ export default function KodeAktivasi() {
 
   return (
     <>
-      <h1 className="pb-1.5 pt-3.5 text-xl font-extrabold lg:hidden">Kode aktivasi</h1>
-      <PageHead judul="Kode aktivasi" sub="Buat kode sekali pakai untuk mengundang akun Admin/TU baru" />
+      <KepalaHalaman judul="Kode aktivasi" gambar="anak" kembali={() => nav('/guru/lainnya')} sub="Buat kode sekali pakai untuk mengundang akun Admin/TU baru" />
 
-      <div className="flex gap-2.5 lg:mt-4 lg:max-w-md">
+      <div className="flex gap-2.5 lg:max-w-md">
         <BtnKecil utama onClick={() => buat('admin')} disabled={sibuk}>
           <Ikon.plus size={16} />
           {sibuk ? 'Membuat kode…' : 'Buat kode untuk Admin/TU'}
@@ -51,7 +52,7 @@ export default function KodeAktivasi() {
         ) : (
           daftar.map((k, i) => (
             <div key={i} className="row">
-              <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-soft font-mono text-[13px] font-extrabold tracking-wide text-brand">
+              <span className="permen permen-kecil permen-kuning grid h-11 shrink-0 place-items-center rounded-[14px] px-2.5 font-mono text-[13px] font-extrabold tracking-wide">
                 {k.kode}
               </span>
               <span className="min-w-0 flex-1">

@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { BtnKecil, Ikon, Kosong, PageHead, Sheet, Tile } from '../components/ui.jsx'
+import { BtnKecil, Ikon, KepalaHalaman, Kosong, Sheet, Tile } from '../components/ui.jsx'
+import { GambarKegiatan } from '../components/Gambar.jsx'
 import InputNominal from '../components/InputNominal.jsx'
 import { useData } from '../lib/store.jsx'
 import { AKHIR_BULAN, adaInfoKegiatan, jatuhTempoAkhirBulan, rp, tanggalKegiatan } from '../lib/format.js'
-import { FONT_EMOJI, PILIHAN_EMOJI, emojiKegiatan, tebakEmoji } from '../lib/emojiKegiatan.js'
+import { PILIHAN_EMOJI, emojiKegiatan, tebakEmoji } from '../lib/emojiKegiatan.js'
 
 export default function JenisBiaya() {
   const { biaya, pengaturan, tambahBiaya, hapusBiaya, ubahEmojiBiaya, ubahInfoBiaya, ubahPengaturan, toast, boleh } = useData()
@@ -21,7 +22,6 @@ export default function JenisBiaya() {
   const [bukaInfoBaru, setBukaInfoBaru] = useState(false)
   const [edit, setEdit] = useState(null) // { i, info } — sedang mengedit info kegiatan ke-i
   const [sibuk, setSibuk] = useState(false)
-  const LATAR = ['#E4EEFF', '#DFF6E9', '#FFF4CC', '#EEE6FF', '#FFE6EE', '#DDF4F6']
 
   const terapkanEmoji = async (e) => {
     const untuk = pilihEmoji?.untuk
@@ -29,7 +29,7 @@ export default function JenisBiaya() {
     if (untuk === 'baru') return setEmojiBaru(e)
     try {
       await ubahEmojiBiaya(untuk, e)
-      toast(e ? 'Emoji disimpan' : 'Emoji kembali otomatis')
+      toast(e ? 'Gambar disimpan' : 'Gambar kembali otomatis sesuai nama')
     } catch {
       /* pesan galat sudah ditangani store */
     }
@@ -62,29 +62,21 @@ export default function JenisBiaya() {
 
   return (
     <>
-      <div className="flex items-center gap-3 pb-1.5 pt-2.5 lg:hidden">
-        <button className="grid h-[38px] w-[38px] place-items-center rounded-xl bg-white border border-line" onClick={() => nav('/guru')}>
-          <Ikon.kembali size={18} />
-        </button>
-        <h2 className="text-[17px] font-extrabold">Jenis biaya</h2>
-      </div>
-      <PageHead
+      <KepalaHalaman
         judul="Jenis biaya"
-        sub={ro ? 'Hanya bisa dilihat — perubahan dilakukan petugas yang berwenang' : 'Daftar biaya di sini dipakai untuk semua siswa di sekolah ini'}
+        gambar="koin"
+        kembali={() => nav('/guru/lainnya')}
+        sub={ro ? 'Hanya bisa dilihat — perubahan dilakukan petugas yang berwenang' : 'Nominal SPP & biaya kegiatan — dipakai untuk semua siswa di sekolah ini'}
+        aksiHp={null}
         aksi={!ro && <BtnKecil utama onClick={() => setBuka(true)}><Ikon.plus size={16} />Tambah kegiatan</BtnKecil>}
       />
-      <p className="mb-4 text-[13.5px] text-muted lg:hidden">
-        {ro
-          ? '👀 Hanya bisa dilihat. Perubahan nominal & kegiatan dilakukan petugas yang berwenang.'
-          : 'Daftar biaya di sini dipakai untuk semua siswa. Setiap sekolah bisa mengaturnya sendiri sesuai kegiatan masing-masing.'}
-      </p>
 
-      <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6 lg:pt-4">
+      <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
        <div className="card mb-4">
         <div className="mb-3.5 flex items-center gap-3">
           <Tile warna="blue"><Ikon.kalender size={20} /></Tile>
           <div>
-            <div className="font-extrabold">Iuran SPP bulanan</div>
+            <div className="judul-kartu text-[17px]">Iuran SPP bulanan</div>
             <div className="text-[12.5px] text-muted">Siklus Juli–Juni</div>
           </div>
         </div>
@@ -92,7 +84,7 @@ export default function JenisBiaya() {
         <label className="mb-1.5 block text-[13px] font-bold">Nominal per bulan</label>
         <InputNominal className="mb-3.5" value={spp} onChange={setSpp} placeholder="150.000" />
         <label className="mb-1.5 block text-[13px] font-bold">Jatuh tempo setiap bulan</label>
-        <div className="mb-2.5 grid grid-cols-2 gap-1 rounded-2xl border border-line bg-[#F5F7FB] p-1" role="radiogroup">
+        <div className="mb-2.5 grid grid-cols-2 gap-1 rounded-[18px] bg-isi p-1" role="radiogroup">
           {[
             { akhir: false, label: '📅 Tanggal tertentu' },
             { akhir: true, label: '🗓️ Akhir bulan' },
@@ -104,7 +96,7 @@ export default function JenisBiaya() {
                 role="radio"
                 aria-checked={on}
                 onClick={() => setTempo(o.akhir ? AKHIR_BULAN : 10)}
-                className={`rounded-xl py-2.5 text-[13px] font-extrabold transition ${on ? 'bg-white text-brand shadow-soft' : 'text-muted'}`}
+                className={`rounded-[14px] py-2.5 text-[13px] font-extrabold transition ${on ? 'permen permen-kecil permen-biru' : 'text-muted'}`}
               >
                 {o.label}
               </button>
@@ -149,14 +141,18 @@ export default function JenisBiaya() {
           biaya.map((b, i) => (
             <div key={b.id} className="row">
               <button
-                className="relative grid h-11 w-11 shrink-0 place-items-center rounded-[13px] text-[22px] active:scale-95"
-                style={{ background: LATAR[i % LATAR.length], ...FONT_EMOJI }}
+                className="relative shrink-0 active:scale-95"
                 onClick={() => !ro && setPilihEmoji({ untuk: i })}
                 disabled={ro}
-                title="Ganti emoji"
-                aria-label={`Ganti emoji ${b.nama}`}
+                title="Ganti gambar"
+                aria-label={`Ganti gambar ${b.nama}`}
               >
-                {emojiKegiatan(b)}
+                <GambarKegiatan emoji={emojiKegiatan(b)} size={46} className="rounded-[15px]" />
+                {!ro && (
+                  <span className="absolute -bottom-1 -right-1 grid h-5 w-5 place-items-center rounded-full bg-kartu text-muted shadow-[0_1px_4px_rgba(0,0,0,.18)]">
+                    <Ikon.pensil size={11} />
+                  </span>
+                )}
               </button>
               <button
                 className="min-w-0 flex-1 text-left"
@@ -164,7 +160,7 @@ export default function JenisBiaya() {
                 disabled={ro}
                 title="Info kegiatan untuk orang tua"
               >
-                <div className="truncate text-[14.5px] font-bold">{b.nama}</div>
+                <div className="truncate text-[14.5px] font-extrabold">{b.nama}</div>
                 <div className="truncate text-[12.5px] text-muted">
                   {rp(b.nominal)} ·{' '}
                   {adaInfoKegiatan(b)
@@ -174,7 +170,7 @@ export default function JenisBiaya() {
               </button>
               {!ro && (
                 <button
-                  className="shrink-0 rounded-xl bg-[#F1F2F6] px-3 py-2 text-xs font-bold text-muted"
+                  className="shrink-0 rounded-[12px] bg-danger-soft px-3 py-2 text-xs font-extrabold text-danger"
                   onClick={async () => { await hapusBiaya(i); toast(`${b.nama} dihapus`) }}
                 >
                   Hapus
@@ -192,17 +188,17 @@ export default function JenisBiaya() {
         <div className="mb-3.5 flex items-center gap-2.5">
           <button
             type="button"
-            className="grid h-[50px] w-[50px] shrink-0 place-items-center rounded-[14px] border border-line bg-[#F5F7FB] text-[26px] active:scale-95"
-            style={FONT_EMOJI}
+            className="shrink-0 active:scale-95"
             onClick={() => setPilihEmoji({ untuk: 'baru' })}
-            title="Pilih emoji"
+            title="Pilih gambar"
+            aria-label="Pilih gambar kegiatan"
           >
-            {emojiBaru || tebakEmoji(nama)}
+            <GambarKegiatan emoji={emojiBaru || tebakEmoji(nama)} size={52} className="rounded-[16px]" />
           </button>
           <input className="field-input flex-1" placeholder="mis. Manasik haji" value={nama} onChange={(e) => setNama(e.target.value)} />
         </div>
         <p className="-mt-2 mb-3.5 text-xs text-muted">
-          {emojiBaru ? 'Emoji dipilih manual.' : 'Emoji dipilih otomatis dari nama kegiatan.'} Ketuk emoji untuk menggantinya.
+          {emojiBaru ? 'Gambar dipilih manual.' : 'Gambar dipilih otomatis dari nama kegiatan.'} Ketuk gambar untuk menggantinya.
         </p>
         <label className="mb-1.5 block text-[13px] font-bold">Nominal</label>
         <InputNominal className="mb-4" value={nominal} onChange={setNominal} placeholder="150.000" />
@@ -241,24 +237,30 @@ export default function JenisBiaya() {
       <Sheet
         buka={!!pilihEmoji}
         tutup={() => setPilihEmoji(null)}
-        judul="Pilih emoji"
+        judul="Pilih gambar kegiatan"
         lead={pilihEmoji?.untuk === 'baru' ? (nama.trim() || 'Kegiatan baru') : biaya[pilihEmoji?.untuk]?.nama}
       >
-        <div className="grid grid-cols-6 gap-2 sm:grid-cols-8">
-          {PILIHAN_EMOJI.map((e) => (
-            <button
-              key={e}
-              className="grid aspect-square place-items-center rounded-2xl bg-[#F5F7FB] text-[26px] transition hover:bg-brand-soft active:scale-90"
-              style={FONT_EMOJI}
-              onClick={() => terapkanEmoji(e)}
-            >
-              {e}
-            </button>
-          ))}
+        <div className="grid grid-cols-4 gap-2.5 min-[380px]:grid-cols-5 sm:grid-cols-8">
+          {PILIHAN_EMOJI.map((e) => {
+            const kini = pilihEmoji?.untuk === 'baru' ? emojiBaru : biaya[pilihEmoji?.untuk]?.emoji
+            const dipilih = kini === e
+            return (
+              <button
+                key={e}
+                className={`grid aspect-square place-items-center rounded-[18px] transition hover:scale-105 active:scale-90 ${dipilih ? 'ring-[3px] ring-brand ring-offset-2 ring-offset-canvas' : ''}`}
+                onClick={() => terapkanEmoji(e)}
+                aria-label={`Pilih gambar ${e}`}
+                aria-pressed={dipilih}
+              >
+                <GambarKegiatan emoji={e} size={54} className="rounded-[18px]" />
+              </button>
+            )
+          })}
         </div>
         <div className="h-4" />
-        <button className="bigbtn-ghost mb-2.5" onClick={() => terapkanEmoji(null)}>
-          Otomatis sesuai nama kegiatan ({tebakEmoji(pilihEmoji?.untuk === 'baru' ? nama : biaya[pilihEmoji?.untuk]?.nama)})
+        <button className="bigbtn-ghost mb-2.5 flex items-center justify-center gap-2.5" onClick={() => terapkanEmoji(null)}>
+          <GambarKegiatan emoji={tebakEmoji(pilihEmoji?.untuk === 'baru' ? nama : biaya[pilihEmoji?.untuk]?.nama)} size={28} className="rounded-[9px]" />
+          Otomatis sesuai nama kegiatan
         </button>
       </Sheet>
     </>

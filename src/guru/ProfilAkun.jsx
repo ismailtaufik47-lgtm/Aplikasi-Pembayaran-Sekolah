@@ -5,7 +5,7 @@
  */
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Ikon, KartuTema, PageHead, Sheet } from '../components/ui.jsx'
+import { Ikon, KartuTema, KepalaHalaman, Sheet } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import { useAuth } from '../lib/auth.jsx'
 import { pinLemah } from '../lib/api.js'
@@ -63,22 +63,16 @@ export default function ProfilAkun() {
 
   return (
     <>
-      <div className="flex items-center gap-3 pb-1.5 pt-2.5 lg:hidden">
-        <button className="grid h-[38px] w-[38px] place-items-center rounded-xl bg-white border border-line" onClick={() => nav(-1)}>
-          <Ikon.kembali size={18} />
-        </button>
-        <h2 className="text-[17px] font-extrabold">Profil akun</h2>
-      </div>
-      <PageHead judul="Profil akun" sub="Nama tampilan yang muncul di kartu pembayaran dan struk" />
+      <KepalaHalaman judul="Profil akun" gambar="anak" kembali={() => nav(-1)} sub="Nama tampilan yang muncul di kartu pembayaran dan struk" />
 
-      <div className="card mb-4 flex items-center gap-3.5 lg:mt-4 lg:max-w-md">
+      <div className="card mb-4 flex items-center gap-3.5 lg:max-w-md">
         <button
           className="relative shrink-0 rounded-full active:scale-95"
           onClick={() => setPilihAvatar(true)}
           aria-label="Ganti avatar"
         >
           <AvatarStaf nama={petugas} avatar={avatarSaya} size={64} />
-          <span className="absolute -bottom-0.5 -right-0.5 grid h-6 w-6 place-items-center rounded-full border-2 border-white bg-brand text-[11px] text-white">✏️</span>
+          <span className="absolute -bottom-0.5 -right-0.5 grid h-6 w-6 place-items-center rounded-full border-2 border-white bg-brand text-white dark:border-kartu"><Ikon.pensil size={12} /></span>
         </button>
         <div className="min-w-0 flex-1">
           <div className="truncate text-[15px] font-extrabold">{petugas || '—'}</div>

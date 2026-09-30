@@ -282,6 +282,19 @@ terakhir (bisa pilih 30 hari, bulan ini, atau tanggal sendiri), dimuat 30 baris 
 Data lama yang tanggalnya sebelum tanggal mulai tidak dihitung dan ditandai
 "Tidak dihitung" di halaman Kas, lengkap dengan petunjuk membetulkannya.
 
+## 14. SAKU — Sahabat Keuangan Sekolah (Tanya AI bisa membaca kas)
+
+"Tanya AI" sekarang bernama **SAKU** (Sahabat Keuangan Sekolah) dan bisa menjawab soal
+buku kas: saldo, pemasukan (SPP, kegiatan, pemasukan lain), pengeluaran per kategori,
+ringkasan mingguan/bulanan, dan tren per bulan.
+
+1. Jalankan `supabase/migrations/0031_saku.sql` di SQL Editor (butuh 0030).
+2. **Deploy ulang Edge Function `tanya-ai`** — Dashboard Supabase → Edge Functions →
+   `tanya-ai` → tempel seluruh isi `supabase/functions/tanya-ai/index.ts` terbaru → Deploy
+   (atau `npx supabase functions deploy tanya-ai`). Nama fungsinya tetap `tanya-ai`.
+3. Data kas hanya dibacakan untuk akun yang punya hak akses **SAKU** *dan* **kas / laporan
+   keuangan** (panel admin → Hak akses). Tanpa akses kas, SAKU menolak menyebut angka kas.
+
 ## Struktur tabel
 
 | Tabel | Isi |

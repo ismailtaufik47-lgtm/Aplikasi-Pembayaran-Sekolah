@@ -29,14 +29,18 @@ export function rpRingkas(n) {
   return String(Math.round(n))
 }
 
-/* ---------- tab Pembayaran | Keuangan ---------- */
+/* ---------- tab Pembayaran | Keuangan (sakelar permen) ---------- */
+const IKON_TAB = {
+  pembayaran: <><path d="M6 3h8l4 4v14l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.5z" /><path d="M9 10h6M9 14h4" /></>,
+  keuangan: <><rect x="3" y="6" width="18" height="13" rx="3" /><path d="M3 10.5h18M16.5 14.8h1" /></>,
+}
 export function TabLaporan({ tab, pilih, ada = ['pembayaran', 'keuangan'] }) {
   const daftar = [
-    { id: 'pembayaran', e: '🧾', label: 'Pembayaran', sub: 'SPP & kegiatan' },
-    { id: 'keuangan', e: '💰', label: 'Keuangan', sub: 'Kas sekolah' },
+    { id: 'pembayaran', warna: 'pink', label: 'Pembayaran', sub: 'SPP & kegiatan' },
+    { id: 'keuangan', warna: 'kuning', label: 'Keuangan', sub: 'Kas sekolah' },
   ].filter((t) => ada.includes(t.id))
   return (
-    <div className="flex border-b border-line pt-3 lg:pt-6" role="tablist">
+    <div className="flex gap-1 rounded-[20px] bg-kartu/70 p-1 shadow-[0_4px_14px_rgba(30,64,140,.06)] dark:bg-white/5 sm:inline-flex" role="tablist">
       {daftar.map((t) => {
         const on = tab === t.id
         return (
@@ -45,14 +49,14 @@ export function TabLaporan({ tab, pilih, ada = ['pembayaran', 'keuangan'] }) {
             role="tab"
             aria-selected={on}
             onClick={() => pilih(t.id)}
-            className={`relative -mb-px flex flex-1 items-center justify-center gap-2 border-b-[3px] px-3 pb-2.5 pt-1 transition sm:flex-none sm:justify-start sm:px-4 ${
-              on ? 'border-brand' : 'border-transparent opacity-70 hover:opacity-100'
+            className={`flex flex-1 items-center justify-center gap-2.5 rounded-[16px] px-3 py-2 transition sm:flex-none sm:justify-start sm:px-4 ${
+              on ? `permen permen-kecil permen-${t.warna}` : 'text-muted hover:text-ink'
             }`}
           >
-            <span className="text-[19px]" style={FONT_EMOJI}>{t.e}</span>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">{IKON_TAB[t.id]}</svg>
             <span className="text-left leading-tight">
-              <span className={`block text-[14px] font-extrabold ${on ? 'text-brand' : ''}`}>{t.label}</span>
-              <span className="block text-[11px] font-semibold text-muted">{t.sub}</span>
+              <span className="block text-[14px] font-extrabold">{t.label}</span>
+              <span className="block text-[11px] font-semibold opacity-80">{t.sub}</span>
             </span>
           </button>
         )
@@ -61,15 +65,15 @@ export function TabLaporan({ tab, pilih, ada = ['pembayaran', 'keuangan'] }) {
   )
 }
 
-/* ---------- kepala halaman: ikon + judul di kiri, tombol di kanan ---------- */
+/* ---------- kepala bagian: ikon + judul di kiri, tombol di kanan ---------- */
 export function KepalaLaporan({ e, judul, sub, aksi }) {
   return (
     <div className="mt-4 flex flex-col gap-3 lg:mt-5 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex min-w-0 items-center gap-3">
-        <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-brand-soft text-[24px]" style={FONT_EMOJI}>{e}</span>
+        <span className="permen permen-biru grid h-12 w-12 shrink-0 place-items-center rounded-[16px] text-[24px]" style={FONT_EMOJI}>{e}</span>
         <div className="min-w-0">
-          <h1 className="text-[20px] font-extrabold leading-tight tracking-tight lg:text-[24px]">{judul}</h1>
-          <p className="text-[12.5px] text-muted lg:text-[13.5px]">{sub}</p>
+          <h2 className="judul-kartu text-[20px] leading-tight lg:text-[23px]">{judul}</h2>
+          <p className="text-[12.5px] font-semibold text-muted lg:text-[13.5px]">{sub}</p>
         </div>
       </div>
       {aksi && <div className="flex gap-2 sm:flex-wrap lg:shrink-0 [&>*]:flex-1 sm:[&>*]:flex-none">{aksi}</div>}
@@ -81,8 +85,8 @@ export function KepalaLaporan({ e, judul, sub, aksi }) {
 export const TombolAksi = ({ utama, ikon, pendek, children, ...p }) => (
   <button
     {...p}
-    className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl px-3 py-2.5 text-[13px] font-bold transition disabled:opacity-60 sm:gap-2 sm:px-4 sm:text-[13.5px] ${
-      utama ? 'bg-brand text-white hover:bg-brand-deep' : 'border border-line bg-kartu text-ink hover:bg-isi'
+    className={`flex min-w-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-[14px] px-3 py-2.5 text-[13px] font-extrabold transition active:translate-y-px disabled:opacity-60 sm:gap-2 sm:px-4 sm:text-[13.5px] ${
+      utama ? 'bg-brand text-white hover:bg-brand-deep' : 'tombol-putih text-ink'
     }`}
   >
     {ikon && <span className="text-[15px]" style={FONT_EMOJI}>{ikon}</span>}
@@ -93,7 +97,7 @@ export const TombolAksi = ({ utama, ikon, pendek, children, ...p }) => (
 /** Tombol filter bergaya dropdown (dipakai untuk periode & tahun ajaran). */
 export function Pilihan({ e, children, ...p }) {
   return (
-    <label className="flex items-center gap-2 rounded-xl border border-line bg-kartu px-3 py-2.5 text-[13px] font-bold">
+    <label className="flex items-center gap-2 rounded-pill border-[1.5px] border-[#DCE6F4] bg-kartu px-3.5 py-2.5 text-[13px] font-bold dark:border-line">
       <span style={FONT_EMOJI}>{e}</span>
       {p.value !== undefined ? (
         <select className="min-w-0 bg-transparent font-bold text-ink outline-none" {...p}>{children}</select>
@@ -106,12 +110,12 @@ export function Pilihan({ e, children, ...p }) {
 
 /* ---------- kartu angka ---------- */
 const TILE = {
-  blue: 'bg-brand-soft text-brand',
-  amber: 'bg-warn-soft',
-  grape: 'bg-grape-soft',
-  green: 'bg-ok-soft',
-  red: 'bg-danger-soft',
-  grey: 'bg-isi',
+  blue: 'permen permen-kecil permen-biru',
+  amber: 'permen permen-kecil permen-kuning',
+  grape: 'permen permen-kecil permen-ungu',
+  green: 'permen permen-kecil permen-tosca',
+  red: 'permen permen-kecil permen-pink',
+  grey: 'permen permen-kecil permen-abu',
 }
 
 /**
@@ -123,9 +127,9 @@ export function KartuKpi({ warna = 'blue', e, label, nilai, tren, kaki }) {
   const panah = tren?.arah === 'naik' ? '↑' : tren?.arah === 'turun' ? '↓' : '↔'
   return (
     <div className="card flex min-w-0 flex-col p-3.5 lg:p-4">
-      <span className={`grid h-10 w-10 place-items-center rounded-xl text-[19px] ${TILE[warna]}`} style={FONT_EMOJI}>{e}</span>
+      <span className={`grid h-10 w-10 place-items-center rounded-[13px] text-[19px] ${TILE[warna]}`} style={FONT_EMOJI}>{e}</span>
       <div className="mt-2.5 text-[12.5px] font-semibold text-muted">{label}</div>
-      <div className="mt-0.5 whitespace-nowrap text-[17px] font-extrabold leading-tight tracking-tight sm:text-[19px] xl:text-[17px] 2xl:text-[20px]">{nilai}</div>
+      <div className="mt-0.5 whitespace-nowrap font-display text-[18px] font-semibold leading-tight sm:text-[20px] xl:text-[18px] 2xl:text-[21px]">{nilai}</div>
       {tren && (
         <div className={`mt-1.5 text-[11.5px] font-bold ${warnaTren}`}>
           <span aria-hidden>{panah} </span>{tren.teks}
@@ -142,9 +146,9 @@ export function KartuJudul({ e, judul, sub, kanan, children, className = '' }) {
     <div className={`card min-w-0 ${className}`}>
       <div className="mb-3.5 flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <div className="flex min-w-[170px] flex-1 items-center gap-2.5">
-          <span className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-isi text-[17px]" style={FONT_EMOJI}>{e}</span>
+          <span className="permen permen-kecil permen-abu grid h-9 w-9 shrink-0 place-items-center rounded-[12px] text-[17px]" style={FONT_EMOJI}>{e}</span>
           <div className="min-w-0">
-            <div className="text-[15px] font-extrabold leading-tight">{judul}</div>
+            <div className="judul-kartu text-[17px] leading-tight">{judul}</div>
             {sub && <div className="text-[12px] text-muted">{sub}</div>}
           </div>
         </div>
@@ -157,7 +161,7 @@ export function KartuJudul({ e, judul, sub, kanan, children, className = '' }) {
 
 export function PilihRentang({ nilai, ubah }) {
   return (
-    <div className="flex shrink-0 rounded-full bg-isi p-1 text-[11.5px] font-bold">
+    <div className="flex shrink-0 rounded-full bg-isi p-1 text-[11.5px] font-extrabold">
       {[
         [6, '6 Bulan'],
         [12, '1 Tahun'],

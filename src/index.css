@@ -120,3 +120,234 @@
 .dark .menu-pink   { background: color-mix(in srgb, #EC4899 14%, rgb(var(--kartu))); }
 .dark .ilustrasi-sekolah { filter: brightness(.82) saturate(.9); }
 .dark .ilustrasi-sekolah .awan { opacity: .15; }
+
+/* ===================== panel sekolah: beranda ===================== */
+.langit-beranda { background: linear-gradient(160deg, #D6E7FF 0%, #E9F2FF 70%, #F3F8FF 100%); }
+@media (min-width: 1024px) { .langit-beranda { background: linear-gradient(120deg, #D6E7FF 0%, #E9F2FF 60%, #F3F8FF 100%); } }
+.dark .langit-beranda { background: linear-gradient(160deg, #1A2848 0%, #151F35 70%, #141C2E 100%); }
+@media (min-width: 1024px) { .dark .langit-beranda { background: linear-gradient(120deg, #1A2848 0%, #151F35 70%, #141C2E 100%); } }
+.latar-saku { background: linear-gradient(180deg, rgb(var(--brand-soft)) 0%, rgb(var(--kartu)) 46%); }
+
+/* ===================== layar masuk, aktivasi & cek kuitansi (Kasceria) ===================== */
+.langit-masuk { background: linear-gradient(180deg, #A8DBFF 0%, #CBEBFF 34%, #E6F6FF 62%, #F3FBFF 100%); }
+.dark .langit-masuk { background: linear-gradient(180deg, #0D1733 0%, #16264D 40%, #1C3060 70%, #203766 100%); }
+
+/* tulisan "Kasceria" bertepi putih seperti stiker (tebal tepi ikut ukuran huruf) */
+.merek-tepi {
+  text-shadow: 0.075em 0 0 #fff, 0.069em 0.029em 0 #fff, 0.053em 0.053em 0 #fff, 0.029em 0.069em 0 #fff,
+    0 0.075em 0 #fff, -0.029em 0.069em 0 #fff, -0.053em 0.053em 0 #fff, -0.069em 0.029em 0 #fff,
+    -0.075em 0 0 #fff, -0.069em -0.029em 0 #fff, -0.053em -0.053em 0 #fff, -0.029em -0.069em 0 #fff,
+    0 -0.075em 0 #fff, 0.029em -0.069em 0 #fff, 0.053em -0.053em 0 #fff, 0.069em -0.029em 0 #fff,
+    0 0.15em 0 rgba(27, 37, 89, .10);
+}
+.dark .merek-tepi { text-shadow: 0 3px 0 rgba(0, 0, 0, .28); }
+
+/* tombol & kotak "permen" (keypad PIN, kotak kode aktivasi, ubin ikon) */
+.permen { background: var(--p-isi); color: var(--p-teks); box-shadow: inset 0 -4px 0 var(--p-bayang); }
+.permen-kuning { --p-isi: #FFE27A; --p-bayang: #EEC441; --p-teks: #5A3E00; }
+.permen-biru   { --p-isi: #C4DAFF; --p-bayang: #94B6F2; --p-teks: #173A8A; }
+.permen-pink   { --p-isi: #FFC6DE; --p-bayang: #F09CC0; --p-teks: #86154A; }
+.permen-ungu   { --p-isi: #DDCFFF; --p-bayang: #B9A3F0; --p-teks: #43238F; }
+.permen-tosca  { --p-isi: #B8F0E1; --p-bayang: #80D6BF; --p-teks: #0C5A47; }
+.permen-abu    { --p-isi: #EEF1F7; --p-bayang: #D5DBE7; --p-teks: #5B6478; }
+.permen-hijau  { --p-isi: #22C55E; --p-bayang: #169A48; --p-teks: #FFFFFF; }
+.permen-merah  { --p-isi: #EF4444; --p-bayang: #CF2F2F; --p-teks: #FFFFFF; }
+.permen-oranye { --p-isi: #F5A524; --p-bayang: #D98A0B; --p-teks: #FFFFFF; }
+.permen-email  { --p-isi: #4F86F7; --p-bayang: #2F62D8; --p-teks: #FFFFFF; }
+.permen-gembok { --p-isi: #FFD35C; --p-bayang: #EDB52B; --p-teks: #6B4700; }
+.dark .permen-kuning { --p-isi: rgba(255, 214, 90, .20); --p-bayang: rgba(255, 214, 90, .34); --p-teks: #FFE08A; }
+.dark .permen-biru   { --p-isi: rgba(120, 160, 255, .20); --p-bayang: rgba(120, 160, 255, .34); --p-teks: #BCD0FF; }
+.dark .permen-pink   { --p-isi: rgba(255, 130, 180, .19); --p-bayang: rgba(255, 130, 180, .33); --p-teks: #FFC2DB; }
+.dark .permen-ungu   { --p-isi: rgba(170, 140, 255, .20); --p-bayang: rgba(170, 140, 255, .34); --p-teks: #D8CAFF; }
+.dark .permen-tosca  { --p-isi: rgba(90, 220, 190, .18); --p-bayang: rgba(90, 220, 190, .32); --p-teks: #A9F0DE; }
+.dark .permen-abu    { --p-isi: rgba(255, 255, 255, .07); --p-bayang: rgba(255, 255, 255, .12); --p-teks: #AEB6C8; }
+button.permen { transition: transform .08s, box-shadow .08s; }
+button.permen:active:not(:disabled) { transform: translateY(2px); box-shadow: inset 0 -2px 0 var(--p-bayang); }
+
+.tombol-utama {
+  height: 56px; font-size: 16px; background: #3B6EF6;
+  box-shadow: inset 0 -4px 0 #2A55CC, 0 10px 20px rgba(59, 110, 246, .28);
+  transition: transform .08s, box-shadow .08s;
+}
+.tombol-utama:active:not(:disabled) { transform: translateY(2px); box-shadow: inset 0 -2px 0 #2A55CC, 0 6px 14px rgba(59, 110, 246, .24); }
+.dark .tombol-utama { box-shadow: inset 0 -4px 0 #2A55CC, 0 10px 20px rgba(0, 0, 0, .35); }
+
+.kartu-masuk {
+  background: rgb(var(--kartu)); border-radius: 28px; padding: 20px 18px 16px; gap: 16px;
+  box-shadow: 0 18px 40px rgba(30, 64, 140, .16);
+}
+.dark .kartu-masuk { box-shadow: 0 18px 40px rgba(5, 10, 25, .45); }
+
+/* ukuran bagian kepala & anak (diperkecil otomatis di layar pendek, lihat bawah) */
+.masuk-kepala { padding-top: 22px; padding-bottom: 40px; }
+.masuk-logo { width: 76px; height: 76px; border-radius: 22px; border-width: 4px; border-style: solid; }
+.masuk-merek { font-size: 34px; }
+.masuk-judul-langkah { font-size: 26px; }
+.masuk-anak { bottom: calc(100% - 12px); width: 104px; height: 122px; }
+.tombol-angka { height: 50px; font-size: 22px; }
+.kotak-pin { height: 46px; }
+.kotak-kode { height: 58px; font-size: 25px; }
+
+.dark .redup-malam { filter: brightness(.72) saturate(.85); }
+
+/* HP: tinggi layar yang benar-benar terlihat (browser memakan ±100px untuk
+   bilah alamat), jadi ukuran dipadatkan bertahap supaya tetap muat. */
+@media (max-width: 1023px) and (max-height: 860px) {
+  .masuk-kepala { padding-top: 16px; padding-bottom: 32px; }
+  .kartu-masuk { gap: 14px; }
+  .tombol-angka { height: 48px; }
+}
+@media (max-width: 1023px) and (max-height: 780px) {
+  .masuk-kepala { padding-top: 10px; padding-bottom: 26px; }
+  .masuk-logo { width: 54px; height: 54px; border-radius: 16px; border-width: 3px; }
+  .masuk-merek { font-size: 27px; }
+  .masuk-judul-langkah { font-size: 22px; }
+  .masuk-tagline { font-size: 12px; padding: 3px 10px; margin-top: 6px; }
+  .masuk-anak { width: 86px; height: 101px; }
+  .kartu-masuk { padding: 16px 16px 14px; gap: 11px; }
+  .tombol-angka { height: 42px; font-size: 20px; }
+  .kotak-pin { height: 40px; }
+  .kotak-kode { height: 52px; font-size: 23px; }
+  .tombol-utama { height: 50px; }
+}
+/* HP pendek (≤700px terlihat): kepala jadi satu baris (logo + tulisan), anak
+   disembunyikan supaya keypad & tombol tetap muat tanpa digeser. */
+@media (max-width: 1023px) and (max-height: 700px) {
+  .masuk-kepala { flex-direction: row; justify-content: center; gap: 10px; padding-top: 12px; padding-bottom: 12px; }
+  .masuk-kepala .masuk-logo { width: 44px; height: 44px; border-radius: 13px; }
+  .masuk-kepala .masuk-merek { font-size: 26px; margin-top: 0; }
+  .masuk-kepala .masuk-judul-langkah { font-size: 21px; margin-top: 0; }
+  .masuk-kepala p, .masuk-tagline { display: none; }
+  .masuk-anak, .masuk-matahari { display: none; }
+  .kartu-masuk { padding: 14px 14px 12px; gap: 10px; }
+  .tombol-angka { height: 40px; font-size: 19px; }
+  .kotak-pin { height: 40px; }
+  .tombol-utama { height: 48px; }
+}
+
+/* PC */
+@media (min-width: 1024px) {
+  .masuk-anak { bottom: calc(100% - 40px); width: 124px; height: 146px; }
+  .kartu-masuk { padding: 30px 32px 26px; gap: 18px; border-radius: 30px; }
+  .tombol-angka { height: 46px; font-size: 21px; }
+  .kotak-pin { height: 52px; }
+  .tombol-utama { height: 58px; font-size: 17px; }
+  .kolom-kartu-pc { padding-top: 118px; padding-bottom: 40px; }
+}
+@media (min-width: 1024px) and (max-height: 960px) {
+  .masuk-kepala { padding-top: 16px; padding-bottom: 34px; }
+  .masuk-logo { width: 64px; height: 64px; border-radius: 19px; }
+  .masuk-merek { font-size: 30px; }
+}
+@media (min-width: 1024px) and (max-height: 820px) {
+  .masuk-anak { bottom: calc(100% - 30px); width: 104px; height: 122px; }
+  .kartu-masuk { padding: 20px 28px 18px; gap: 12px; }
+  .judul-kartu-pc p { display: none; }
+  .tombol-angka { height: 38px; font-size: 19px; }
+  .kotak-pin { height: 44px; }
+  .tombol-utama { height: 50px; }
+  .kolom-kartu-pc { padding-top: 88px; padding-bottom: 10px; }
+}
+@media (min-width: 1024px) and (max-height: 820px) {
+  .sambutan-pc { padding-top: 36px; }
+  .sambutan-pc h1 { font-size: 42px; }
+}
+
+/* ===================== panel sekolah "ceria" (v16) =====================
+   Semua aturan di bawah hanya berlaku di dalam .panel-ceria (dibungkus
+   GuruApp), jadi panel admin aplikasi & portal orang tua tidak ikut berubah. */
+.panel-ceria { --canvas: 240 246 255; --line: 233 238 246; }
+.dark .panel-ceria, .panel-ceria.dark { --canvas: 17 24 40; --line: 42 50 68; }
+
+/* langit: biru di atas, makin pucat ke bawah. .langit-gulir ikut tergulir
+   bersama isi halaman (background-attachment: local). */
+.langit-app, .langit-gulir {
+  background-color: #F2FAFF;
+  background-image: linear-gradient(180deg, #A8DBFF 0px, #CBEBFF 240px, #E4F4FF 480px, #EEF8FF 760px, #F2FAFF 1100px);
+  background-repeat: no-repeat;
+}
+.langit-gulir { background-attachment: local; }
+.dark .langit-app, .dark .langit-gulir {
+  background-color: #111827;
+  background-image: linear-gradient(180deg, #0D1733 0px, #16264D 260px, #151F35 560px, #121A2C 900px, #111827 1200px);
+}
+@media (min-width: 640px) and (max-width: 1023px) { .latar-luar-ceria { background: #DCEBFA; } .dark .latar-luar-ceria { background: rgb(var(--latar-luar)); } }
+
+/* kartu: lebih bulat, bayangan biru lembut */
+.panel-ceria .card { border-radius: 24px; box-shadow: 0 8px 24px rgba(30, 64, 140, .08); }
+.dark .panel-ceria .card { box-shadow: 0 1px 0 rgb(255 255 255 / .03), 0 8px 24px rgb(0 0 0 / .35); }
+.panel-ceria .row { border-bottom: 1.5px dashed rgb(var(--line)); }
+.panel-ceria .row:last-child { border-bottom: 0; }
+.panel-ceria .seghead h2, .panel-ceria .judul-kartu {
+  font-family: Fredoka, "Plus Jakarta Sans", system-ui, sans-serif; font-weight: 600; letter-spacing: -.01em; color: #1B2559;
+}
+.dark .panel-ceria .seghead h2, .dark .panel-ceria .judul-kartu { color: rgb(var(--ink)); }
+.panel-ceria [role="dialog"] > h3 { font-family: Fredoka, "Plus Jakarta Sans", system-ui, sans-serif; font-weight: 600; font-size: 20px; color: #1B2559; }
+.dark .panel-ceria [role="dialog"] > h3 { color: rgb(var(--ink)); }
+
+/* ubin ikon (Tile) jadi "permen" */
+.panel-ceria .tile { border-radius: 13px; box-shadow: inset 0 -3px 0 var(--tile-bayang, rgba(21, 26, 38, .08)); }
+.panel-ceria .tile.bg-brand-soft  { background: #C4DAFF; color: #173A8A; --tile-bayang: #94B6F2; }
+.panel-ceria .tile.bg-ok-soft     { background: #B8F0E1; color: #0C5A47; --tile-bayang: #80D6BF; }
+.panel-ceria .tile.bg-warn-soft   { background: #FFE27A; color: #5A3E00; --tile-bayang: #EEC441; }
+.panel-ceria .tile.bg-grape-soft  { background: #DDCFFF; color: #43238F; --tile-bayang: #B9A3F0; }
+.panel-ceria .tile.bg-rose-soft, .panel-ceria .tile.bg-danger-soft { background: #FFC6DE; color: #86154A; --tile-bayang: #F09CC0; }
+.dark .panel-ceria .tile.bg-brand-soft  { background: rgba(120, 160, 255, .20); color: #BCD0FF; --tile-bayang: rgba(120, 160, 255, .34); }
+.dark .panel-ceria .tile.bg-ok-soft     { background: rgba(90, 220, 190, .18); color: #A9F0DE; --tile-bayang: rgba(90, 220, 190, .32); }
+.dark .panel-ceria .tile.bg-warn-soft   { background: rgba(255, 214, 90, .20); color: #FFE08A; --tile-bayang: rgba(255, 214, 90, .34); }
+.dark .panel-ceria .tile.bg-grape-soft  { background: rgba(170, 140, 255, .20); color: #D8CAFF; --tile-bayang: rgba(170, 140, 255, .34); }
+.dark .panel-ceria :is(.tile.bg-rose-soft, .tile.bg-danger-soft) { background: rgba(255, 130, 180, .19); color: #FFC2DB; --tile-bayang: rgba(255, 130, 180, .33); }
+.permen-kecil { box-shadow: inset 0 -3px 0 var(--p-bayang); }
+button.permen-kecil:active:not(:disabled) { box-shadow: inset 0 -1px 0 var(--p-bayang); }
+
+/* tombol berwarna jadi "permen" (ada tepi bawah lebih gelap) */
+.panel-ceria :is(button, a).bg-brand { box-shadow: inset 0 -3px 0 #2A55CC, 0 6px 14px rgba(59, 110, 246, .2); }
+.panel-ceria :is(button, a).bg-ok    { box-shadow: inset 0 -3px 0 #169A48, 0 6px 14px rgba(34, 197, 94, .18); }
+.panel-ceria :is(button, a).bg-danger { box-shadow: inset 0 -3px 0 #CF2F2F, 0 6px 14px rgba(239, 68, 68, .18); }
+.panel-ceria :is(button, a).bg-grape { box-shadow: inset 0 -3px 0 #6D3FD9; }
+.panel-ceria .bigbtn { box-shadow: inset 0 -4px 0 #2A55CC, 0 8px 18px rgba(59, 110, 246, .22); border-radius: 18px; }
+.panel-ceria .bigbtn-wa { box-shadow: inset 0 -4px 0 #169A48, 0 8px 18px rgba(34, 197, 94, .2); border-radius: 18px; }
+.panel-ceria .bigbtn-tutup { box-shadow: inset 0 -4px 0 #CF2F2F; border-radius: 18px; }
+.panel-ceria .bigbtn-ghost { border-width: 1.5px; border-color: #DCE3EF; box-shadow: inset 0 -3px 0 #E3E9F4; border-radius: 18px; }
+.dark .panel-ceria .bigbtn-ghost { border-color: rgb(var(--line)); box-shadow: inset 0 -3px 0 rgb(255 255 255 / .06); }
+.dark .panel-ceria :is(button, a).bg-brand, .dark .panel-ceria .bigbtn { box-shadow: inset 0 -3px 0 #2A55CC, 0 6px 14px rgba(0, 0, 0, .3); }
+.panel-ceria :is(.bigbtn, .bigbtn-wa, .bigbtn-tutup, .bigbtn-ghost):active { transform: translateY(2px); }
+.panel-ceria .field-input { border-width: 1.5px; border-color: #DCE6F4; border-radius: 16px; }
+.dark .panel-ceria .field-input { border-color: rgb(var(--line)); }
+
+/* tombol putih bertepi (tombol kedua) */
+.tombol-putih { background: rgb(var(--kartu)); border: 1.5px solid #DCE3EF; box-shadow: inset 0 -3px 0 #E3E9F4; }
+.dark .tombol-putih { border-color: rgb(var(--line)); box-shadow: inset 0 -3px 0 rgb(255 255 255 / .05); }
+.tombol-putih:active:not(:disabled) { transform: translateY(1px); box-shadow: inset 0 -1px 0 #E3E9F4; }
+
+/* judul halaman & bilah atas */
+.judul-halaman { color: #1B2559; }
+.dark .judul-halaman { color: #F1F4FF; }
+.sub-halaman { color: #34405C; }
+.dark .sub-halaman { color: #B8C3DC; }
+.tombol-bilah { background: rgb(255 255 255 / .9); box-shadow: 0 4px 12px rgba(27, 37, 89, .10); color: #1B2559; }
+.dark .tombol-bilah { background: rgb(255 255 255 / .1); box-shadow: none; color: rgb(var(--ink)); }
+
+/* navigasi: item aktif di sidebar & tab bar bawah */
+.nav-aktif { background: #EAF0FE; color: #1B2559; box-shadow: inset 3px 0 0 #3B6EF6; }
+.dark .nav-aktif { background: rgb(var(--brand-soft)); color: rgb(var(--ink)); }
+.bilah-tab { background: rgb(var(--kartu)); box-shadow: 0 -6px 20px rgba(30, 64, 140, .10); }
+.dark .bilah-tab { box-shadow: 0 -6px 20px rgba(0, 0, 0, .35); }
+.sidebar-ceria { box-shadow: 0 8px 24px rgba(30, 64, 140, .08); }
+.dark .sidebar-ceria { box-shadow: 0 8px 24px rgba(0, 0, 0, .35); }
+.kartu-sekolah-sidebar { background: #F3F8FF; }
+.dark .kartu-sekolah-sidebar { background: rgb(var(--isi)); }
+
+/* hiasan di malam hari sedikit diredupkan */
+.dark .panel-ceria .redup-malam { filter: brightness(.78) saturate(.85); }
+.spanduk-kuning { background: #FFF4D6; color: #6B4700; box-shadow: inset 0 -3px 0 #FBE3A6; }
+.dark .spanduk-kuning { background: rgba(245, 165, 36, .16); color: #FFE08A; box-shadow: none; }
+.hero-beranda { background: rgba(255, 255, 255, .55); box-shadow: inset 0 0 0 2px rgba(255, 255, 255, .7); }
+.dark .hero-beranda { background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .06); }
+.kartu-profil-siswa { background: linear-gradient(160deg, #5B8CFF 0%, #3B6EF6 70%); box-shadow: inset 0 -5px 0 #2A55CC, 0 14px 28px rgba(59, 110, 246, .28); color-scheme: light; }
+.dark .kartu-profil-siswa { background: linear-gradient(160deg, #3D63C9 0%, #2A4DB0 70%); box-shadow: inset 0 -5px 0 #213F95, 0 14px 28px rgba(0, 0, 0, .4); }
+/* kartu saldo kas: permen kuning (minus → pink) */
+.kartu-saldo { background: linear-gradient(160deg, #FFE68F 0%, #FFD35C 100%); color: #3D2A00; box-shadow: inset 0 -5px 0 #EDB52B, 0 14px 28px rgba(237, 181, 43, .25); }
+.kartu-saldo-minus { background: linear-gradient(160deg, #FFD0E2 0%, #FFB3CF 100%); color: #6E0F3A; box-shadow: inset 0 -5px 0 #F090B6, 0 14px 28px rgba(236, 72, 153, .2); }
+.dark .kartu-saldo { background: linear-gradient(160deg, rgba(255, 214, 90, .22) 0%, rgba(255, 196, 60, .16) 100%); color: #FFE08A; box-shadow: inset 0 -5px 0 rgba(255, 214, 90, .3); }
+.dark .kartu-saldo-minus { background: rgba(255, 130, 180, .18); color: #FFC2DB; box-shadow: inset 0 -5px 0 rgba(255, 130, 180, .3); }

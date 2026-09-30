@@ -16,7 +16,7 @@
  */
 import { useState } from 'react'
 import { useAuth } from '../lib/auth.jsx'
-import { Ikon } from './ui.jsx'
+import LatarMasuk, { IkonGoogle, JudulKartu, KartuMasuk, KepalaMerek, PemisahAtau, PilihanPeran } from './LatarMasuk.jsx'
 
 export const KUNCI_PERAN_DAFTAR = 'tk_peran_daftar'
 
@@ -39,74 +39,46 @@ export default function DaftarPeran({ kembali }) {
   }
 
   return (
-    <div className="flex min-h-dvh items-center justify-center p-6">
-      <div className="w-full max-w-[420px]">
-        <button onClick={kembali} className="mb-6 grid h-9 w-9 place-items-center rounded-xl bg-white shadow-soft">
-          <Ikon.kembali size={17} />
-        </button>
-
-        <h1 className="text-[21px] font-extrabold tracking-tight">Gabung ke Pembayaran TK</h1>
-        <p className="mt-1.5 text-[13.5px] leading-relaxed text-muted">
-          Tiap sekolah didaftarkan kepala sekolah, lalu kepala sekolah mengundang
-          Admin/TU pakai kode. Pilih yang sesuai posisi Anda.
-        </p>
+    <LatarMasuk kepala={<KepalaMerek />} kembali={kembali}>
+      <KartuMasuk>
+        <JudulKartu
+          judul="Gabung ke Kasceria"
+          sub="Tiap sekolah didaftarkan kepala sekolah, lalu kepala sekolah mengundang Admin/TU memakai kode. Pilih yang sesuai posisi Anda."
+        />
 
         {/* jalur utama — lebih sering dipakai: staf yang bergabung pakai kode */}
-        <button
+        <PilihanPeran
+          utama
+          ikon="kartu"
+          warna="biru"
+          judul="Saya Admin/TU sekolah"
+          sub="Sekolah sudah terdaftar & saya punya kode aktivasi dari kepala sekolah"
           onClick={() => pilih('tu')}
           disabled={!!proses}
-          className="mt-6 flex w-full items-start gap-3.5 rounded-2xl border-2 border-brand bg-white p-4 text-left shadow-brand disabled:opacity-60"
-        >
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] bg-brand text-white">
-            <Ikon.siswa size={21} />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[15px] font-extrabold">Saya Admin/TU sekolah</span>
-            <span className="mt-0.5 block text-[13px] leading-relaxed text-muted">
-              Sekolah Anda sudah terdaftar dan Anda punya kode aktivasi 6 karakter dari kepala sekolah
-            </span>
-          </span>
-          {proses === 'tu' ? (
-            <span className="mt-1 shrink-0 text-[12px] font-bold text-brand">Membuka…</span>
-          ) : (
-            <Ikon.kembali size={18} className="mt-1 shrink-0 rotate-180 text-[#C3CDDC]" />
-          )}
-        </button>
+          proses={proses === 'tu'}
+        />
 
-        <div className="my-4 flex items-center gap-3 text-[12px] font-semibold text-muted">
-          <span className="h-px flex-1 bg-line" />
-          atau
-          <span className="h-px flex-1 bg-line" />
-        </div>
+        <PemisahAtau />
 
         {/* jalur kedua — lebih jarang: mendirikan sekolah baru di sistem */}
-        <button
+        <PilihanPeran
+          ikon="sekolah"
+          warna="ungu"
+          judul="Saya kepala sekolah"
+          sub="Sekolah belum ada — daftarkan untuk pertama kali"
           onClick={() => pilih('kepala')}
           disabled={!!proses}
-          className="flex w-full items-start gap-3.5 rounded-2xl border border-line bg-white p-3.5 text-left disabled:opacity-60"
-        >
-          <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[13px] bg-grape-soft text-grape">
-            <Ikon.rumah size={21} />
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-[14px] font-extrabold">Saya kepala sekolah</span>
-            <span className="mt-0.5 block text-[12.5px] leading-relaxed text-muted">
-              Sekolah Anda belum ada di sistem — daftarkan untuk pertama kali di sini
-            </span>
-          </span>
-          {proses === 'kepala' ? (
-            <span className="mt-1 shrink-0 text-[12px] font-bold text-grape">Membuka…</span>
-          ) : (
-            <Ikon.kembali size={18} className="mt-1 shrink-0 rotate-180 text-[#C3CDDC]" />
-          )}
-        </button>
+          proses={proses === 'kepala'}
+        />
 
         {galat && (
-          <p className="mt-4 rounded-xl bg-danger-soft px-3.5 py-2.5 text-center text-[13px] font-semibold text-danger">
-            {galat}
-          </p>
+          <p className="rounded-xl bg-danger-soft px-3.5 py-2.5 text-center text-[13px] font-semibold text-danger">{galat}</p>
         )}
-      </div>
-    </div>
+
+        <p className="flex items-center justify-center gap-2 text-[12px] font-bold text-[#4A5570] dark:text-muted">
+          <IkonGoogle size={15} />Setelah memilih, Anda masuk dengan akun Google
+        </p>
+      </KartuMasuk>
+    </LatarMasuk>
   )
 }

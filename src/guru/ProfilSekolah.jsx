@@ -6,7 +6,7 @@
  */
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Ikon, Kosong, PageHead } from '../components/ui.jsx'
+import { Ikon, KepalaHalaman, Kosong } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import * as api from '../lib/api.js'
 import EditorTtd, { EditorLogo } from '../components/EditorTtd.jsx'
@@ -136,15 +136,9 @@ export default function ProfilSekolah() {
 
   return (
     <>
-      <div className="flex items-center gap-3 pb-1.5 pt-2.5 lg:hidden">
-        <button className="grid h-[38px] w-[38px] place-items-center rounded-xl bg-white border border-line" onClick={() => nav(-1)}>
-          <Ikon.kembali size={18} />
-        </button>
-        <h2 className="text-[17px] font-extrabold">Profil sekolah</h2>
-      </div>
-      <PageHead judul="Profil sekolah" sub="Identitas sekolah dan rekening yang dilihat orang tua di portal" />
+      <KepalaHalaman judul="Profil sekolah" gambar="sekolah" kembali={() => nav(-1)} sub="Identitas sekolah dan rekening yang dilihat orang tua di portal" />
 
-      <div className="card mb-4 lg:mt-4 lg:max-w-lg">
+      <div className="card mb-4 lg:max-w-lg">
         <label className="mb-1.5 block text-[13px] font-bold">Nama sekolah</label>
         <input className="field-input mb-3.5" value={nama} onChange={(e) => setNama(e.target.value)} placeholder="contoh: TK Islam Al-Falah" />
         <label className="mb-1.5 block text-[13px] font-bold">Nama kepala sekolah</label>

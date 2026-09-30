@@ -1,6 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
-import { Shell, Toast, Ikon, Muat, Sidebar, SidebarBrand, NavLabel, NavItem, TabEmoji, TombolTema } from '../components/ui.jsx'
+import {
+  Shell, Toast, Ikon, Muat, Sidebar, MerekSidebar, NavLabel, NavItem, TabEmoji, TombolTema,
+  KakiRumput, LogoSekolah, Sheet,
+} from '../components/ui.jsx'
+import { bulanBerjalan, perluDitagihSekarang } from '../lib/format.js'
 import { useData } from '../lib/store.jsx'
 import { AvatarStaf } from '../components/Avatar.jsx'
 import { useAuth } from '../lib/auth.jsx'
@@ -78,47 +82,57 @@ export default function GuruApp() {
   // SAKU (asisten AI) punya tata letak sendiri (kolom ketik menempel di bawah),
   // jadi tidak dibungkus area gulir biasa.
   const halamanAI = ada('ai') && /\/tanya-ai\/?$/.test(pathname)
+  // Kartu pembayaran siswa punya bilah atas sendiri (tombol kembali + Ubah).
+  const halamanDetail = /\/siswa\/[^/]+\/?$/.test(pathname)
 
   return (
     // .teks-jelas: teks keterangan abu-abu dibuat hitam (lihat src/index.css)
-    <div className="teks-jelas">
+    // .panel-ceria: gaya "ceria" (langit, kartu bulat, tombol permen) khusus panel sekolah
+    <div className="teks-jelas panel-ceria">
     <Shell
+      ceria
       sidebar={<SisiKiri aktif={halaman} nav={nav} menu={menu} buka={() => bukaCatat()} terkunci={terkunci} bisaCatat={bisaCatat} peran={peran} />}
-      tabbar={<TabBar tab={tab} aktif={tabAktif} nav={nav} buka={() => bukaCatat()} terkunci={terkunci} />}
+      tabbar={<TabBar tab={tab} aktif={tabAktif} nav={nav} buka={() => bukaCatat()} terkunci={terkunci} tumpang={!halamanAI} />}
     >
       {halamanAI ? <TanyaAI /> : (
-      <div className="noscroll flex-1 overflow-y-auto overscroll-contain px-[18px] pb-6 lg:px-8 lg:pb-10">
-       <div className="mx-auto w-full lg:max-w-[1180px] 2xl:max-w-[1320px]">
-        <SpandukLangganan pengaturan={pengaturan} />
-        <Routes>
-          <Route index element={<Beranda onCatat={(siswaId) => bukaCatat(siswaId)} />} />
-          <Route path="lainnya" element={<Lainnya />} />
-          <Route path="profil-akun" element={<ProfilAkun />} />
+      <AreaGulir pathname={pathname}>
+        {/* Isi setinggi layar minimal (flex kolom) → rumput selalu menempel di
+            dasar layar/isi. Tidak ada padding bawah sama sekali. */}
+        <div className="flex min-h-full flex-col">
+          <div className="mx-auto w-full px-[18px] pt-3.5 lg:max-w-[1244px] lg:px-8 lg:pt-0 2xl:max-w-[1384px]">
+            {!halamanDetail && <BilahAtasHp nav={nav} bolehTagihan={ada('tagihan')} />}
+            <SpandukLangganan pengaturan={pengaturan} />
+            <Routes>
+              <Route index element={<Beranda onCatat={(siswaId) => bukaCatat(siswaId)} onTambahSiswa={boleh('siswa') ? bukaTambahSiswa : undefined} />} />
+              <Route path="lainnya" element={<Lainnya />} />
+              <Route path="profil-akun" element={<ProfilAkun />} />
 
-          {/* Rute dikunci sesuai hak akses — bukan cuma disembunyikan di menu.
-              Kalau URL-nya diketik langsung, dilempar balik ke beranda. */}
-          {ada('siswa') && (
-            <Route path="siswa" element={<DaftarSiswa onTambah={bukaTambahSiswa} onUbah={(siswaId) => setFormSiswa({ siswaId })} terkunci={terkunci} />} />
-          )}
-          {ada('siswa') && (
-            <Route
-              path="siswa/:id"
-              element={<DetailSiswa onCatat={(siswaId) => bukaCatat(siswaId)} onUbah={(siswaId) => setFormSiswa({ siswaId })} />}
-            />
-          )}
-          {ada('tagihan') && <Route path="tagihan" element={<Tagihan />} />}
-          {ada('pembayaran') && <Route path="pembayaran" element={<RiwayatBayar />} />}
-          {ada('laporan') && <Route path="laporan" element={<Laporan />} />}
-          {ada('kas') && <Route path="kas" element={<Kas />} />}
-          {ada('biaya') && <Route path="biaya" element={<JenisBiaya />} />}
-          {ada('kode-aktivasi') && <Route path="kode-aktivasi" element={<KodeAktivasi />} />}
-          {ada('profil-sekolah') && <Route path="profil-sekolah" element={<ProfilSekolah />} />}
-          {ada('langganan') && <Route path="langganan" element={<Langganan />} />}
+              {/* Rute dikunci sesuai hak akses — bukan cuma disembunyikan di menu.
+                  Kalau URL-nya diketik langsung, dilempar balik ke beranda. */}
+              {ada('siswa') && (
+                <Route path="siswa" element={<DaftarSiswa onTambah={bukaTambahSiswa} onUbah={(siswaId) => setFormSiswa({ siswaId })} terkunci={terkunci} />} />
+              )}
+              {ada('siswa') && (
+                <Route
+                  path="siswa/:id"
+                  element={<DetailSiswa onCatat={(siswaId) => bukaCatat(siswaId)} onUbah={(siswaId) => setFormSiswa({ siswaId })} />}
+                />
+              )}
+              {ada('tagihan') && <Route path="tagihan" element={<Tagihan />} />}
+              {ada('pembayaran') && <Route path="pembayaran" element={<RiwayatBayar />} />}
+              {ada('laporan') && <Route path="laporan" element={<Laporan />} />}
+              {ada('kas') && <Route path="kas" element={<Kas />} />}
+              {ada('biaya') && <Route path="biaya" element={<JenisBiaya />} />}
+              {ada('kode-aktivasi') && <Route path="kode-aktivasi" element={<KodeAktivasi />} />}
+              {ada('profil-sekolah') && <Route path="profil-sekolah" element={<ProfilSekolah />} />}
+              {ada('langganan') && <Route path="langganan" element={<Langganan />} />}
 
-          <Route path="*" element={<Navigate to="/guru" replace />} />
-        </Routes>
-       </div>
-      </div>
+              <Route path="*" element={<Navigate to="/guru" replace />} />
+            </Routes>
+          </div>
+          <KakiRumput className="mt-auto" />
+        </div>
+      </AreaGulir>
       )}
       {bisaCatat && <SheetCatat buka={!!catat} awal={catat} tutup={() => setCatat(null)} />}
       {boleh('siswa') && (
@@ -135,15 +149,93 @@ export default function GuruApp() {
   )
 }
 
-/** Navigasi kiri, hanya tampil mulai lebar 1024px. */
+/** Area gulir halaman (langit ikut tergulir). Kembali ke atas saat pindah halaman. */
+function AreaGulir({ pathname, children }) {
+  const ref = useRef(null)
+  useEffect(() => {
+    if (ref.current) ref.current.scrollTop = 0
+  }, [pathname])
+  return (
+    <div ref={ref} className="langit-gulir noscroll flex-1 overflow-y-auto overscroll-contain">
+      {children}
+    </div>
+  )
+}
+
+/**
+ * Bilah atas di HP: logo + nama sekolah (ketuk → menu sekolah) dan lonceng
+ * jumlah siswa yang perlu ditagih.
+ */
+function BilahAtasHp({ nav, bolehTagihan }) {
+  const { pengaturan, siswa, petugas, peran, boleh, segarkan, toast, modeDemo } = useData()
+  const { keluar } = useAuth()
+  const [menu, setMenu] = useState(false)
+  const kini = bulanBerjalan()
+  const lihatTagih = boleh('pembayaran', 'lihat') || boleh('siswa', 'lihat')
+  const jumlahTagih = useMemo(
+    () => (lihatTagih ? siswa.filter((s) => perluDitagihSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)).length : 0),
+    [lihatTagih, siswa, pengaturan, kini],
+  )
+  const lonceng = () => {
+    toast(jumlahTagih ? `${jumlahTagih} siswa perlu ditagih` : 'Tidak ada SPP yang lewat jatuh tempo')
+    if (jumlahTagih && bolehTagihan) nav('/guru/tagihan')
+  }
+  const tujuanAtur = boleh('sekolah') ? '/guru/profil-sekolah' : boleh('biaya', 'lihat') ? '/guru/biaya' : '/guru/lainnya'
+
+  return (
+    <header className="relative z-[3] mb-1.5 flex items-center gap-2.5 lg:hidden">
+      <button type="button" onClick={() => setMenu(true)} aria-label="Menu sekolah" className="flex min-w-0 flex-1 items-center gap-2.5 text-left">
+        <LogoSekolah logo={pengaturan.logo} ukuran={42} className="shadow-[inset_0_-3px_0_#E3E9F4,0_4px_12px_rgba(27,37,89,.08)]" />
+        <span className="min-w-0">
+          <b className="judul-halaman line-clamp-1 block text-[15px] font-extrabold leading-tight">{pengaturan.namaSekolah}</b>
+          <span className="sub-halaman block truncate text-[12px] font-bold">
+            {labelPeran(peran)}{petugas ? ` · ${petugas}` : ''}
+          </span>
+        </span>
+      </button>
+      {lihatTagih && (
+        <button
+          type="button"
+          onClick={lonceng}
+          aria-label={`${jumlahTagih} siswa perlu ditagih`}
+          className="tombol-bilah relative grid h-10 w-10 shrink-0 place-items-center rounded-[14px] active:scale-95"
+        >
+          <Ikon.lonceng size={20} />
+          {jumlahTagih > 0 && (
+            <span className="absolute -right-1.5 -top-1.5 grid h-[19px] min-w-[19px] place-items-center rounded-[10px] border-2 border-white bg-danger px-1 text-[10px] font-bold text-white dark:border-[#16264D]">
+              {jumlahTagih}
+            </span>
+          )}
+        </button>
+      )}
+
+      <Sheet buka={menu} tutup={() => setMenu(false)} judul={pengaturan.namaSekolah} lead={pengaturan.alamat || `Tahun ajaran ${pengaturan.tahunAjaran}`}>
+        <button className="bigbtn-ghost mb-2.5" onClick={() => { setMenu(false); nav(tujuanAtur) }}>
+          {boleh('sekolah') ? 'Profil sekolah' : boleh('biaya', 'lihat') ? 'Pengaturan jenis biaya' : 'Menu lainnya'}
+        </button>
+        <button className="bigbtn-ghost mb-2.5" onClick={() => { setMenu(false); segarkan(); toast('Data disegarkan') }}>
+          Muat ulang data
+        </button>
+        {!modeDemo && (
+          <button className="w-full rounded-2xl bg-danger-soft py-3.5 text-[15px] font-extrabold text-danger" onClick={keluar}>
+            Keluar
+          </button>
+        )}
+        {modeDemo && <p className="pt-1 text-center text-[12px] text-muted">Mode demo — belum tersambung ke Supabase.</p>}
+      </Sheet>
+    </header>
+  )
+}
+
+/** Navigasi kiri (kartu melayang), hanya tampil mulai lebar 1024px. */
 function SisiKiri({ aktif, nav, menu, buka, terkunci, bisaCatat, peran }) {
   const { pengaturan, petugas, avatarSaya, modeDemo, boleh } = useData()
   const { keluar } = useAuth()
   const utama = menu.filter((m) => m.grup === 'menu')
   const atur = menu.filter((m) => m.grup === 'atur')
   return (
-    <Sidebar>
-      <SidebarBrand logo={pengaturan.logo} nama={pengaturan.namaSekolah} sub={pengaturan.alamat || (boleh('sekolah') ? 'Lengkapi alamat di Profil sekolah' : 'Panel sekolah')} />
+    <Sidebar ceria>
+      <MerekSidebar logo={pengaturan.logo} nama={pengaturan.namaSekolah} sub={pengaturan.alamat || (boleh('sekolah') ? 'Lengkapi alamat di Profil sekolah' : 'Panel sekolah')} />
 
       <NavLabel>Menu</NavLabel>
       {utama.map((m) => (
@@ -162,8 +254,8 @@ function SisiKiri({ aktif, nav, menu, buka, terkunci, bisaCatat, peran }) {
         <button
           onClick={buka}
           title={terkunci ? 'Terkunci sampai langganan diperpanjang' : undefined}
-          className={`mt-3 flex items-center justify-center gap-2 rounded-[14px] py-3 text-[13.5px] font-extrabold active:scale-[.98] ${
-            terkunci ? 'bg-[#F1F4F9] text-muted' : 'bg-brand text-white'
+          className={`mt-3 flex shrink-0 items-center justify-center gap-2 rounded-[16px] py-3 text-[13.5px] font-extrabold transition active:translate-y-px ${
+            terkunci ? 'bg-isi text-muted' : 'bg-brand text-white'
           }`}
         >
           {terkunci ? <Ikon.jam size={18} /> : <Ikon.plus size={18} />}
@@ -171,7 +263,7 @@ function SisiKiri({ aktif, nav, menu, buka, terkunci, bisaCatat, peran }) {
         </button>
       )}
 
-      <div className="mt-auto border-t border-line px-1 pt-3">
+      <div className="mt-auto border-t-[1.5px] border-dashed border-line px-1 pt-3">
         <button onClick={() => nav('/guru/profil-akun')} title="Profil akun" className="flex w-full items-center gap-2.5 rounded-xl p-1 text-left hover:bg-isi">
           <AvatarStaf nama={petugas} avatar={avatarSaya} size={38} />
           <span className="min-w-0 flex-1">
@@ -193,17 +285,18 @@ function SisiKiri({ aktif, nav, menu, buka, terkunci, bisaCatat, peran }) {
 }
 
 /**
- * Bottom nav mobile — baris rata sederhana, TIDAK ADA elemen melayang
- * atau absolute-positioned sama sekali (sengaja, supaya tidak pernah
- * muncul artefak tombol "nyangkut" di tengah nav seperti yang pernah
- * terjadi). "Bayar" jadi salah satu item biasa, sejajar dengan tab lain.
+ * Bottom nav HP — baris rata sederhana, TIDAK ADA elemen melayang atau
+ * absolute-positioned (sengaja, supaya tidak pernah muncul artefak tombol
+ * "nyangkut" di tengah nav). "Bayar" jadi salah satu item biasa.
+ * `tumpang`: nav sedikit menutupi ujung bawah area gulir (rumput penutup
+ * halaman terlihat menerus di balik sudut nav yang membulat).
  */
-function TabBar({ tab, aktif, nav, buka, terkunci }) {
+function TabBar({ tab, aktif, nav, buka, terkunci, tumpang }) {
   return (
-    <nav className="flex shrink-0 items-stretch border-t border-line bg-white px-1 pb-[calc(8px+env(safe-area-inset-bottom))] pt-1.5 lg:hidden">
+    <nav className={`bilah-tab relative z-10 flex shrink-0 items-stretch rounded-t-[22px] px-2 pb-[calc(10px+env(safe-area-inset-bottom))] pt-2 lg:hidden ${tumpang ? '-mt-5' : ''}`}>
       {tab.map((t) => (
         t.catat
-          ? <TabEmoji key={t.id} id={t.emoji} label={t.label} onClick={buka} redup={terkunci} />
+          ? <TabEmoji key={t.id} id={t.emoji} label={t.label} onClick={buka} redup={terkunci} catat />
           : <TabEmoji key={t.id} id={t.emoji} label={t.label} aktif={aktif === t.id} onClick={() => nav(t.ke)} />
       ))}
       <TabEmoji id="lainnya" label="Lainnya" aktif={aktif === 'lainnya'} onClick={() => nav('/guru/lainnya')} />

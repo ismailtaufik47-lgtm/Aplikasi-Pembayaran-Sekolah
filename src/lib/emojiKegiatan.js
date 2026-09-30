@@ -63,12 +63,12 @@ export function tebakEmoji(nama = '') {
 /** Emoji yang dipakai untuk satu jenis biaya: pilihan manual, kalau tidak ada → tebakan. */
 export const emojiKegiatan = (b) => (b && b.emoji) || tebakEmoji(b?.nama)
 
-/** Pilihan untuk pemilih emoji manual. */
+/** Pilihan untuk pemilih gambar manual (di layar tampil sebagai gambar, lihat GambarKegiatan). */
 export const PILIHAN_EMOJI = [
   '🕋', '🕌', '🌙', '🤲', '🐑', '🏕️', '🚌', '🏊',
   '🏅', '🎭', '🥁', '🎨', '🎓', '📸', '📝', '👕',
   '📚', '🍱', '🩺', '🛡️', '🇮🇩', '👗', '🎉',
-  '⭐', '💰', '🏫', '🎈', '🧸', '🌳', '🚒', '🍎',
+  '⭐', '💰', '🏫', '🎈', '🧸', '🌳', '🚒', '🍎', '🐷',
 ]
 
 export const FONT_EMOJI = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', lineHeight: 1 }

@@ -53,7 +53,7 @@ export default function SpandukLangganan({ pengaturan }) {
     }[alasan]
     const kelasTombol = 'mt-3 block w-full rounded-xl bg-danger py-2.5 text-center text-[13px] font-extrabold text-white active:scale-[.98]'
     return (
-      <div className="mt-3 rounded-2xl border border-danger/30 bg-danger-soft px-3.5 py-3.5 lg:mt-5">
+      <div className="relative z-[2] mb-3 mt-1 rounded-[18px] bg-danger-soft px-3.5 py-3.5 shadow-[inset_0_-3px_0_rgba(239,68,68,.22)] lg:mb-0 lg:mt-5">
         <div className="flex items-start gap-3">
           <span className="grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/70 text-danger">
             <Ikon.peringatan size={18} />
@@ -84,24 +84,16 @@ export default function SpandukLangganan({ pengaturan }) {
   const sisa = Math.max(0, l.sisaHari)
   const mendesak = sisa <= 3
 
-  const warna = trial
-    ? mendesak
-      ? 'border-warn/40 bg-warn-soft'
-      : 'border-brand/25 bg-brand-soft'
-    : 'border-warn/40 bg-warn-soft'
-
-  const teksWarna = trial && !mendesak ? 'text-brand' : 'text-warn-deep'
-
   return (
     <button
       onClick={() => bisaBayar && nav('/guru/langganan')}
-      className={`mt-3 flex w-full items-center gap-3 rounded-2xl border ${warna} px-3.5 py-3 text-left lg:mt-5`}
+      className="spanduk-kuning relative z-[2] mb-3 mt-1 flex w-full items-center gap-2.5 rounded-[18px] py-2.5 pl-3 pr-2.5 text-left lg:mb-0 lg:mt-5"
     >
-      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full bg-white/70 ${teksWarna}`}>
+      <span className="permen permen-kecil permen-kuning grid h-[34px] w-[34px] shrink-0 place-items-center rounded-[11px]">
         {trial ? <Ikon.jam size={18} /> : <Ikon.peringatan size={18} />}
       </span>
-      <span className="min-w-0 flex-1">
-        <b className={`block text-[13.5px] font-extrabold ${teksWarna}`}>
+      <span className="min-w-0 flex-1 leading-snug">
+        <b className="block text-[13px] font-extrabold">
           {trial
             ? sisa === 0
               ? 'Masa uji coba berakhir hari ini'
@@ -110,15 +102,17 @@ export default function SpandukLangganan({ pengaturan }) {
               ? 'Langganan berakhir hari ini'
               : `Langganan berakhir dalam ${sisa} hari`}
         </b>
-        <span className="block truncate text-[12px] font-semibold text-muted">
+        <span className="hidden truncate text-[12px] font-semibold sm:block">
           {trial
             ? 'Berlangganan agar semua fitur tetap aktif setelah masa uji coba.'
             : 'Perpanjang sekarang supaya tidak terputus.'}
         </span>
       </span>
-      <span className={`shrink-0 rounded-pill px-3 py-1.5 text-[12px] font-extrabold text-white ${mendesak || !trial ? 'bg-warn' : 'bg-brand'}`}>
-        Langganan
-      </span>
+      {bisaBayar && (
+        <span className={`shrink-0 rounded-[12px] px-3 py-2 text-[12px] font-extrabold text-white ${mendesak || !trial ? 'bg-warn shadow-[inset_0_-3px_0_#D98A0B]' : 'bg-brand shadow-[inset_0_-3px_0_#2A55CC]'}`}>
+          Langganan
+        </span>
+      )}
     </button>
   )
 }

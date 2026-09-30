@@ -8,6 +8,8 @@ export default {
     extend: {
       fontFamily: {
         sans: ['"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
+        // judul & tulisan merek Kasceria (layar masuk, verifikasi)
+        display: ['Fredoka', '"Plus Jakarta Sans"', 'system-ui', 'sans-serif'],
       },
       // Warna yang berubah di mode gelap diambil dari variabel CSS
       // (lihat :root dan .dark di src/index.css). Format "r g b" supaya

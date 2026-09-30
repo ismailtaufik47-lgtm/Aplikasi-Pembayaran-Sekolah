@@ -1,6 +1,7 @@
 /**
- * Avatar siswa — gaya emoji, disamakan dengan aplikasi tabungan siswa
- * supaya kedua aplikasi terasa satu keluarga.
+ * Avatar siswa — gambar wajah anak (ilustrasi Kasceria, lihat Gambar.jsx).
+ * Nomor avatar 0–5 per jenis kelamin SAMA dengan versi emoji lama, jadi
+ * data avatar yang sudah tersimpan tetap cocok tanpa mengubah database.
  *
  * Tiga tingkat prioritas:
  *   1. `foto`  — kalau sekolah mengunggah foto siswa, foto itu yang dipakai
@@ -9,7 +10,9 @@
  *                jadi satu anak selalu tampil sama di semua halaman
  */
 import { useState } from 'react'
+import { WajahSiswa, WajahStaf } from './Gambar.jsx'
 
+/** Emoji lama (masih dipakai sebagai teks cadangan, mis. di pesan WA). */
 export const AVATAR_L = ['👦🏻', '👦🏼', '👦🏽', '👦🏾', '🧒🏻', '🧒🏽']
 export const AVATAR_P = ['🧕🏻', '🧕🏼', '🧕🏽', '🧕🏾', '👧🏻', '👧🏽']
 
@@ -56,18 +59,12 @@ export default function Avatar({
       role="img"
       aria-label={`Avatar ${nama}`}
       title={nama}
-      style={{
-        width: size,
-        height: size,
-        background: latarAvatar(i),
-        fontSize: Math.round(size * 0.6),
-        lineHeight: 1,
-      }}
-      className={`grid shrink-0 select-none place-items-center rounded-full ${
-        ring ? 'ring-2 ring-white' : ''
+      style={{ width: size, height: size, background: latarAvatar(i) }}
+      className={`block shrink-0 select-none overflow-hidden rounded-full ${
+        ring ? 'ring-2 ring-white' : 'shadow-[inset_0_0_0_2px_rgba(255,255,255,.9)]'
       } ${className}`}
     >
-      {emojiAvatar(jenis, i)}
+      <WajahSiswa jenis={jenis} i={i} className="block h-full w-full" />
     </span>
   )
 }
@@ -94,12 +91,12 @@ export function AvatarStaf({ nama = '', avatar = null, size = 38, className = ''
         width: size,
         height: size,
         background: punya ? latarAvatar(avatar) : '#FFE6EF',
-        fontSize: punya ? Math.round(size * 0.58) : Math.round(size * 0.36),
+        fontSize: Math.round(size * 0.36),
         lineHeight: 1,
       }}
-      className={`grid shrink-0 select-none place-items-center rounded-full ${punya ? '' : 'font-extrabold text-rose'} ${className}`}
+      className={`grid shrink-0 select-none place-items-center overflow-hidden rounded-full ${punya ? '' : 'font-extrabold text-rose'} ${className}`}
     >
-      {punya ? AVATAR_STAF[avatar] : (nama || 'G')[0].toUpperCase()}
+      {punya ? <WajahStaf i={avatar} className="block h-full w-full" /> : (nama || 'G')[0].toUpperCase()}
     </span>
   )
 }

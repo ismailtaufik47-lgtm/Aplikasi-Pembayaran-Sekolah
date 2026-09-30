@@ -13,7 +13,10 @@
  * dimuat ulang) — tidak disimpan ke database.
  */
 import { useEffect, useRef, useState } from 'react'
-import { BtnKecil, EmojiMenu, PageHead } from '../components/ui.jsx'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { BtnKecil } from '../components/ui.jsx'
+import { KoinSaku } from '../components/Gambar.jsx'
+import { Pelangi, Bintang, Bulan } from '../components/IlustrasiMasuk.jsx'
 import TeksAI from '../components/TeksAI.jsx'
 import SpandukLangganan from '../components/Spanduklangganan.jsx'
 import { useData } from '../lib/store.jsx'
@@ -57,10 +60,10 @@ function daftarSaran(bolehKas) {
 const Robot = ({ size = 32, tampil = 'grid' }) => (
   <span
     aria-hidden="true"
-    className={`${tampil} shrink-0 place-items-center rounded-full bg-[#E4F1FF]`}
-    style={{ width: size, height: size, fontSize: Math.round(size * 0.55), ...FONT_EMOJI }}
+    className={`${tampil} shrink-0 place-items-center rounded-[12px] bg-[#EAF0FE] dark:bg-white/10`}
+    style={{ width: size + 4, height: size + 4 }}
   >
-    🤖
+    <KoinSaku style={{ width: size, height: size }} />
   </span>
 )
 
@@ -124,6 +127,18 @@ export default function TanyaAI() {
     }
   }
 
+  // Pertanyaan yang diketik/dipilih di kartu SAKU beranda → langsung dikirim sekali.
+  const lokasi = useLocation()
+  const navigasi = useNavigate()
+  const titipan = useRef(lokasi.state?.tanya || null)
+  useEffect(() => {
+    const q = titipan.current
+    if (!q) return
+    titipan.current = null
+    navigasi(lokasi.pathname, { replace: true, state: null })
+    kirim(q)
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   const pilihSaran = (s) => {
     if (s.tanya) return kirim(s.tanya)
     setTeks(s.isi)
@@ -166,67 +181,64 @@ export default function TanyaAI() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       {/* ---------- area percakapan (yang bergulir) ---------- */}
-      <div className="noscroll flex-1 overflow-y-auto overscroll-contain px-[18px] lg:px-8">
-        <div className="mx-auto w-full lg:max-w-[860px]">
+      <div className="langit-gulir noscroll flex-1 overflow-y-auto overscroll-contain px-[18px] lg:px-8">
+        <div className="relative mx-auto w-full lg:max-w-[860px]">
           <SpandukLangganan pengaturan={pengaturan} />
 
-          <div className="flex items-center gap-3 pb-1.5 pt-2.5 lg:hidden">
-            <EmojiMenu id="ai" size={38} />
+          <div className="relative z-[1] flex items-center gap-2.5 pb-1 pt-3.5 lg:pt-7">
+            {/* hiasan langit */}
+            <div aria-hidden="true" className="pointer-events-none absolute -right-[18px] -top-1 -z-[1] h-[130px] w-[200px] lg:-right-4 lg:top-2">
+              <div className="dark:hidden">
+                <Pelangi className="absolute -right-6 top-3 w-[168px] lg:w-[196px]" />
+              </div>
+              <div className="hidden dark:block">
+                <Bintang className="absolute inset-0 h-full w-full" />
+                <Bulan className="absolute right-5 top-4 w-[42px]" />
+              </div>
+            </div>
+            <Robot size={36} />
             <div className="min-w-0 flex-1 leading-tight">
-              <h2 className="text-[17px] font-extrabold">SAKU</h2>
-              <span className="block text-[11.5px] font-bold text-muted">Sahabat Keuangan Sekolah</span>
+              <h1 className="judul-halaman font-display text-[22px] font-bold lg:text-[26px]">Tanya SAKU</h1>
+              <span className="sub-halaman block text-[12px] font-bold">Sahabat Keuangan Sekolah · siap 24 jam</span>
             </div>
             {!kosong && (
-              <button onClick={baru} className="rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-bold">
-                + Baru
-              </button>
+              <BtnKecil onClick={baru} className="!px-3.5 !py-2 text-[13px]">+ <span className="hidden sm:inline">Percakapan </span>baru</BtnKecil>
             )}
           </div>
-          <PageHead
-            judul="SAKU — Sahabat Keuangan Sekolah"
-            sub="Tanyakan kondisi keuangan sekolah kapan saja — angkanya dihitung langsung dari data aplikasi."
-            aksi={!kosong && <BtnKecil onClick={baru}>+ Percakapan baru</BtnKecil>}
-          />
 
           {kosong ? (
-            <div className="mt-3 animate-fade rounded-card bg-white p-5 shadow-soft lg:mt-5 lg:p-7">
-              <div className="flex items-start gap-3.5">
-                <Robot size={52} />
-                <div className="min-w-0">
-                  <b className="block text-[17px] font-extrabold lg:text-[19px]">👋 Halo, saya SAKU</b>
-                  <span className="block text-[13px] font-extrabold text-brand">Sahabat Keuangan Sekolah</span>
-                  <p className="mt-1.5 text-[14px] font-semibold leading-relaxed">
-                    Saya siap membantu Anda melihat kondisi keuangan {pengaturan.namaSekolah}.
-                  </p>
-                  <p className="mt-1 text-[12.5px] leading-relaxed text-muted">
-                    Asisten digital sekolah, siap membantu 24 jam. Ketik pertanyaan dengan bahasa sehari-hari, atau ketuk contoh di bawah.
-                  </p>
-                </div>
+            <div className="relative z-[1] animate-fade pb-4">
+              <div className="flex flex-col items-center pt-2 text-center">
+                <KoinSaku className="h-[112px] w-[112px] lg:h-[132px] lg:w-[132px]" />
+                <h2 className="judul-halaman mt-2 font-display text-[28px] font-bold leading-tight lg:text-[32px]">Halo, saya SAKU!</h2>
+                <p className="sub-halaman mt-1.5 max-w-[440px] text-[13.5px] font-bold leading-relaxed">
+                  Sahabat Keuangan Sekolah. Tanya apa saja soal {bolehKas ? 'kas, SPP, dan tunggakan' : 'SPP dan tunggakan'} {pengaturan.namaSekolah} — ketik bebas atau ketuk contoh di bawah.
+                </p>
               </div>
               {bolehKas && kas !== false && (
-                <div className="mt-4 rounded-[18px] bg-brand px-4 py-3.5 text-white" style={{ colorScheme: 'light' }}>
-                  <div className="text-[12.5px] font-semibold opacity-90">Saldo kas saat ini</div>
-                  <div className="mt-0.5 break-all text-[26px] font-extrabold leading-tight tracking-tight">
+                <div className="kartu-saldo mx-auto mt-4 max-w-[440px] rounded-[20px] px-4 py-3.5">
+                  <div className="text-[12.5px] font-extrabold opacity-85">Saldo kas saat ini</div>
+                  <div className="mt-0.5 break-all font-display text-[26px] font-bold leading-tight">
                     {kas ? (kas.saldoKini < 0 ? '−' + rp(-kas.saldoKini) : rp(kas.saldoKini)) : '…'}
                   </div>
-                  {kas && !kas.pengaturan && <div className="mt-1 text-[11.5px] font-semibold opacity-90">Saldo awal kas belum diisi — dihitung dari nol</div>}
+                  {kas && !kas.pengaturan && <div className="mt-1 text-[11.5px] font-bold opacity-85">Saldo awal kas belum diisi — dihitung dari nol</div>}
                 </div>
               )}
-              <div className="mb-2 mt-5 text-[12.5px] font-extrabold text-muted">Coba tanyakan:</div>
+              <div className="mb-2 mt-5 text-[12.5px] font-extrabold uppercase tracking-[.06em] text-muted">Coba tanyakan</div>
               <div className="grid gap-2 sm:grid-cols-2">
                 {saran.map((s) => (
                   <button
                     key={s.label}
                     onClick={() => pilihSaran(s)}
                     disabled={terkunci}
-                    className="flex items-center gap-3 rounded-[14px] border border-line px-3.5 py-3 text-left text-[13.5px] font-bold transition hover:border-brand hover:bg-brand-soft/50 active:scale-[.99] disabled:opacity-50"
+                    className="flex items-center gap-3 rounded-[16px] border-[1.5px] border-[#CFE0FF] bg-kartu px-3.5 py-3 text-left text-[13.5px] font-extrabold transition hover:border-brand active:scale-[.99] disabled:opacity-50 dark:border-line"
                   >
                     <span style={{ fontSize: 20, ...FONT_EMOJI }} aria-hidden="true">{s.e}</span>
                     {s.label}
                   </button>
                 ))}
               </div>
-              <div className="mt-5 rounded-[14px] bg-[#F5F6FA] px-4 py-3 text-[12.5px] leading-relaxed text-muted">
+              <div className="mt-5 rounded-[18px] bg-kartu/70 px-4 py-3 text-[12.5px] leading-relaxed text-muted dark:bg-white/5">
                 <b className="text-ink">Contoh pertanyaan bebas:</b> “Yang nunggak lebih dari 2 bulan siapa saja?”,
                 {bolehKas && ' “Uang keluar bulan ini paling banyak untuk apa?”, “Bandingkan pengeluaran 3 bulan terakhir”,'}
                 {' '}“Siapa di kelas B yang belum bayar manasik?”
@@ -238,7 +250,7 @@ export default function TanyaAI() {
               {pesan.map((m) =>
                 m.peran === 'user' ? (
                   <div key={m.id} className="flex animate-fade justify-end">
-                    <div className="max-w-[85%] whitespace-pre-wrap rounded-[18px] rounded-br-[6px] bg-brand px-4 py-2.5 text-[14px] font-semibold text-white">
+                    <div className="max-w-[85%] whitespace-pre-wrap rounded-[20px] rounded-br-[6px] bg-brand px-4 py-2.5 text-[14px] font-bold text-white shadow-[inset_0_-3px_0_#2A55CC]">
                       {m.teks}
                     </div>
                   </div>
@@ -246,7 +258,7 @@ export default function TanyaAI() {
                   <div key={m.id} className="flex animate-fade items-start gap-2.5">
                     <Robot tampil="hidden sm:grid" />
                     <div
-                      className={`min-w-0 max-w-full rounded-[18px] sm:max-w-[calc(100%-42px)] rounded-tl-[6px] px-3.5 py-3 sm:px-4 shadow-soft ${
+                      className={`min-w-0 max-w-full rounded-[20px] sm:max-w-[calc(100%-42px)] rounded-tl-[6px] px-3.5 py-3 sm:px-4 shadow-[0_8px_24px_rgba(30,64,140,.08)] ${
                         m.galat ? 'bg-danger-soft text-danger' : 'bg-white'
                       }`}
                     >
@@ -295,7 +307,7 @@ export default function TanyaAI() {
       </div>
 
       {/* ---------- kolom ketik (menempel di bawah) ---------- */}
-      <div className="shrink-0 border-t border-line bg-canvas px-[18px] pb-2.5 pt-2 lg:px-8 lg:pb-4">
+      <div className="shrink-0 bg-canvas px-[18px] pb-2.5 pt-2 lg:px-8 lg:pb-4">
         <div className="mx-auto w-full lg:max-w-[860px]">
           {!kosong && !terkunci && (
             <div className="noscroll -mx-[18px] mb-2 flex gap-2 overflow-x-auto px-[18px] lg:mx-0 lg:px-0">
@@ -304,7 +316,7 @@ export default function TanyaAI() {
                   key={s.label}
                   onClick={() => pilihSaran(s)}
                   disabled={sibuk}
-                  className="flex shrink-0 items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-bold transition hover:border-brand disabled:opacity-50"
+                  className="flex shrink-0 items-center gap-1.5 rounded-full border-[1.5px] border-[#CFE0FF] bg-white px-3 py-1.5 text-[12.5px] font-extrabold transition hover:border-brand disabled:opacity-50 dark:border-line"
                 >
                   <span style={FONT_EMOJI} aria-hidden="true">{s.e}</span>
                   {s.label}
@@ -317,7 +329,7 @@ export default function TanyaAI() {
               e.preventDefault()
               kirim()
             }}
-            className="flex items-end gap-2 rounded-[20px] border border-line bg-white p-1.5 pl-4 shadow-soft focus-within:border-brand"
+            className="flex items-end gap-2 rounded-[22px] border-[1.5px] border-[#DCE6F4] bg-white p-1.5 pl-4 shadow-[0_8px_24px_rgba(30,64,140,.08)] focus-within:border-brand dark:border-line"
           >
             <textarea
               ref={input}
@@ -343,7 +355,7 @@ export default function TanyaAI() {
               type="submit"
               aria-label="Kirim"
               disabled={!teks.trim() || sibuk || terkunci}
-              className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-brand text-white transition active:scale-95 disabled:bg-[#C9D3EA]"
+              className="grid h-11 w-11 shrink-0 place-items-center rounded-[15px] bg-brand text-white transition active:translate-y-px disabled:bg-[#C9D3EA] disabled:!shadow-none"
             >
               <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M5 12h14M13 6l6 6-6 6" />

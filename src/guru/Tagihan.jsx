@@ -14,7 +14,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Avatar from '../components/Avatar.jsx'
-import { Chip, Ikon, IkonWhatsapp, IkonWhatsappPolos, Kosong, PageHead, Sheet } from '../components/ui.jsx'
+import { BtnKecil, Chip, Ikon, IkonWhatsapp, IkonWhatsappPolos, KepalaHalaman, KolomCari, Kosong, Sheet } from '../components/ui.jsx'
+import { GambarKegiatan } from '../components/Gambar.jsx'
+import { BintangWajah, Matahari } from '../components/IlustrasiMasuk.jsx'
 import SheetPeriode from './SheetPeriode.jsx'
 import { useData } from '../lib/store.jsx'
 import { emojiKegiatan } from '../lib/emojiKegiatan.js'
@@ -200,27 +202,22 @@ export default function Tagihan() {
 
   return (
     <>
-      <h1 className="pb-1.5 pt-3.5 text-xl font-extrabold lg:hidden">Tagihan</h1>
-      <PageHead judul="Tagihan" sub="Semua tagihan SPP dan kegiatan dalam satu daftar" />
+      <KepalaHalaman
+        judul="Tagihan"
+        gambar="koin"
+        sub={`SPP & biaya kegiatan tahun ajaran ${pengaturan.tahunAjaran || ''}`.trim()}
+      />
 
-      {/* ---------- ringkasan ---------- */}
-      <div className="mt-1 flex flex-wrap gap-2.5 pb-1.5 pt-1">
-        <Pil ikon={<Ikon.nota size={15} />} warna="bg-brand-soft text-brand">{ringkasan.total} Total</Pil>
-        <Pil ikon={<Ikon.cek size={15} />} warna="bg-ok-soft text-ok">{ringkasan.lunas} Lunas</Pil>
-        <Pil ikon={<Ikon.jam size={15} />} warna="bg-warn-soft text-warn">{ringkasan.belum} Belum</Pil>
-        <Pil ikon={<Ikon.jam size={15} />} warna="bg-brand-soft text-brand">{ringkasan.sebagian} Sebagian</Pil>
+      {/* ---------- ringkasan (ubin permen) ---------- */}
+      <div className="grid grid-cols-4 gap-2 lg:max-w-[640px] lg:gap-3">
+        <AngkaPermen warna="biru" nilai={ringkasan.total} label="Semua" />
+        <AngkaPermen warna="tosca" nilai={ringkasan.lunas} label="Lunas" />
+        <AngkaPermen warna="pink" nilai={ringkasan.belum} label="Belum" />
+        <AngkaPermen warna="kuning" nilai={ringkasan.sebagian} label="Sebagian" />
       </div>
 
       {/* ---------- pencarian ---------- */}
-      <div className="mt-3 flex items-center gap-2.5 rounded-2xl bg-white px-3.5 py-3 shadow-soft">
-        <span className="text-muted"><Ikon.cari size={18} /></span>
-        <input
-          value={cari}
-          onChange={(e) => setCari(e.target.value)}
-          placeholder="Cari nomor tagihan atau nama siswa…"
-          className="flex-1 bg-transparent font-medium outline-none"
-        />
-      </div>
+      <KolomCari nilai={cari} ubah={setCari} placeholder="Cari nomor tagihan atau nama siswa…" className="mt-3.5 lg:max-w-md" />
 
       {/* ---------- filter dropdown (kiri) + aksi utama (kanan), sejajar
           satu baris — ini yang tadinya jadi ruang kosong menganga ---------- */}
@@ -254,34 +251,26 @@ export default function Tagihan() {
           />
         </div>
 
-        <div className="flex flex-wrap gap-2.5">
+        <div className="noscroll -mx-[18px] flex w-[calc(100%+36px)] gap-2.5 overflow-x-auto px-[18px] pb-1 lg:mx-0 lg:w-auto lg:flex-wrap lg:overflow-visible lg:px-0 lg:pb-0">
           {boleh('biaya') && (
-            <button
-              className="whitespace-nowrap rounded-2xl bg-brand px-4 py-2.5 text-[13px] font-extrabold text-white"
-              onClick={() => setFormBiaya(true)}
-            >
-              + Buat Tagihan
-            </button>
+            <BtnKecil utama onClick={() => setFormBiaya(true)}>
+              <Ikon.plus size={16} />
+              Buat tagihan
+            </BtnKecil>
           )}
-          <button
-            className="whitespace-nowrap rounded-2xl border border-line bg-white px-4 py-2.5 text-[13px] font-extrabold text-brand"
-            onClick={() => setMassal(true)}
-          >
-            Tagihan Massal
-          </button>
-          <button
-            className="flex items-center justify-center gap-1.5 whitespace-nowrap rounded-2xl border border-line bg-white px-4 py-2.5 text-[13px] font-extrabold text-ok-deep disabled:opacity-60"
-            onClick={eksporExcel}
-            disabled={mengekspor}
-          >
-            <Ikon.dokumen size={15} />
+          <BtnKecil onClick={() => setMassal(true)}>
+            <IkonWhatsapp size={17} />
+            Tagihan massal
+          </BtnKecil>
+          <BtnKecil onClick={eksporExcel} disabled={mengekspor}>
+            <Ikon.excel size={16} className="text-ok-deep" />
             {mengekspor ? 'Membuat…' : 'Export Excel'}
-          </button>
+          </BtnKecil>
         </div>
       </div>
 
       {/* ---------- tabel ---------- */}
-      <div className="mt-3 overflow-hidden rounded-card bg-white shadow-soft">
+      <div className="card mt-3 overflow-hidden !p-0">
         {hasil.length === 0 ? (
           <div className="p-5"><Kosong>Tidak ada tagihan yang cocok dengan filter ini.</Kosong></div>
         ) : (
@@ -313,7 +302,7 @@ export default function Tagihan() {
             </table>
             </div>
             {/* mobile: kartu */}
-            <div className="lg:hidden">
+            <div className="px-3.5 lg:hidden">
               {hasil.slice(0, 150).map((t) => (
                 <BarisMobile key={t.id} t={t} nav={nav} kirimWa={kirimWa} bisaCatat={bisaCatat} onCatat={() => setPeriode({ siswaId: t.siswaId, jenis: t.jenis, indeks: t.indeks })} />
               ))}
@@ -327,12 +316,12 @@ export default function Tagihan() {
         )}
       </div>
 
-      <div className="mt-6 flex items-center justify-center gap-3 rounded-card bg-warn-soft px-5 py-4">
-        <span className="text-xl">☀️</span>
-        <p className="text-center text-[12.5px] font-semibold text-warn-deep">
-          ❤️ Bersama kita wujudkan sekolah yang ceria, sehat dan berprestasi ❤️
+      <div className="spanduk-kuning mt-5 flex items-center justify-center gap-3 rounded-[20px] px-4 py-3">
+        <Matahari className="h-9 w-9 shrink-0" />
+        <p className="text-center text-[12.5px] font-bold">
+          Bersama kita wujudkan sekolah yang ceria, sehat dan berprestasi
         </p>
-        <span className="text-xl">☀️</span>
+        <BintangWajah className="h-9 w-9 shrink-0" />
       </div>
 
       <SheetPeriode
@@ -364,7 +353,12 @@ function BarisDesktop({ t, nav, kirimWa, onCatat, bisaCatat }) {
           </span>
         </div>
       </td>
-      <td className="whitespace-nowrap px-2.5 py-3">{t.emoji && <span className="mr-1">{t.emoji}</span>}{t.labelJenis}</td>
+      <td className="whitespace-nowrap px-2.5 py-3">
+        <span className="flex items-center gap-2">
+          {t.emoji && <GambarKegiatan emoji={t.emoji} size={26} className="rounded-[9px]" />}
+          {t.labelJenis}
+        </span>
+      </td>
       <td className="whitespace-nowrap px-2.5 py-3 text-muted">{t.jatuhTempo || '—'}</td>
       <td className="whitespace-nowrap px-2.5 py-3 font-semibold">{rp(t.target)}</td>
       <td className={`whitespace-nowrap px-2.5 py-3 font-semibold ${t.sisa > 0 ? 'text-danger' : 'text-muted'}`}>{rp(t.sisa)}</td>
@@ -396,7 +390,10 @@ function BarisMobile({ t, nav, kirimWa, onCatat, bisaCatat }) {
           <span className="truncate text-[14.5px] font-bold">{t.nama}</span>
           <Chip warna={b.warna}>{b.teks}</Chip>
         </div>
-        <div className="mt-0.5 truncate text-xs text-muted">{t.emoji ? `${t.emoji} ` : ''}{t.labelJenis} · {t.kelas} · {t.no}</div>
+        <div className="mt-0.5 flex items-center gap-1.5 text-xs text-muted">
+          {t.emoji && <GambarKegiatan emoji={t.emoji} size={18} latar={false} />}
+          <span className="truncate">{t.labelJenis} · {t.kelas} · {t.no}</span>
+        </div>
         <div className="mt-1.5 flex items-center justify-between">
           <span className={`text-[13.5px] font-extrabold ${t.sisa > 0 ? 'text-danger' : 'text-ok-deep'}`}>
             {t.sisa > 0 ? `Sisa ${rp(t.sisa)}` : `Dibayar ${rp(t.dibayar)}`}
@@ -506,10 +503,12 @@ function SheetBuatTagihan({ buka, tutup }) {
   )
 }
 
-const Pil = ({ ikon, warna, children }) => (
-  <span className={`flex shrink-0 items-center gap-1.5 rounded-pill px-3 py-2 text-[12.5px] font-bold ${warna}`}>
-    {ikon}{children}
-  </span>
+/** Ubin angka ringkasan (permen): angka besar + label. */
+const AngkaPermen = ({ warna, nilai, label }) => (
+  <div className={`permen permen-${warna} flex flex-col items-center justify-center rounded-[18px] px-1 pb-3 pt-2.5 text-center`}>
+    <span className="font-display text-[24px] font-bold leading-none">{nilai}</span>
+    <span className="mt-1 text-[12px] font-extrabold">{label}</span>
+  </div>
 )
 
 /**
@@ -538,8 +537,8 @@ function FilterDropdown({ label, value, options, onChange }) {
     <div className="relative" ref={ref}>
       <button
         onClick={() => setBuka((b) => !b)}
-        className={`flex items-center gap-1.5 whitespace-nowrap rounded-2xl border px-3.5 py-2.5 text-[13px] font-bold ${
-          aktif ? 'border-brand bg-brand-soft text-brand' : 'border-line bg-white text-muted'
+        className={`flex items-center gap-1.5 whitespace-nowrap rounded-pill px-3.5 py-2.5 text-[13px] font-extrabold ${
+          aktif ? 'permen permen-kecil permen-biru' : 'border-[1.5px] border-[#DCE6F4] bg-kartu text-ink dark:border-line'
         }`}
       >
         {aktif ? `${label}: ${terpilih?.label}` : label}
@@ -548,7 +547,7 @@ function FilterDropdown({ label, value, options, onChange }) {
         </svg>
       </button>
       {buka && (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-20 min-w-[180px] rounded-2xl border border-line bg-white p-1.5 shadow-[0_10px_30px_rgba(21,26,38,.14)]">
+        <div className="absolute left-0 top-[calc(100%+6px)] z-20 min-w-[180px] rounded-[18px] border border-line bg-white p-1.5 shadow-[0_12px_30px_rgba(30,64,140,.16)]">
           {options.map((o) => (
             <button
               key={o.value}

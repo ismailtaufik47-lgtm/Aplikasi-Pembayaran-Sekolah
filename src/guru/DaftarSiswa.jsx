@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Avatar from '../components/Avatar.jsx'
-import { BtnKecil, Chevron, Chip, Ikon, Kosong, PageHead, Sheet, Track } from '../components/ui.jsx'
+import { BtnKecil, Chevron, Chip, Ikon, KepalaHalaman, KolomCari, Kosong, KosongCeria, Pil, Sheet, Track } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import SheetImportSiswa from './SheetImportSiswa.jsx'
 import SheetKenaikanKelas from './SheetKenaikanKelas.jsx'
@@ -99,114 +99,86 @@ export default function DaftarSiswa({ onTambah, onUbah, terkunci = false }) {
 
   return (
     <>
-      <div className="flex items-center justify-between gap-3 pb-1.5 pt-3.5 lg:hidden">
-        <h1 className="text-xl font-extrabold">Siswa</h1>
-        <div className="flex items-center gap-2">
-          {!readOnly && (
-            <button
-              className="grid h-[38px] w-[38px] shrink-0 place-items-center rounded-2xl border border-line bg-white active:scale-95"
-              onClick={() => setShowKenaikanKelas(true)}
-              title="Kenaikan Kelas"
-            >
-              🎓
-            </button>
-          )}
-          {!readOnly && (
+      <KepalaHalaman
+        judul="Siswa"
+        gambar="anak"
+        sub={
+          siswa.length
+            ? `${siswa.length} siswa aktif · ${kelas.length} kelas`
+            : 'Belum ada siswa terdaftar'
+        }
+        aksiHp={
+          !readOnly && (
             <>
               <button
-                className={`flex items-center gap-1.5 rounded-2xl border border-brand bg-white px-3 py-2.5 text-[13px] font-extrabold text-brand active:scale-95 ${gayaKunci}`}
-                onClick={bukaImport}
-                title={terkunci ? 'Terkunci sampai langganan diperpanjang' : 'Import dari Excel'}
+                className="tombol-putih grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[14px] text-ink"
+                onClick={() => setShowKenaikanKelas(true)}
+                title="Kenaikan kelas"
+                aria-label="Kenaikan kelas"
               >
-                <Ikon.dokumen size={15} />
+                <Ikon.toga size={20} />
+              </button>
+              <BtnKecil onClick={bukaImport} className={`h-[42px] ${gayaKunci}`} title={terkunci ? 'Terkunci sampai langganan diperpanjang' : 'Import dari Excel'}>
+                <Ikon.unggah size={17} />
                 Import
-              </button>
-              <button
-                className={`flex items-center gap-1.5 rounded-2xl bg-brand px-3.5 py-2.5 text-[13px] font-extrabold text-white active:scale-95 ${gayaKunci}`}
-                onClick={onTambah}
-                title={terkunci ? 'Terkunci sampai langganan diperpanjang' : undefined}
-              >
-                <Ikon.plus size={16} />
+              </BtnKecil>
+              <BtnKecil utama onClick={onTambah} className={`h-[42px] ${gayaKunci}`} title={terkunci ? 'Terkunci sampai langganan diperpanjang' : undefined}>
+                {terkunci ? <Ikon.jam size={17} /> : <Ikon.plus size={17} />}
                 Siswa
-              </button>
+              </BtnKecil>
             </>
-          )}
-        </div>
-      </div>
-
-      <PageHead
-        judul="Siswa"
-        sub={readOnly ? 'Klik siswa untuk melihat status pembayarannya' : 'Klik siswa untuk membuka kartu pembayarannya'}
+          )
+        }
         aksi={
           !readOnly && (
-            <BtnKecil utama onClick={onTambah} title={terkunci ? 'Terkunci sampai langganan diperpanjang' : undefined}>
-              {terkunci ? <Ikon.jam size={16} /> : <Ikon.plus size={16} />}Siswa
-            </BtnKecil>
+            <>
+              <BtnKecil onClick={() => setShowKenaikanKelas(true)}>
+                <Ikon.toga size={17} />
+                Kenaikan kelas
+              </BtnKecil>
+              <BtnKecil onClick={bukaImport} className={gayaKunci} title={terkunci ? 'Terkunci sampai langganan diperpanjang' : 'Import dari Excel'}>
+                <Ikon.unggah size={17} />
+                Import Excel
+              </BtnKecil>
+              <BtnKecil utama onClick={onTambah} className={gayaKunci} title={terkunci ? 'Terkunci sampai langganan diperpanjang' : undefined}>
+                {terkunci ? <Ikon.jam size={17} /> : <Ikon.plus size={17} />}
+                Tambah siswa
+              </BtnKecil>
+            </>
           )
         }
       />
 
-      {/* Search + tombol utilitas kompak (Kenaikan Kelas, Import) sejajar
-          di kanan pada desktop — supaya tidak makan tempat lebar seperti
-          sebelumnya. Di mobile, tombol-tombol ini pindah ke header atas. */}
-      <div className="mb-3 flex items-center gap-2.5">
-        <div className="flex flex-1 items-center gap-2.5 rounded-2xl bg-white px-3.5 py-3 shadow-soft lg:max-w-md">
-          <span className="text-muted"><Ikon.cari size={18} /></span>
-          <input
-            value={cari}
-            onChange={(e) => setCari(e.target.value)}
-            placeholder="Cari nama atau NIS…"
-            className="flex-1 bg-transparent font-medium outline-none"
-          />
-        </div>
-        {!readOnly && (
-          <button
-            onClick={() => setShowKenaikanKelas(true)}
-            className="hidden shrink-0 items-center gap-1.5 rounded-2xl border border-line bg-white px-3.5 py-3 text-[13px] font-bold text-ink lg:flex"
-            title="Kenaikan Kelas"
-          >
-            🎓 <span className="whitespace-nowrap">Kenaikan Kelas</span>
-          </button>
-        )}
-        {!readOnly && (
-          <button
-            onClick={bukaImport}
-            className={`hidden shrink-0 items-center gap-1.5 rounded-2xl border border-line bg-white px-3.5 py-3 text-[13px] font-bold text-ink lg:flex ${gayaKunci}`}
-            title={terkunci ? 'Terkunci sampai langganan diperpanjang' : 'Import dari Excel'}
-          >
-            <Ikon.dokumen size={15} /> <span className="whitespace-nowrap">Import</span>
-          </button>
-        )}
-      </div>
+      <KolomCari nilai={cari} ubah={setCari} placeholder="Cari nama atau NIS…" className="mb-3 lg:max-w-md" />
 
       {/* Tab Aktif / Alumni */}
       {/* Sakelar ringkas selebar isinya (bukan membentang penuh) */}
-      <div className="mb-3 inline-flex rounded-2xl border border-line bg-white p-1 shadow-soft" role="tablist">
+      <div className="mb-3 inline-flex gap-1 rounded-[18px] bg-kartu/70 p-1 shadow-[0_4px_14px_rgba(30,64,140,.06)] dark:bg-white/5" role="tablist">
         <button
           role="tab"
           aria-selected={tabAktif === 'aktif'}
           onClick={() => { setTabAktif('aktif'); setFilter(''); setCari('') }}
-          className={`flex items-center gap-1.5 whitespace-nowrap rounded-xl px-4 py-2 text-[13px] font-extrabold transition ${tabAktif === 'aktif' ? 'bg-brand text-white shadow-[0_4px_12px_rgba(59,110,246,.28)]' : 'text-muted hover:text-ink'}`}
+          className={`flex items-center gap-1.5 whitespace-nowrap rounded-[14px] px-4 py-2 text-[13px] font-extrabold transition ${tabAktif === 'aktif' ? 'permen permen-kecil permen-biru' : 'text-muted hover:text-ink'}`}
         >
-          🧒 Siswa aktif
+          <Ikon.siswa size={16} /> Siswa aktif
         </button>
         <button
           role="tab"
           aria-selected={tabAktif === 'alumni'}
           onClick={bukaTabAlumni}
-          className={`flex items-center gap-1.5 whitespace-nowrap rounded-xl px-4 py-2 text-[13px] font-extrabold transition ${tabAktif === 'alumni' ? 'bg-grape text-white shadow-[0_4px_12px_rgba(139,92,246,.28)]' : 'text-muted hover:text-ink'}`}
+          className={`flex items-center gap-1.5 whitespace-nowrap rounded-[14px] px-4 py-2 text-[13px] font-extrabold transition ${tabAktif === 'alumni' ? 'permen permen-kecil permen-ungu' : 'text-muted hover:text-ink'}`}
         >
-          🎓 Alumni
+          <Ikon.toga size={16} /> Alumni
         </button>
       </div>
 
       {tabAktif === 'aktif' && (
-      <div className="noscroll mb-1.5 flex gap-2 overflow-x-auto pb-1">
-        <FChip on={filter === ''} onClick={() => setFilter('')}>Semua</FChip>
+      <div className="noscroll -mx-[18px] mb-2 flex gap-2 overflow-x-auto px-[18px] pb-1 lg:mx-0 lg:px-0">
+        <Pil on={filter === ''} onClick={() => setFilter('')}>Semua</Pil>
         {kelas.map((k) => (
-          <FChip key={k} on={filter === k} onClick={() => setFilter(k)}>Kelas {k}</FChip>
+          <Pil key={k} on={filter === k} onClick={() => setFilter(k)}>Kelas {k}</Pil>
         ))}
-        <FChip on={filter === '#n'} onClick={() => setFilter('#n')}>Menunggak</FChip>
+        <Pil on={filter === '#n'} warna="pink" onClick={() => setFilter('#n')}>Menunggak</Pil>
       </div>
       )}
 
@@ -221,20 +193,11 @@ export default function DaftarSiswa({ onTambah, onUbah, terkunci = false }) {
       {/* ---------- mobile: daftar kartu ---------- */}
       <div className="card lg:hidden">
         {hasil.length === 0 ? (
-          <Kosong>
-            {siswa.length === 0 ? (
-              readOnly ? 'Belum ada siswa terdaftar.' : (
-                <>
-                  Belum ada siswa terdaftar.
-                  <button className="mt-3 block w-full rounded-2xl bg-brand py-3 font-extrabold text-white" onClick={onTambah}>
-                    Tambah siswa pertama
-                  </button>
-                </>
-              )
-            ) : (
-              'Tidak ada siswa yang cocok dengan pencarian.'
-            )}
-          </Kosong>
+          siswa.length === 0 ? (
+            <KosongSiswa readOnly={readOnly} onTambah={onTambah} onImport={bukaImport} />
+          ) : (
+            <Kosong>Tidak ada siswa yang cocok dengan pencarian.</Kosong>
+          )
         ) : (
           hasil.map((s) => {
             const label = labelTunggakan(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)
@@ -260,7 +223,7 @@ export default function DaftarSiswa({ onTambah, onUbah, terkunci = false }) {
       </div>
 
       {/* ---------- desktop: tabel data ---------- */}
-      <div className="hidden overflow-hidden rounded-card bg-white shadow-soft lg:block">
+      <div className="card hidden overflow-hidden !p-0 lg:block">
         {siswa.length > 0 && (
           <div className="border-b border-line px-5 py-3 text-[13px] font-bold text-muted">
             {siswa.length} siswa terdaftar · {ringkasan.lunas} Lunas · {ringkasan.belum} Menunggak · {ringkasan.sebagian} Sebagian
@@ -268,16 +231,9 @@ export default function DaftarSiswa({ onTambah, onUbah, terkunci = false }) {
         )}
         {hasil.length === 0 ? (
           <div className="p-5">
-            <Kosong>
-              {siswa.length === 0
-                ? (readOnly ? 'Belum ada siswa terdaftar.' : 'Belum ada siswa terdaftar.')
-                : 'Tidak ada siswa yang cocok dengan pencarian.'}
-            </Kosong>
-            {siswa.length === 0 && !readOnly && (
-              <button className="mt-3 block w-full rounded-2xl bg-brand py-3 font-extrabold text-white" onClick={onTambah}>
-                Tambah siswa pertama
-              </button>
-            )}
+            {siswa.length === 0
+              ? <KosongSiswa readOnly={readOnly} onTambah={onTambah} onImport={bukaImport} />
+              : <Kosong>Tidak ada siswa yang cocok dengan pencarian.</Kosong>}
           </div>
         ) : (
           <table className="w-full border-collapse text-left text-sm">
@@ -378,7 +334,7 @@ export default function DaftarSiswa({ onTambah, onUbah, terkunci = false }) {
             <p className="py-4 text-center text-[13px] text-muted">Memuat data alumni…</p>
           ) : alumni.length === 0 ? (
             <div className="py-6 text-center">
-              <p className="mb-1 text-3xl">🎓</p>
+              <span className="permen permen-ungu mx-auto mb-2.5 grid h-14 w-14 place-items-center rounded-[18px]"><Ikon.toga size={28} /></span>
               <p className="font-bold">Belum ada alumni</p>
               <p className="mt-1 text-[13px] text-muted">Alumni akan muncul di sini setelah proses Kenaikan Kelas / Kelulusan dijalankan.</p>
             </div>
@@ -414,11 +370,17 @@ export default function DaftarSiswa({ onTambah, onUbah, terkunci = false }) {
   )
 }
 
-const FChip = ({ on, children, ...p }) => (
-  <button
-    {...p}
-    className={`whitespace-nowrap rounded-pill px-3.5 py-2 text-[13px] font-bold ${on ? 'bg-brand text-white' : 'bg-white text-muted'}`}
+/** Belum ada siswa sama sekali → ajakan bergambar. */
+const KosongSiswa = ({ readOnly, onTambah, onImport }) => (
+  <KosongCeria
+    judul="Kelasnya masih sepi"
+    aksi={!readOnly && (
+      <>
+        <button className="bigbtn flex items-center justify-center gap-2" onClick={onTambah}><Ikon.plus size={19} /> Tambah siswa</button>
+        <button className="bigbtn-ghost flex items-center justify-center gap-2" onClick={onImport}><Ikon.unggah size={18} /> Import dari Excel</button>
+      </>
+    )}
   >
-    {children}
-  </button>
+    {readOnly ? 'Belum ada siswa terdaftar di sekolah ini.' : 'Tambahkan siswa satu per satu, atau langsung import dari file Excel data sekolah.'}
+  </KosongCeria>
 )

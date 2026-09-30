@@ -6,6 +6,7 @@
  * ditempel sebagai gambar — tidak butuh library chart tambahan.
  */
 import jsPDF from 'jspdf'
+import { NAMA_APLIKASI } from './langganan.js'
 import autoTable from 'jspdf-autotable'
 import {
   BULAN,
@@ -51,11 +52,25 @@ export function unduhPdf({ siswa, biaya, pembayaran, pengaturan }) {
   // ---------- header ----------
   doc.setFillColor(...WARNA.brand)
   doc.rect(0, 0, lebar, 24, 'F')
+  // Logo sekolah (kalau sudah diunggah di Profil sekolah) di kotak putih kiri atas.
+  let xJudul = M
+  if (pengaturan.logo) {
+    try {
+      doc.setFillColor(...WARNA.putih)
+      doc.roundedRect(M, 3.5, 17, 17, 2.5, 2.5, 'F')
+      const g = doc.getImageProperties(pengaturan.logo)
+      const sk = Math.min(14 / g.width, 14 / g.height)
+      doc.addImage(pengaturan.logo, g.fileType || 'PNG', M + (17 - g.width * sk) / 2, 3.5 + (17 - g.height * sk) / 2, g.width * sk, g.height * sk)
+      xJudul = M + 21
+    } catch {
+      /* logo rusak — lewati */
+    }
+  }
   doc.setTextColor(...WARNA.putih)
   doc.setFont('helvetica', 'bold'); doc.setFontSize(16)
-  doc.text(`Laporan Keuangan — ${pengaturan.namaSekolah}`, M, 12)
+  doc.text(`Laporan Pembayaran SPP & Kegiatan — ${pengaturan.namaSekolah}`, xJudul, 12)
   doc.setFont('helvetica', 'normal'); doc.setFontSize(9)
-  doc.text(`Tahun ajaran ${pengaturan.tahunAjaran} · Dicetak ${tanggalPanjang()}`, M, 19)
+  doc.text(`Tahun ajaran ${pengaturan.tahunAjaran} · Dicetak ${tanggalPanjang()}`, xJudul, 19)
 
   // ---------- ringkasan angka ----------
   const masuk = pembayaran.reduce((t, p) => t + p.nominal, 0)
@@ -212,7 +227,7 @@ const LEGENDA_KEGIATAN = [['L', WARNA_STATUS.lunas, 'Lunas'], ['½', WARNA_STATU
 function tempelFooter(doc, lebar) {
   const h = doc.internal.pageSize.getHeight()
   doc.setFontSize(7.5); doc.setTextColor(...WARNA.abu); doc.setFont('helvetica', 'normal')
-  doc.text(`Dicetak ${tanggalPanjang()} — Aplikasi Pembayaran TK`, 10, h - 6)
+  doc.text(`Dicetak ${tanggalPanjang()} — ${NAMA_APLIKASI}`, 10, h - 6)
   const halaman = doc.internal.getCurrentPageInfo().pageNumber
   doc.text(`Halaman ${halaman}`, lebar - 10, h - 6, { align: 'right' })
 }

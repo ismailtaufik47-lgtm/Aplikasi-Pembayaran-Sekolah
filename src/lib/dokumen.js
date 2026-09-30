@@ -18,6 +18,7 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import QRCode from 'qrcode'
 import { NAMA_APLIKASI } from './langganan.js'
+import { LOGO_KASCERIA } from './logoKasceria.js'
 
 /* ===================== utilitas ===================== */
 
@@ -279,7 +280,8 @@ const kontakPenerbit = (p) =>
 export async function buatKuitansiSewa(d) {
   const p = d.penerbit || {}
   return kuitansiPdf({
-    penerbit: { nama: p.namaUsaha || NAMA_APLIKASI, alamat: p.alamat, kontak: kontakPenerbit(p), logo: p.logo },
+    // kuitansi sewa diterbitkan Kasceria sendiri → pakai logo Kasceria kalau admin belum unggah logo
+    penerbit: { nama: p.namaUsaha || NAMA_APLIKASI, alamat: p.alamat, kontak: kontakPenerbit(p), logo: p.logo || LOGO_KASCERIA },
     nomor: d.nomor,
     tanggal: d.dibuatPada,
     baris: [
@@ -320,12 +322,9 @@ export function buatInvoiceSewa(d) {
   doc.setFillColor(...W.brand)
   doc.rect(0, 0, L, 5, 'F')
 
-  // penerbit (logo di kiri kalau ada)
-  let px = M
-  if (p.logo) {
-    gambarMuat(doc, p.logo, M, 13, 20, 20)
-    px = M + 24
-  }
+  // penerbit — logo di kiri (logo unggahan admin, atau logo Kasceria)
+  const px = M + 24
+  gambarMuat(doc, p.logo || LOGO_KASCERIA, M, 13, 20, 20)
   doc.setTextColor(...W.teks)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(16)

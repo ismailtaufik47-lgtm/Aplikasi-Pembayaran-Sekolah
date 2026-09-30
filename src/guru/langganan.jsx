@@ -15,7 +15,7 @@
  * lalu pengembang mengaktifkan langganannya secara manual.
  */
 import { useEffect, useState } from 'react'
-import { PageHead, Ikon } from '../components/ui.jsx'
+import { KepalaHalaman, Ikon } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import { useAuth } from '../lib/auth.jsx'
 import * as api from '../lib/api.js'
@@ -86,12 +86,8 @@ export default function Langganan({ terkunci = false }) {
 
   return (
     <>
-      <div className="flex items-center gap-3 pb-1.5 pt-2.5 lg:hidden">
-        <span className="grid h-[38px] w-[38px] place-items-center rounded-full bg-white text-lg shadow-soft">💳</span>
-        <h2 className="text-[17px] font-extrabold">Langganan</h2>
-      </div>
-      <PageHead judul="Langganan" sub="Status masa aktif aplikasi & cara berlangganan" />
-      <div className="mx-auto mt-2 w-full max-w-[620px] lg:mt-4">{isi}</div>
+      <KepalaHalaman judul="Langganan" gambar="maskot" sub="Status masa aktif aplikasi & cara berlangganan" />
+      <div className="w-full max-w-[620px]">{isi}</div>
     </>
   )
 }

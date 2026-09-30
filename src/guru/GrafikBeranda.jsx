@@ -1,15 +1,238 @@
 /**
- * Dua kartu ringkasan untuk beranda: grafik batang pemasukan SPP per
- * bulan (aktual vs target) dan donut status pembayaran seluruh siswa.
+ * Grafik untuk beranda panel sekolah:
+ *   • GrafikArusKas     — batang pemasukan vs pengeluaran kas per bulan (6 bulan / 1 tahun)
+ *   • StatusPembayaran  — donut status SPP seluruh siswa + progres SPP bulan ini
+ *   • GrafikPembayaran  — batang pemasukan SPP per bulan (dipakai kalau akun tidak boleh melihat kas)
  *
- * Digambar dengan SVG murni — tidak menambah library chart apa pun,
+ * Digambar dengan HTML/SVG murni — tidak menambah library chart apa pun,
  * jadi bundle tetap ringan. Semua angka dihitung dari data yang sudah
- * ada di store (pembayaran + siswa), bukan angka karangan.
+ * ada (store & fungsi kas di database), bukan angka karangan.
+ * Warna seri sama dengan menu Laporan (sudah dicek aman buta warna).
  */
 import { useMemo, useState } from 'react'
 import { BULAN, bulanBerjalan, rp, statusRingkasSiswa } from '../lib/format.js'
+import { NAMA_BULAN } from '../lib/kas.js'
+import { BarisLegenda, Donut, PilihRentang, SERI, STATUS, rpRingkas } from './GrafikLaporan.jsx'
+import { KepalaKartu, Tautan, rpTanda } from './KartuBeranda.jsx'
+
+/** Batas atas sumbu = 4 × langkah "bulat" (1 · 2 · 2,5 · 5 × 10ⁿ), supaya label sumbu rapi. */
+function batasAtas(maks) {
+  if (maks <= 0) return 1
+  const kasar = maks / 4
+  const p = 10 ** Math.floor(Math.log10(kasar))
+  const langkah = [1, 1.5, 2, 2.5, 5, 10].find((k) => k * p >= kasar)
+  return langkah * p * 4
+}
+
+const namaBulan = (kunci, pendek = false) => {
+  const [y, m] = kunci.split('-').map(Number)
+  return pendek ? NAMA_BULAN[m - 1].slice(0, 3) : `${NAMA_BULAN[m - 1]} ${y}`
+}
+
+/* ---------------- Grafik batang arus kas per bulan ---------------- */
+
+/**
+ * data: [{ bulan: 'YYYY-MM', masuk, keluar }] — urut lama → baru.
+ * Bulan terpilih (default bulan terakhir) ditampilkan rinci: di baris
+ * legenda (layar lebar) atau di bawah grafik (HP) — tidak menutupi batang.
+ * Arahkan kursor / ketuk batang untuk memilih bulan lain.
+ */
+export function GrafikArusKas({ data, rentang, ubahRentang, memuat, galat }) {
+  const n = data.length
+  const [pilih, setPilih] = useState(null)
+  const aktif = pilih != null && pilih < n ? pilih : n - 1
+  const atas = batasAtas(Math.max(0, ...data.flatMap((d) => [d.masuk, d.keluar])))
+  const garis = [1, 0.75, 0.5, 0.25, 0]
+  const semuaNol = n > 0 && data.every((d) => !d.masuk && !d.keluar)
+  const tot = data.reduce((t, d) => ({ masuk: t.masuk + d.masuk, keluar: t.keluar + d.keluar }), { masuk: 0, keluar: 0 })
+  const d = data[aktif]
+  const lebarBatang = n > 6 ? 'w-[34%] max-w-[12px]' : 'w-[30%] max-w-[20px]'
+  const rentangTeks = n ? `${namaBulan(data[0].bulan, true)}–${namaBulan(data[n - 1].bulan)}` : ''
+
+  return (
+    <div className="card flex min-w-0 flex-col lg:p-5">
+      <KepalaKartu
+        judul="Arus kas sekolah"
+        sub={`Pemasukan & pengeluaran ${rentang === 12 ? '12' : '6'} bulan terakhir${rentangTeks ? ' · ' + rentangTeks : ''}`}
+        kanan={<PilihRentang nilai={rentang} ubah={(v) => { setPilih(null); ubahRentang(v) }} />}
+        className="mb-3"
+      />
+      <div className="mb-3 flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
+        <div className="flex items-center gap-4 text-[12px] font-semibold text-muted">
+          <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-[3px]" style={{ background: SERI.masuk }} />Pemasukan</span>
+          <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-[3px]" style={{ background: SERI.keluar }} />Pengeluaran</span>
+        </div>
+        {/* rincian bulan terpilih (layar lebar) — ikut berubah saat kursor di atas batang */}
+        {d && !semuaNol && !galat && (
+          <div className="hidden items-center gap-3 rounded-xl bg-brand/[.07] px-3 py-1.5 text-[12px] font-semibold text-muted lg:flex" aria-live="polite">
+            <b className="text-ink">{namaBulan(d.bulan)}</b>
+            <span>Masuk <b className="text-ink">{rp(d.masuk)}</b></span>
+            <span>Keluar <b className="text-ink">{rp(d.keluar)}</b></span>
+            <b className={d.masuk - d.keluar >= 0 ? 'text-ok-deep' : 'text-danger'}>{rpTanda(d.masuk - d.keluar)}</b>
+          </div>
+        )}
+      </div>
+
+      {galat ? (
+        <p className="rounded-xl bg-danger-soft px-3.5 py-3 text-[12.5px] font-semibold text-danger">{galat}</p>
+      ) : memuat && n === 0 ? (
+        <div className="h-[196px] animate-pulse rounded-2xl bg-isi lg:h-[246px]" />
+      ) : (
+        <>
+          <div className="flex gap-2">
+            {/* sumbu Y */}
+            <div className="relative h-[170px] w-9 shrink-0 lg:h-[220px] lg:w-11">
+              {garis.map((g) => (
+                <span key={g} className="absolute right-0 -translate-y-1/2 whitespace-nowrap text-[10.5px] font-semibold leading-none text-muted lg:text-[11px]" style={{ top: `${(1 - g) * 100}%` }}>
+                  {g ? rpRingkas(atas * g) : '0'}
+                </span>
+              ))}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="relative h-[170px] lg:h-[220px]">
+                {/* garis bantu */}
+                {garis.map((g) => (
+                  <div key={g} className={`pointer-events-none absolute inset-x-0 border-t ${g ? 'border-line' : 'border-[#DCE1EA]'}`} style={{ top: `${(1 - g) * 100}%` }} />
+                ))}
+                <div className="absolute inset-0 flex px-0.5" onMouseLeave={() => setPilih(null)}>
+                  {data.map((b, i) => (
+                    <button
+                      key={b.bulan}
+                      type="button"
+                      aria-label={`${namaBulan(b.bulan)}: pemasukan ${rp(b.masuk)}, pengeluaran ${rp(b.keluar)}`}
+                      onMouseEnter={() => setPilih(i)}
+                      onFocus={() => setPilih(i)}
+                      onClick={() => setPilih(i)}
+                      className={`flex h-full min-w-0 flex-1 items-end justify-center gap-[2px] rounded-[10px] transition ${i === aktif ? 'bg-brand/[.07]' : ''}`}
+                    >
+                      <span className={`${lebarBatang} rounded-t-[4px]`} style={{ height: `${b.masuk ? Math.max(1.5, (b.masuk / atas) * 100) : 0}%`, background: SERI.masuk }} />
+                      <span className={`${lebarBatang} rounded-t-[4px]`} style={{ height: `${b.keluar ? Math.max(1.5, (b.keluar / atas) * 100) : 0}%`, background: SERI.keluar }} />
+                    </button>
+                  ))}
+                </div>
+                {semuaNol && (
+                  <div className="absolute inset-x-0 top-[38%] text-center text-[12.5px] font-semibold text-muted">Belum ada transaksi kas</div>
+                )}
+              </div>
+              <div className="flex px-0.5 pt-2">
+                {data.map((b, i) => (
+                  <span key={b.bulan} className={`min-w-0 flex-1 text-center text-[10.5px] lg:text-[11.5px] ${i === aktif ? 'font-extrabold text-ink' : 'font-semibold text-muted'}`}>
+                    {namaBulan(b.bulan, true)}
+                  </span>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* keterangan bulan terpilih (HP) */}
+          {d && (
+            <div className="mt-3 rounded-xl bg-brand/[.07] px-3 py-2.5 text-[12px] font-semibold leading-relaxed text-muted lg:hidden">
+              <b className="text-ink">{namaBulan(d.bulan)}:</b> masuk <b className="text-ink">{rp(d.masuk)}</b> · keluar <b className="text-ink">{rp(d.keluar)}</b> · selisih{' '}
+              <b className={d.masuk - d.keluar >= 0 ? 'text-ok-deep' : 'text-danger'}>{rpTanda(d.masuk - d.keluar)}</b>
+            </div>
+          )}
+
+          {/* total seluruh rentang */}
+          <div className="mt-auto pt-4">
+            <div className="flex rounded-2xl bg-isi">
+              {[
+                ['Total masuk', tot.masuk, false, ''],
+                ['Total keluar', tot.keluar, false, ''],
+                ['Selisih', tot.masuk - tot.keluar, true, tot.masuk - tot.keluar >= 0 ? 'text-ok-deep' : 'text-danger'],
+              ].map(([l, v, tanda, w], i) => (
+                <div key={l} className={`min-w-0 flex-1 px-3 py-2.5 ${i ? 'border-l border-line' : ''}`}>
+                  <div className="truncate text-[11px] font-semibold text-muted lg:text-[11.5px]">{l}</div>
+                  <div className={`truncate text-[13.5px] font-extrabold lg:text-[15px] ${w}`}>
+                    <span className="lg:hidden">{(tanda && v > 0 ? '+' : v < 0 ? '−' : '') + rpRingkas(Math.abs(v))}</span>
+                    <span className="hidden lg:inline">{tanda ? rpTanda(v) : rp(v)}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+/* ---------------- Donut status SPP seluruh siswa ---------------- */
+
+export function StatusPembayaran({ siswa, pengaturan, onBuka }) {
+  const kini = bulanBerjalan()
+
+  /**
+   * Status di sini ringkasan MENYELURUH (bukan cuma bulan berjalan):
+   * apakah siswa masih punya SPP yang perlu ditagih (bulan lalu ATAU
+   * bulan berjalan yang sudah lewat jatuh tempo), dan kalau iya, apakah
+   * sudah ada cicilan sebagian. Sama dengan daftar siswa & laporan.
+   */
+  const { lunas, sebagian, belum, terkumpul } = useMemo(() => {
+    let lunas = 0, sebagian = 0, belum = 0, terkumpul = 0
+    siswa.forEach((s) => {
+      const status = statusRingkasSiswa(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)
+      if (status === 'lunas') lunas++
+      else if (status === 'sebagian') sebagian++
+      else belum++
+      terkumpul += Math.min(s.spp[kini] || 0, pengaturan.sppNominal)
+    })
+    return { lunas, sebagian, belum, terkumpul }
+  }, [siswa, pengaturan, kini])
+
+  const total = siswa.length
+  const persen = (x) => (total ? Math.round((x / total) * 100) : 0)
+  const target = total * pengaturan.sppNominal
+  const persenTerkumpul = target ? Math.round((terkumpul / target) * 100) : 0
+  const tahun = new Date().getFullYear()
+
+  return (
+    <div className="card flex min-w-0 flex-col lg:p-5">
+      <KepalaKartu
+        judul="Status SPP"
+        sub={`${BULAN[kini]} ${tahun} · ${total} siswa`}
+        kanan={onBuka && <Tautan onClick={onBuka}>Tagihan</Tautan>}
+      />
+      <div className="flex flex-1 items-center gap-4">
+        <Donut
+          ukuran={128}
+          tebal={18}
+          segmen={[
+            { label: 'Lunas', nilai: lunas, warna: STATUS.lunas },
+            { label: 'Sebagian', nilai: sebagian, warna: STATUS.sebagian },
+            { label: 'Belum bayar', nilai: belum, warna: STATUS.belum },
+          ]}
+        >
+          <div>
+            <div className="text-[25px] font-extrabold leading-none tracking-tight">{persen(lunas)}%</div>
+            <div className="mt-1 text-[11px] font-semibold text-muted">sudah lunas</div>
+          </div>
+        </Donut>
+        <div className="min-w-0 flex-1 space-y-2.5">
+          <BarisLegenda warna={STATUS.lunas} label="Lunas" nilai={lunas} persen={persen(lunas)} />
+          <BarisLegenda warna={STATUS.sebagian} label="Sebagian" nilai={sebagian} persen={persen(sebagian)} />
+          <BarisLegenda warna={STATUS.belum} label="Belum bayar" nilai={belum} persen={persen(belum)} />
+        </div>
+      </div>
+      <div className="pt-4">
+        <div className="rounded-2xl bg-isi px-3.5 py-3">
+          <div className="flex justify-between gap-2 text-[12px] font-semibold text-muted">
+            <span>SPP {BULAN[kini]} terkumpul</span>
+            <span>{persenTerkumpul}%</span>
+          </div>
+          <div className="mt-0.5 text-[14px] font-extrabold">
+            {rp(terkumpul)} <span className="text-[12px] font-semibold text-muted">dari {rp(target)}</span>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-kartu">
+            <div className="h-full rounded-full" style={{ width: `${Math.min(100, persenTerkumpul)}%`, background: STATUS.lunas }} />
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
 
 /* ---------------- Grafik batang pemasukan SPP per bulan ---------------- */
+/* Pengganti arus kas untuk akun yang tidak punya akses melihat kas. */
 
 export function GrafikPembayaran({ pembayaran, siswa, pengaturan }) {
   const [rentang, setRentang] = useState(6) // 6 bulan terakhir | 12 (setahun)
@@ -22,178 +245,52 @@ export function GrafikPembayaran({ pembayaran, siswa, pengaturan }) {
       if (p.jenis === 'spp' && p.indeks >= 0 && p.indeks < 12) masukPer[p.indeks] += p.nominal
     })
     const target = siswa.length * pengaturan.sppNominal // target penuh 1 bulan
-
     const mulai = rentang === 12 ? 0 : Math.max(0, kini - 5)
     const akhir = rentang === 12 ? 11 : kini
     const keluar = []
-    for (let i = mulai; i <= akhir; i++) {
-      keluar.push({ label: BULAN[i].slice(0, 3), masuk: masukPer[i], target })
-    }
+    for (let i = mulai; i <= akhir; i++) keluar.push({ label: BULAN[i].slice(0, 3), masuk: masukPer[i], target })
     return keluar
   }, [pembayaran, siswa, pengaturan, rentang, kini])
 
-  const maks = Math.max(...data.map((d) => Math.max(d.masuk, d.target)), 1)
-  const tinggiPlot = 150
-  const skala = (v) => (v / maks) * tinggiPlot
+  const atas = batasAtas(Math.max(...data.map((d) => Math.max(d.masuk, d.target)), 1))
 
   return (
-    <div className="card">
-      <div className="mb-4 flex items-start justify-between gap-3">
-        <div>
-          <div className="flex items-center gap-2 text-[15px] font-extrabold">
-            <span>📊</span> Grafik pembayaran
-          </div>
-          <div className="mt-0.5 text-[12.5px] text-muted">Pemasukan SPP per bulan</div>
+    <div className="card flex min-w-0 flex-col lg:p-5">
+      <KepalaKartu judul="Grafik pembayaran" sub="Pemasukan SPP per bulan dibanding target" kanan={<PilihRentang nilai={rentang} ubah={setRentang} />} />
+      <div className="flex gap-2">
+        <div className="relative h-[170px] w-9 shrink-0 lg:h-[220px] lg:w-11">
+          {[1, 0.75, 0.5, 0.25, 0].map((g) => (
+            <span key={g} className="absolute right-0 -translate-y-1/2 whitespace-nowrap text-[10.5px] font-semibold leading-none text-muted lg:text-[11px]" style={{ top: `${(1 - g) * 100}%` }}>
+              {g ? rpRingkas(atas * g) : '0'}
+            </span>
+          ))}
         </div>
-        <div className="flex rounded-full bg-[#EEF2F8] p-1 text-[11.5px] font-bold">
-          <button
-            className={`rounded-full px-2.5 py-1 ${rentang === 6 ? 'bg-white text-brand shadow-[0_1px_3px_rgba(21,26,38,.1)]' : 'text-muted'}`}
-            onClick={() => setRentang(6)}
-          >
-            6 Bulan
-          </button>
-          <button
-            className={`rounded-full px-2.5 py-1 ${rentang === 12 ? 'bg-white text-brand shadow-[0_1px_3px_rgba(21,26,38,.1)]' : 'text-muted'}`}
-            onClick={() => setRentang(12)}
-          >
-            1 Tahun
-          </button>
-        </div>
-      </div>
-
-      <div className="flex items-end gap-2" style={{ height: tinggiPlot + 24 }}>
-        {data.map((d) => {
-          const tMasuk = skala(d.masuk)
-          const tTarget = skala(d.target)
-          return (
-            <div key={d.label} className="flex flex-1 flex-col items-center gap-1.5">
-              <div className="flex w-full items-end justify-center gap-1" style={{ height: tinggiPlot }}>
-                {/* target di belakang (abu), aktual di depan (biru) */}
-                <div
-                  className="w-2.5 rounded-t-[4px] bg-[#DDE6F5] sm:w-3.5"
-                  style={{ height: Math.max(2, tTarget) }}
-                  title={`Target ${rp(d.target)}`}
-                />
-                <div
-                  className="w-2.5 rounded-t-[4px] bg-brand sm:w-3.5"
-                  style={{ height: Math.max(2, tMasuk) }}
-                  title={`Masuk ${rp(d.masuk)}`}
-                />
-              </div>
-              <span className="text-[11px] font-semibold text-muted">{d.label}</span>
+        <div className="min-w-0 flex-1">
+          <div className="relative h-[170px] lg:h-[220px]">
+            {[1, 0.75, 0.5, 0.25, 0].map((g) => (
+              <div key={g} className={`pointer-events-none absolute inset-x-0 border-t ${g ? 'border-line' : 'border-[#DCE1EA]'}`} style={{ top: `${(1 - g) * 100}%` }} />
+            ))}
+            <div className="absolute inset-0 flex">
+              {data.map((d) => (
+                <div key={d.label} className="flex h-full min-w-0 flex-1 items-end justify-center gap-[2px]" title={`${d.label}: masuk ${rp(d.masuk)} · target ${rp(d.target)}`}>
+                  <span className="w-[30%] max-w-[16px] rounded-t-[4px] bg-[#DDE6F5]" style={{ height: `${(d.target / atas) * 100}%` }} />
+                  <span className="w-[30%] max-w-[16px] rounded-t-[4px]" style={{ height: `${d.masuk ? Math.max(1.5, (d.masuk / atas) * 100) : 0}%`, background: SERI.spp }} />
+                </div>
+              ))}
             </div>
-          )
-        })}
+          </div>
+          <div className="flex pt-2">
+            {data.map((d) => <span key={d.label} className="min-w-0 flex-1 text-center text-[10.5px] font-semibold text-muted lg:text-[11.5px]">{d.label}</span>)}
+          </div>
+        </div>
       </div>
-
-      <div className="mt-3 flex items-center gap-4 text-[11.5px] font-semibold text-muted">
-        <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-brand" /> Pembayaran</span>
-        <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-full bg-[#DDE6F5]" /> Target</span>
+      <div className="mt-auto flex items-center gap-4 pt-3 text-[12px] font-semibold text-muted">
+        <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-[3px]" style={{ background: SERI.spp }} /> Pembayaran SPP</span>
+        <span className="flex items-center gap-1.5"><i className="h-2.5 w-2.5 rounded-[3px] bg-[#DDE6F5]" /> Target</span>
       </div>
     </div>
   )
 }
-
-/* ---------------- Donut status pembayaran seluruh siswa ---------------- */
-
-export function StatusPembayaran({ siswa, pengaturan }) {
-  const kini = bulanBerjalan()
-
-  /**
-   * Beda dari sebelumnya: ini TIDAK cuma lihat bulan berjalan. Kalau
-   * dilihat cuma bulan berjalan, siswa yang baru dicicil untuk bulan
-   * LALU (mis. Agustus, padahal sekarang sudah September) tidak akan
-   * kelihatan pergerakannya di sini — padahal jelas ada progres.
-   * Jadi status di sini ringkasan MENYELURUH: apakah siswa ini masih
-   * punya sesuatu yang perlu ditagih (bulan lalu ATAU bulan berjalan
-   * yang sudah lewat jatuh tempo), dan kalau iya, apakah sudah ada
-   * cicilan sebagian di salah satu bulan yang perlu ditagih itu.
-   */
-  const { lunas, sebagian, belum } = useMemo(() => {
-    let lunas = 0, sebagian = 0, belum = 0
-    siswa.forEach((s) => {
-      const status = statusRingkasSiswa(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)
-      if (status === 'lunas') lunas++
-      else if (status === 'sebagian') sebagian++
-      else belum++
-    })
-    return { lunas, sebagian, belum }
-  }, [siswa, pengaturan, kini])
-
-  const total = siswa.length || 1
-  const persen = (n) => Math.round((n / total) * 100)
-
-  // Geometri donut
-  const R = 54, C = 2 * Math.PI * R, lebar = 18
-  const seg = [
-    { nilai: lunas, warna: '#22C55E' },
-    { nilai: sebagian, warna: '#F5A524' },
-    { nilai: belum, warna: '#EC4899' },
-  ]
-  let offset = 0
-  const busur = seg.map((s) => {
-    const panjang = (s.nilai / total) * C
-    const el = { ...s, dash: panjang, gap: C - panjang, off: offset }
-    offset -= panjang
-    return el
-  })
-  const semuaNol = lunas + sebagian === 0 && belum === total // semua belum bayar
-
-  return (
-    <div className="card">
-      <div className="mb-4 flex items-center gap-2 text-[15px] font-extrabold">
-        <span>🧮</span> Status pembayaran
-      </div>
-      <div className="mb-4 -mt-2 text-[12.5px] text-muted">Bulan {BULAN[kini]} · seluruh siswa</div>
-
-      <div className="flex items-center gap-5">
-        <div className="relative shrink-0" style={{ width: 128, height: 128 }}>
-          <svg width="128" height="128" viewBox="0 0 128 128">
-            <circle cx="64" cy="64" r={R} fill="none" stroke="#EEF2F8" strokeWidth={lebar} />
-            {busur.map((b, i) =>
-              b.nilai > 0 ? (
-                <circle
-                  key={i}
-                  cx="64"
-                  cy="64"
-                  r={R}
-                  fill="none"
-                  stroke={b.warna}
-                  strokeWidth={lebar}
-                  strokeDasharray={`${b.dash} ${b.gap}`}
-                  strokeDashoffset={b.off}
-                  strokeLinecap={b.nilai === total ? 'butt' : 'round'}
-                  transform="rotate(-90 64 64)"
-                />
-              ) : null
-            )}
-          </svg>
-          <div className="absolute inset-0 grid place-items-center text-center">
-            <div>
-              <div className="text-[26px] font-extrabold leading-none">{siswa.length}</div>
-              <div className="text-[11px] font-semibold text-muted">Siswa</div>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-1 space-y-2.5">
-          <Legenda warna="#22C55E" label="Lunas" nilai={lunas} persen={persen(lunas)} />
-          <Legenda warna="#F5A524" label="Sebagian" nilai={sebagian} persen={persen(sebagian)} />
-          <Legenda warna="#EC4899" label="Belum bayar" nilai={belum} persen={persen(belum)} />
-        </div>
-      </div>
-    </div>
-  )
-}
-
-const Legenda = ({ warna, label, nilai, persen }) => (
-  <div className="flex items-center gap-2 text-[13px]">
-    <i className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: warna }} />
-    <span className="flex-1 font-semibold text-muted">{label}</span>
-    <span className="font-extrabold">{nilai}</span>
-    <span className="w-10 text-right text-[12px] font-semibold text-muted">({persen}%)</span>
-  </div>
-)
 
 /* ---------------- Bar horizontal kontribusi per jenis biaya ---------------- */
 

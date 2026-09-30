@@ -11,7 +11,9 @@
  * per halaman, jadi tetap ringan walau transaksinya sudah ribuan.
  */
 import { useEffect, useRef, useState } from 'react'
-import { BtnKecil, Chip, EmojiMenu, Ikon, Kosong, PageHead, Sheet } from '../components/ui.jsx'
+import { useLocation, useNavigate } from 'react-router-dom'
+import { BtnKecil, Chip, Ikon, KepalaHalaman, Kosong, Pil, Sheet } from '../components/ui.jsx'
+import { KoinMaskot } from '../components/Gambar.jsx'
 import InputNominal from '../components/InputNominal.jsx'
 import FormBatal from './FormBatal.jsx'
 import { useData } from '../lib/store.jsx'
@@ -44,7 +46,7 @@ const RENTANG = [
   { id: '7', label: '7 hari', dari: () => hariLalu(6) },
   { id: '30', label: '30 hari', dari: () => hariLalu(29) },
   { id: 'bulan', label: 'Bulan ini', dari: () => tanggalISO().slice(0, 8) + '01' },
-  { id: 'pilih', label: '📅 Pilih tanggal' },
+  { id: 'pilih', label: 'Pilih tanggal' },
 ]
 
 export default function Kas() {
@@ -126,6 +128,19 @@ export default function Kas() {
   }
   const bukaSaldo = () => !cegahKunci('saldo') && setAturSaldo(true)
 
+  // Dari tombol "Catat pengeluaran" / "Pemasukan lain" di beranda:
+  // form langsung dibuka setelah ringkasan kas termuat (perlu tahu saldo awal).
+  const lokasi = useLocation()
+  const navigasi = useNavigate()
+  const mintaCatat = useRef(lokasi.state?.catat || null)
+  useEffect(() => {
+    if (!info || !mintaCatat.current) return
+    const jenis = mintaCatat.current
+    mintaCatat.current = null
+    navigasi(lokasi.pathname, { replace: true, state: null })
+    if (bisaCatat && (jenis === 'keluar' || jenis === 'masuk')) bukaForm(jenis)
+  }, [info]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const pilihRentang = (id) => {
     const r = RENTANG.find((x) => x.id === id)
     if (id === 'pilih') return setRentang((x) => ({ ...x, id }))
@@ -156,13 +171,11 @@ export default function Kas() {
 
   return (
     <>
-      <div className="flex items-center gap-3 pb-1.5 pt-2.5 lg:hidden">
-        <EmojiMenu id="kas" size={34} />
-        <h2 className="text-[17px] font-extrabold">Kas sekolah</h2>
-      </div>
-      <PageHead
+      <KepalaHalaman
         judul="Kas sekolah"
+        gambar={null}
         sub="Pemasukan SPP & kegiatan tercatat otomatis. Pengeluaran dan pemasukan lain dicatat di sini."
+        aksiHp={null}
         aksi={bisaCatat && info && (
           <>
             <BtnKecil onClick={() => bukaForm('masuk')}><Ikon.plus size={16} />Pemasukan lain</BtnKecil>
@@ -201,29 +214,34 @@ export default function Kas() {
             </Peringatan>
           )}
 
-          {/* ---------- saldo sekarang ---------- */}
-          <div className={`mt-3 rounded-[22px] p-4 text-white lg:mt-4 lg:p-5 ${minus ? 'bg-danger' : 'bg-brand'}`} style={{ colorScheme: 'light' }}>
-            <div className="text-[12.5px] font-semibold opacity-90">Saldo kas saat ini</div>
-            <div className="mt-0.5 break-all text-[30px] font-extrabold leading-tight tracking-tight lg:text-[34px]">{rpTanda(info.saldoKini)}</div>
-            <div className="mt-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-[12.5px] font-semibold opacity-95">
-              {atur
-                ? <span>Saldo awal {rp(atur.saldoAwal)} per {tglKas(atur.mulai, true)}</span>
-                : <span>Saldo awal belum diisi</span>}
-              {bisaCatat && (
-                <button className="rounded-lg bg-white/20 px-2.5 py-1 text-[12px] font-extrabold" onClick={bukaSaldo}>
-                  {atur ? 'Ubah' : 'Isi saldo awal'}
-                </button>
-              )}
+          {/* ---------- saldo sekarang (kartu permen kuning + maskot koin) ---------- */}
+          <div className={`kartu-saldo relative mt-3 overflow-hidden rounded-[26px] p-[18px] lg:mt-4 lg:p-6 ${minus ? 'kartu-saldo-minus' : ''}`}>
+            <KoinMaskot className="pointer-events-none absolute -bottom-1 right-2 h-[112px] w-[112px] lg:right-8 lg:h-[132px] lg:w-[132px]" />
+            <div className="relative pr-[104px] lg:pr-[150px]">
+              <div className="text-[13px] font-extrabold opacity-85">Saldo kas saat ini</div>
+              <div className="mt-1 break-all font-display text-[32px] font-bold leading-[1.05] tracking-[-.3px] lg:text-[40px]">{rpTanda(info.saldoKini)}</div>
+              <div className="mt-3 flex flex-wrap items-center gap-2 text-[12.5px] font-bold">
+                <span className="rounded-full bg-white/60 px-3 py-1.5 dark:bg-white/10">
+                  {atur ? `Saldo awal ${rp(atur.saldoAwal)} per ${tglKas(atur.mulai, true)}` : 'Saldo awal belum diisi'}
+                </span>
+                {bisaCatat && (
+                  <button className="rounded-full bg-white/85 px-3 py-1.5 text-[12px] font-extrabold dark:bg-white/15" onClick={bukaSaldo}>
+                    {atur ? 'Ubah' : 'Isi saldo awal'}
+                  </button>
+                )}
+              </div>
             </div>
           </div>
 
           {bisaCatat && (
             <div className="mt-3 grid grid-cols-2 gap-2.5 lg:hidden">
-              <button className="flex items-center justify-center gap-2 rounded-2xl bg-danger py-3 text-[13.5px] font-extrabold text-white" onClick={() => bukaForm('keluar')}>
-                <span aria-hidden>−</span> Pengeluaran
+              <button className="flex items-center justify-center gap-2 rounded-[18px] bg-danger py-3.5 text-[14px] font-extrabold text-white" onClick={() => bukaForm('keluar')}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 17 17 7" /><path d="M9 7h8v8" /></svg>
+                Pengeluaran
               </button>
-              <button className="flex items-center justify-center gap-2 rounded-2xl bg-ok py-3 text-[13.5px] font-extrabold text-white" onClick={() => bukaForm('masuk')}>
-                <span aria-hidden>+</span> Pemasukan lain
+              <button className="flex items-center justify-center gap-2 rounded-[18px] bg-ok py-3.5 text-[14px] font-extrabold text-white" onClick={() => bukaForm('masuk')}>
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M17 7 7 17" /><path d="M7 9v8h8" /></svg>
+                Pemasukan lain
               </button>
             </div>
           )}
@@ -234,15 +252,9 @@ export default function Kas() {
               <div className="seghead"><h2>Riwayat transaksi</h2></div>
               <div className="noscroll -mx-[18px] mb-2.5 flex gap-2 overflow-x-auto px-[18px] lg:mx-0 lg:flex-wrap lg:px-0">
                 {RENTANG.map((r) => (
-                  <button
-                    key={r.id}
-                    onClick={() => pilihRentang(r.id)}
-                    className={`shrink-0 whitespace-nowrap rounded-pill border px-3.5 py-2 text-[12.5px] font-bold ${
-                      rentang.id === r.id ? 'border-brand bg-brand text-white' : 'border-line bg-kartu text-muted'
-                    }`}
-                  >
+                  <Pil key={r.id} on={rentang.id === r.id} onClick={() => pilihRentang(r.id)} ikon={r.id === 'pilih' ? <Ikon.kalender size={15} /> : null}>
                     {r.label}
-                  </button>
+                  </Pil>
                 ))}
               </div>
               {rentang.id === 'pilih' && <PilihTanggal awal={rentang} min={atur?.mulai} terapkan={(dari, sampai) => setRentang({ id: 'pilih', dari, sampai })} toast={toast} />}
@@ -277,7 +289,7 @@ export default function Kas() {
               <div className="card">
                 <div className="flex items-center justify-between gap-2">
                   <button
-                    className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line bg-kartu disabled:opacity-40"
+                    className="tombol-putih grid h-10 w-10 shrink-0 place-items-center rounded-[13px] disabled:opacity-40"
                     disabled={iBulan <= 0}
                     onClick={() => setBulan(geserBulan(bulan, -1))}
                     aria-label="Bulan sebelumnya"
@@ -285,7 +297,7 @@ export default function Kas() {
                     <Ikon.kembali size={18} />
                   </button>
                   <select
-                    className="min-w-0 flex-1 appearance-none bg-transparent text-center text-[16px] font-extrabold outline-none"
+                    className="judul-kartu min-w-0 flex-1 appearance-none bg-transparent text-center text-[18px] outline-none"
                     value={bulan}
                     onChange={(e) => setBulan(e.target.value)}
                     aria-label="Pilih bulan laporan"
@@ -293,7 +305,7 @@ export default function Kas() {
                     {[...bulanTersedia].reverse().map((k) => <option key={k} value={k}>{labelBulan(k)}</option>)}
                   </select>
                   <button
-                    className="grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-line bg-kartu disabled:opacity-40"
+                    className="tombol-putih grid h-10 w-10 shrink-0 place-items-center rounded-[13px] disabled:opacity-40"
                     disabled={iBulan >= bulanTersedia.length - 1}
                     onClick={() => setBulan(geserBulan(bulan, 1))}
                     aria-label="Bulan berikutnya"
@@ -393,7 +405,7 @@ export default function Kas() {
 /* ---------- kotak peringatan ---------- */
 function Peringatan({ e, judul, children, aksi, merah }) {
   return (
-    <div className={`mt-3 flex flex-wrap items-center gap-3 rounded-2xl p-3.5 lg:mt-4 ${merah ? 'bg-danger-soft' : 'bg-warn-soft'}`}>
+    <div className={`mt-3 flex flex-wrap items-center gap-3 rounded-[20px] p-3.5 lg:mt-4 ${merah ? 'bg-danger-soft shadow-[inset_0_-3px_0_rgba(239,68,68,.2)]' : 'spanduk-kuning'}`}>
       <span className="text-[22px]" style={FONT_EMOJI}>{e}</span>
       <div className={`min-w-[200px] flex-1 text-[13px] font-semibold leading-snug ${merah ? 'text-danger' : 'text-warn-deep'}`}>
         <b className="block text-[14px]">{judul}</b>
@@ -452,7 +464,7 @@ function DaftarTransaksi({ item, buka, kosong }) {
             {xs.map((g) =>
               g.sumber === 'bayar' ? (
                 <div key={'b' + g.tanggal} className="row">
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-[13px] bg-brand-soft text-[19px]" style={FONT_EMOJI}>👪</span>
+                  <span className="permen permen-kecil permen-biru grid h-10 w-10 shrink-0 place-items-center rounded-[13px]"><Ikon.siswa size={19} /></span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[14px] font-bold">Pembayaran orang tua</span>
                     <span className="block truncate text-[12px] text-muted">SPP & biaya kegiatan · {g.jumlah} transaksi</span>
@@ -476,10 +488,15 @@ function BarisKas({ g, buka }) {
   return (
     <button className="row w-full text-left" onClick={() => buka(g)}>
       <span
-        className={`grid h-10 w-10 shrink-0 place-items-center rounded-[13px] text-[19px] ${g.jenis === 'keluar' ? 'bg-danger-soft' : 'bg-ok-soft'} ${redup ? 'opacity-50' : ''}`}
-        style={FONT_EMOJI}
+        className={`permen permen-kecil relative grid h-10 w-10 shrink-0 place-items-center rounded-[13px] ${g.jenis === 'keluar' ? 'permen-pink' : 'permen-tosca'} ${redup ? 'opacity-50' : ''}`}
+        title={g.kategori}
       >
-        {emojiKategori(g.kategori, g.jenis)}
+        <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          {g.jenis === 'keluar' ? <><path d="M7 17 17 7" /><path d="M9 7h8v8" /></> : <><path d="M17 7 7 17" /><path d="M7 9v8h8" /></>}
+        </svg>
+        <span className="absolute -bottom-1.5 -right-1.5 grid h-[20px] w-[20px] place-items-center rounded-full bg-kartu text-[11px] shadow-[0_1px_3px_rgba(0,0,0,.15)]" style={FONT_EMOJI} aria-hidden="true">
+          {emojiKategori(g.kategori, g.jenis)}
+        </span>
       </span>
       <span className={`min-w-0 flex-1 ${redup ? 'opacity-60' : ''}`}>
         <span className={`block truncate text-[14px] font-bold ${batal ? 'line-through' : ''}`}>{g.kategori}</span>
@@ -502,7 +519,7 @@ function BlokKategori({ judul, data, total, jenis }) {
   return (
     <div className="card">
       <div className="mb-2 flex items-center justify-between">
-        <span className="text-[14px] font-extrabold">{judul}</span>
+        <span className="judul-kartu text-[17px]">{judul}</span>
         <span className={`text-[14px] font-extrabold ${jenis === 'keluar' ? 'text-danger' : 'text-ok-deep'}`}>{rp(total)}</span>
       </div>
       {data.length === 0 ? (

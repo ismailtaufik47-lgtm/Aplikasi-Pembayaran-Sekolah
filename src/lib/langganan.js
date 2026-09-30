@@ -18,7 +18,9 @@
 /** GANTI dengan nomor WhatsApp Anda (pengembang), format 62xxxxxxxxxx. */
 export const WA_PENGEMBANG = '628000000000'
 
-export const NAMA_APLIKASI = 'Aplikasi Pembayaran TK'
+// Nama merek aplikasi — dipakai di kuitansi, invoice sewa, halaman cek kuitansi, dll.
+export const NAMA_APLIKASI = 'Kasceria'
+export const TAGLINE_APLIKASI = 'Sahabat Keuangan Sekolah'
 
 /**
  * Rekening bank tujuan transfer — tampil langsung di halaman Langganan
