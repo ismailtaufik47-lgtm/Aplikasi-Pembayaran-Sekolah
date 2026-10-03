@@ -84,12 +84,12 @@ function sheetRekap(wb, { tagihan, siswa, pengaturan, kini }) {
     ws.getCell(r, 1).value = BULAN[i]
     ws.getCell(r, 1).font = { bold: true }
     ws.getCell(r, 2).value = target
-    ws.getCell(r, 2).numFmt = '"Rp" #,##0'
+    ws.getCell(r, 2).numFmt = '"Rp "#,##0'
     ws.getCell(r, 3).value = terkumpul
-    ws.getCell(r, 3).numFmt = '"Rp" #,##0'
+    ws.getCell(r, 3).numFmt = '"Rp "#,##0'
     ws.getCell(r, 3).font = { color: { argb: WARNA.ok } }
     ws.getCell(r, 4).value = tunggakan
-    ws.getCell(r, 4).numFmt = '"Rp" #,##0'
+    ws.getCell(r, 4).numFmt = '"Rp "#,##0'
     ws.getCell(r, 4).font = { bold: true, color: { argb: tunggakan > 0 ? WARNA.danger : WARNA.abu } }
     ws.getCell(r, 5).value = belumLunas
     ws.getCell(r, 5).alignment = { horizontal: 'center' }
@@ -103,9 +103,9 @@ function sheetRekap(wb, { tagihan, siswa, pengaturan, kini }) {
   ws.getCell(r, 1).value = 'TOTAL SPP'
   ws.getCell(r, 1).font = { bold: true, color: { argb: WARNA.brandDeep } }
   ws.getRow(r).eachCell({ includeEmpty: true }, (c) => { c.fill = isiSel('FFE9ECF2') })
-  ws.getCell(r, 2).value = spTotalTarget; ws.getCell(r, 2).numFmt = '"Rp" #,##0'; ws.getCell(r, 2).font = { bold: true }
-  ws.getCell(r, 3).value = spTotalMasuk; ws.getCell(r, 3).numFmt = '"Rp" #,##0'; ws.getCell(r, 3).font = { bold: true, color: { argb: WARNA.ok } }
-  ws.getCell(r, 4).value = spTotalSisa; ws.getCell(r, 4).numFmt = '"Rp" #,##0'; ws.getCell(r, 4).font = { bold: true, color: { argb: WARNA.danger } }
+  ws.getCell(r, 2).value = spTotalTarget; ws.getCell(r, 2).numFmt = '"Rp "#,##0'; ws.getCell(r, 2).font = { bold: true }
+  ws.getCell(r, 3).value = spTotalMasuk; ws.getCell(r, 3).numFmt = '"Rp "#,##0'; ws.getCell(r, 3).font = { bold: true, color: { argb: WARNA.ok } }
+  ws.getCell(r, 4).value = spTotalSisa; ws.getCell(r, 4).numFmt = '"Rp "#,##0'; ws.getCell(r, 4).font = { bold: true, color: { argb: WARNA.danger } }
   ws.getRow(r).height = 20
   r += 3
 
@@ -124,9 +124,9 @@ function sheetRekap(wb, { tagihan, siswa, pengaturan, kini }) {
     const belumLunas = baris.filter((x) => x.status !== 'lunas').length
     ws.getCell(r, 1).value = nama
     ws.getCell(r, 1).font = { bold: true }
-    ws.getCell(r, 2).value = target; ws.getCell(r, 2).numFmt = '"Rp" #,##0'
-    ws.getCell(r, 3).value = terkumpul; ws.getCell(r, 3).numFmt = '"Rp" #,##0'; ws.getCell(r, 3).font = { color: { argb: WARNA.ok } }
-    ws.getCell(r, 4).value = tunggakan; ws.getCell(r, 4).numFmt = '"Rp" #,##0'
+    ws.getCell(r, 2).value = target; ws.getCell(r, 2).numFmt = '"Rp "#,##0'
+    ws.getCell(r, 3).value = terkumpul; ws.getCell(r, 3).numFmt = '"Rp "#,##0'; ws.getCell(r, 3).font = { color: { argb: WARNA.ok } }
+    ws.getCell(r, 4).value = tunggakan; ws.getCell(r, 4).numFmt = '"Rp "#,##0'
     ws.getCell(r, 4).font = { bold: true, color: { argb: tunggakan > 0 ? WARNA.danger : WARNA.abu } }
     ws.getCell(r, 5).value = belumLunas
     ws.getCell(r, 5).alignment = { horizontal: 'center' }
@@ -144,10 +144,33 @@ function sheetRekap(wb, { tagihan, siswa, pengaturan, kini }) {
     ws.getCell(r, 1).value = 'TOTAL KEGIATAN'
     ws.getCell(r, 1).font = { bold: true, color: { argb: WARNA.brandDeep } }
     ws.getRow(r).eachCell({ includeEmpty: true }, (c) => { c.fill = isiSel('FFE9ECF2') })
-    ws.getCell(r, 2).value = kgTotalTarget; ws.getCell(r, 2).numFmt = '"Rp" #,##0'; ws.getCell(r, 2).font = { bold: true }
-    ws.getCell(r, 3).value = kgTotalMasuk; ws.getCell(r, 3).numFmt = '"Rp" #,##0'; ws.getCell(r, 3).font = { bold: true, color: { argb: WARNA.ok } }
-    ws.getCell(r, 4).value = kgTotalSisa; ws.getCell(r, 4).numFmt = '"Rp" #,##0'; ws.getCell(r, 4).font = { bold: true, color: { argb: WARNA.danger } }
+    ws.getCell(r, 2).value = kgTotalTarget; ws.getCell(r, 2).numFmt = '"Rp "#,##0'; ws.getCell(r, 2).font = { bold: true }
+    ws.getCell(r, 3).value = kgTotalMasuk; ws.getCell(r, 3).numFmt = '"Rp "#,##0'; ws.getCell(r, 3).font = { bold: true, color: { argb: WARNA.ok } }
+    ws.getCell(r, 4).value = kgTotalSisa; ws.getCell(r, 4).numFmt = '"Rp "#,##0'; ws.getCell(r, 4).font = { bold: true, color: { argb: WARNA.danger } }
     ws.getRow(r).height = 20
+  }
+
+  // --- rekap PMB & daftar ulang (0033) ---
+  const paketNama = [...new Set(tagihan.filter((t) => t.paketId).map((t) => t.labelJenis))]
+  if (paketNama.length) {
+    r += 3
+    ws.getCell(r, 1).value = 'Rekap PMB & Daftar Ulang'
+    ws.getCell(r, 1).font = { bold: true, size: 12 }
+    r += 1
+    baposHeader(ws, r, ['Paket', 'Target', 'Terkumpul', 'Belum Masuk', 'Siswa Belum Lunas'])
+    r += 1
+    paketNama.forEach((nama) => {
+      const baris = tagihan.filter((t) => t.paketId && t.labelJenis === nama)
+      ws.getCell(r, 1).value = nama
+      ws.getCell(r, 1).font = { bold: true }
+      ws.getCell(r, 2).value = baris.reduce((t, x) => t + x.target, 0); ws.getCell(r, 2).numFmt = '"Rp "#,##0'
+      ws.getCell(r, 3).value = baris.reduce((t, x) => t + Math.min(x.dibayar, x.target), 0); ws.getCell(r, 3).numFmt = '"Rp "#,##0'; ws.getCell(r, 3).font = { color: { argb: WARNA.ok } }
+      ws.getCell(r, 4).value = baris.reduce((t, x) => t + x.sisa, 0); ws.getCell(r, 4).numFmt = '"Rp "#,##0'; ws.getCell(r, 4).font = { bold: true, color: { argb: WARNA.danger } }
+      ws.getCell(r, 5).value = baris.filter((x) => x.status !== 'lunas').length
+      ws.getCell(r, 5).alignment = { horizontal: 'center' }
+      ws.getRow(r).eachCell((c) => { c.border = { bottom: { style: 'hair', color: { argb: WARNA.abuSoft } } } })
+      r += 1
+    })
   }
 }
 
@@ -182,14 +205,14 @@ function sheetKelas(wb, { kelas, tagihan, pengaturan }) {
     ws.getCell(r, 2).value = t.nama
     ws.getCell(r, 3).value = t.labelJenis
     ws.getCell(r, 4).value = t.jatuhTempo || '—'
-    ws.getCell(r, 5).value = t.target; ws.getCell(r, 5).numFmt = '"Rp" #,##0'
-    ws.getCell(r, 6).value = t.dibayar; ws.getCell(r, 6).numFmt = '"Rp" #,##0'; ws.getCell(r, 6).font = { color: { argb: WARNA.ok } }
-    ws.getCell(r, 7).value = t.sisa; ws.getCell(r, 7).numFmt = '"Rp" #,##0'
+    ws.getCell(r, 5).value = t.target; ws.getCell(r, 5).numFmt = '"Rp "#,##0'
+    ws.getCell(r, 6).value = t.dibayar; ws.getCell(r, 6).numFmt = '"Rp "#,##0'; ws.getCell(r, 6).font = { color: { argb: WARNA.ok } }
+    ws.getCell(r, 7).value = t.sisa; ws.getCell(r, 7).numFmt = '"Rp "#,##0'
     ws.getCell(r, 7).font = { bold: true, color: { argb: t.sisa > 0 ? WARNA.danger : WARNA.abu } }
 
     const statusKey = t.status === 'nunggak' ? 'nunggak' : t.status === 'sebagian' ? 'sebagian' : t.status === 'lunas' ? 'lunas' : 'belum-bayar'
     const gaya = gayaStatus(statusKey)
-    const label = { nunggak: 'Nunggak', sebagian: 'Sebagian', lunas: 'Lunas', 'belum-bayar': 'Belum' }[statusKey]
+    const label = t.paketId ? t.badge.teks : { nunggak: 'Nunggak', sebagian: 'Sebagian', lunas: 'Lunas', 'belum-bayar': 'Belum' }[statusKey]
     ws.getCell(r, 8).value = label
     ws.getCell(r, 8).fill = gaya.fill
     ws.getCell(r, 8).font = gaya.font
@@ -203,9 +226,9 @@ function sheetKelas(wb, { kelas, tagihan, pengaturan }) {
   ws.getCell(rTotal, 2).value = `Total kelas ${kelas}`
   ws.getCell(rTotal, 2).font = { bold: true }
   ws.getRow(rTotal).eachCell({ includeEmpty: true }, (c) => { c.fill = isiSel('FFE9ECF2') })
-  ws.getCell(rTotal, 5).value = urut.reduce((t, x) => t + x.target, 0); ws.getCell(rTotal, 5).numFmt = '"Rp" #,##0'; ws.getCell(rTotal, 5).font = { bold: true }
-  ws.getCell(rTotal, 6).value = urut.reduce((t, x) => t + x.dibayar, 0); ws.getCell(rTotal, 6).numFmt = '"Rp" #,##0'; ws.getCell(rTotal, 6).font = { bold: true, color: { argb: WARNA.ok } }
-  ws.getCell(rTotal, 7).value = urut.reduce((t, x) => t + x.sisa, 0); ws.getCell(rTotal, 7).numFmt = '"Rp" #,##0'; ws.getCell(rTotal, 7).font = { bold: true, color: { argb: WARNA.danger } }
+  ws.getCell(rTotal, 5).value = urut.reduce((t, x) => t + x.target, 0); ws.getCell(rTotal, 5).numFmt = '"Rp "#,##0'; ws.getCell(rTotal, 5).font = { bold: true }
+  ws.getCell(rTotal, 6).value = urut.reduce((t, x) => t + x.dibayar, 0); ws.getCell(rTotal, 6).numFmt = '"Rp "#,##0'; ws.getCell(rTotal, 6).font = { bold: true, color: { argb: WARNA.ok } }
+  ws.getCell(rTotal, 7).value = urut.reduce((t, x) => t + x.sisa, 0); ws.getCell(rTotal, 7).numFmt = '"Rp "#,##0'; ws.getCell(rTotal, 7).font = { bold: true, color: { argb: WARNA.danger } }
   ws.getRow(rTotal).height = 20
 
   ws.autoFilter = { from: { row: 3, column: 1 }, to: { row: 3, column: 8 } }

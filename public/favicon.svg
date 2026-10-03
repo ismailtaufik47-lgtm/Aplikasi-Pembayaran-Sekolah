@@ -10,7 +10,6 @@
     <path d="M25.4 39.2 q4.6 4.4 9.2 0" stroke="#5A3E00" stroke-width="2" fill="none" stroke-linecap="round"/>
     <path d="M13.5 22.5 L30 9.5 L46.5 22.5 Z" fill="#FF7A45"/>
     <rect x="12" y="21" width="36" height="3.6" rx="1.8" fill="#E0582F"/>
-    <line x1="30" y1="9.5" x2="30" y2="2" stroke="#FFFFFF" stroke-width="1.5"/>
-    <rect x="30" y="2" width="7.5" height="2.5" fill="#EF4444"/><rect x="30" y="4.5" width="7.5" height="2.5" fill="#FFFFFF"/>
+    <circle cx="30" cy="9.6" r="2.6" fill="#FFD84D" stroke="#F2B21F" stroke-width="1"/>
   </g>
 </svg>

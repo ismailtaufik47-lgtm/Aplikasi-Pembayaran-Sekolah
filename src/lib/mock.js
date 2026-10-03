@@ -27,7 +27,6 @@ const tglDepan = (n) => {
 }
 
 export const biaya = [
-  { id: 'b1', sekolah_id: idSekolah, nama: 'PMB', nominal: 350000, urutan: 1 },
   { id: 'b2', sekolah_id: idSekolah, nama: 'Dana usaha', nominal: 100000, urutan: 2 },
   {
     id: 'b3', sekolah_id: idSekolah, nama: 'Manasik haji', nominal: 150000, urutan: 3,
@@ -67,6 +66,53 @@ export const siswa = [
 
 const hari = (n) => new Date(Date.now() - n * 864e5).toISOString()
 
+/* ---------- PMB & daftar ulang demo (0033) ---------- */
+const sekarang = new Date()
+const awalTa = sekarang.getMonth() >= 6 ? sekarang.getFullYear() : sekarang.getFullYear() - 1
+const taDemo = `${awalTa}/${awalTa + 1}`
+/** "MM-DD" pada tahun ajaran berjalan (Jul–Des = tahun awal), tidak pernah melewati hari ini. */
+const tglTa = (mmdd) => {
+  const [m, d] = mmdd.split('-').map(Number)
+  const t = new Date(m >= 7 ? awalTa : awalTa + 1, m - 1, d, 9, 30)
+  return (t > sekarang ? new Date(Date.now() - 3600e3) : t).toISOString()
+}
+const isoTa = (mmdd) => {
+  const [m] = mmdd.split('-').map(Number)
+  return `${m >= 7 ? awalTa : awalTa + 1}-${mmdd}`
+}
+
+export const paket = [
+  {
+    id: 'pk1', sekolah_id: idSekolah, jenis: 'pmb', tahun_ajaran: taDemo, nama: `PMB ${taDemo}`, total: 3700000,
+    rincian: [
+      { nama: 'Formulir pendaftaran', nominal: 150000 }, { nama: 'Uang gedung & sarana', nominal: 2000000 },
+      { nama: 'Seragam (4 stel)', nominal: 650000 }, { nama: 'Buku, LKS & alat tulis', nominal: 400000 },
+      { nama: 'Kegiatan setahun', nominal: 500000 },
+    ],
+    tahap: [
+      { nama: 'Tahap 1', jatuhTempo: isoTa('07-15'), nominal: 1500000 },
+      { nama: 'Tahap 2', jatuhTempo: isoTa('09-15'), nominal: 1200000 },
+      { nama: 'Tahap 3', jatuhTempo: isoTa('12-15'), nominal: 1000000 },
+    ],
+  },
+  {
+    id: 'pk2', sekolah_id: idSekolah, jenis: 'du', tahun_ajaran: taDemo, nama: `Daftar ulang ${taDemo}`, total: 1850000,
+    rincian: [
+      { nama: 'Kegiatan setahun', nominal: 600000 }, { nama: 'Buku & LKS', nominal: 450000 },
+      { nama: 'Seragam olahraga baru', nominal: 250000 }, { nama: 'Pemeliharaan sarana', nominal: 400000 },
+      { nama: 'Asuransi & kartu pelajar', nominal: 150000 },
+    ],
+    tahap: [
+      { nama: 'Tahap 1', jatuhTempo: isoTa('07-15'), nominal: 1000000 },
+      { nama: 'Tahap 2', jatuhTempo: isoTa('10-15'), nominal: 850000 },
+    ],
+  },
+]
+export const paketSiswa = [
+  ...['s1', 's2', 's3'].map((x) => ({ paket_id: 'pk1', siswa_id: x })),
+  ...['s4', 's5', 's6', 's7'].map((x) => ({ paket_id: 'pk2', siswa_id: x })),
+]
+
 export const pembayaran = [
   { id: 'p1', siswa_id: 's5', jenis: 'spp', periode: 1, biaya_id: null, keterangan: 'SPP bulanan — Agustus', nominal: 150000, metode: 'Tunai', petugas: 'Bu Yanti', dibayar_pada: hari(12) },
   { id: 'p2', siswa_id: 's3', jenis: 'kegiatan', periode: null, biaya_id: 'b4', keterangan: 'Biaya kegiatan — Outing class', nominal: 200000, metode: 'Transfer', petugas: 'Bu Rina', dibayar_pada: hari(14) },
@@ -80,9 +126,18 @@ export const pembayaran = [
   { id: 'p10', siswa_id: 's4', jenis: 'spp', periode: 0, biaya_id: null, keterangan: 'SPP bulanan — Juli', nominal: 150000, metode: 'Tunai', petugas: 'Bu Yanti', dibayar_pada: hari(46) },
   { id: 'p11', siswa_id: 's5', jenis: 'spp', periode: 0, biaya_id: null, keterangan: 'SPP bulanan — Juli', nominal: 150000, metode: 'Tunai', petugas: 'Bu Yanti', dibayar_pada: hari(47) },
   { id: 'p12', siswa_id: 's6', jenis: 'spp', periode: 0, biaya_id: null, keterangan: 'SPP bulanan — Juli', nominal: 150000, metode: 'Transfer', petugas: 'Bu Yanti', dibayar_pada: hari(47) },
-  ...['s1', 's2', 's3', 's4', 's5', 's6', 's7'].map((sid, i) => ({
-    id: 'pmb' + i, siswa_id: sid, jenis: 'kegiatan', periode: null, biaya_id: 'b1',
-    keterangan: 'Biaya kegiatan — PMB', nominal: 350000, metode: 'Transfer', petugas: 'Kantor TK', dibayar_pada: hari(52),
+  // PMB & daftar ulang (0033) — cicilan, tanggal mengikuti tahun ajaran berjalan
+  ...[
+    ['pk1', 's1', 1500000, '07-10', 'Tunai'], ['pk1', 's1', 1000000, '09-12', 'Transfer'],
+    ['pk1', 's2', 1500000, '07-14', 'Tunai'],
+    ['pk1', 's3', 3700000, '09-12', 'Transfer'],
+    ['pk2', 's4', 1000000, '07-08', 'Transfer'],
+    ['pk2', 's5', 1850000, '09-02', 'Tabungan'],
+    ['pk2', 's6', 1000000, '07-20', 'Tunai'], ['pk2', 's6', 850000, '09-25', 'Tunai'],
+    ['pk2', 's7', 500000, '07-25', 'Tunai'],
+  ].map(([pk, sid, nominal, tgl, metode], i) => ({
+    id: 'pp' + i, siswa_id: sid, jenis: 'paket', periode: null, biaya_id: null, paket_id: pk,
+    keterangan: pk === 'pk1' ? `PMB ${taDemo}` : `Daftar ulang ${taDemo}`, nominal, metode, petugas: 'Bu Rina', dibayar_pada: tglTa(tgl),
   })),
   // contoh cicilan — supaya progress bar "sebagian" kelihatan di mode demo
   { id: 'p13', siswa_id: 's7', jenis: 'spp', periode: 0, biaya_id: null, keterangan: 'SPP bulanan — Juli', nominal: 100000, metode: 'Tunai', petugas: 'Bu Yanti', dibayar_pada: hari(40) },
@@ -94,7 +149,7 @@ export const waliDemo = { nama: 'Ibu Wulan', anak: ['s1', 's4'] }
 
 /** Dipakai lib/api.js sebagai pengganti hasil query Supabase. */
 export function bentukDemo() {
-  return { sekolah, biaya, siswa, pembayaran, wali: null }
+  return { sekolah, biaya, siswa, pembayaran, paket, paketSiswa, wali: null }
 }
 
 /* ---------- buku kas demo (0028) ---------- */

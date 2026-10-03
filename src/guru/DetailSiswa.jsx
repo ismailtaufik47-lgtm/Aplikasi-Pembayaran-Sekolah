@@ -21,11 +21,14 @@ import {
   totalDibayar,
   totalKegiatan,
 } from '../lib/format.js'
+import {
+  BADGE_PAKET, EMOJI_JENIS, LABEL_JENIS, WARNA_JENIS, dibayarPaket, keteranganPaket, kurangSekarangPaket, paketSiswa, statusPaket, tahapPaket, tglPendek, urutPaket,
+} from '../lib/paket.js'
 
 export default function DetailSiswa({ onCatat, onUbah }) {
   const { id } = useParams()
   const nav = useNavigate()
-  const { siswa, biaya, pengaturan, toast, boleh } = useData()
+  const { siswa, biaya, paket, pengaturan, toast, boleh } = useData()
   const [seg, setSeg] = useState('spp')
   const [periode, setPeriode] = useState(null) // { jenis, indeks } | null
   const [linkOrtu, setLinkOrtu] = useState(null) // { token, nama } | null, saat sheet link dibuka
@@ -37,10 +40,14 @@ export default function DetailSiswa({ onCatat, onUbah }) {
 
   if (!s) return <Kosong>Data siswa tidak ditemukan.</Kosong>
 
-  const dibayar = totalDibayar(s)
-  const total = 12 * pengaturan.sppNominal + totalKegiatan(biaya)
+  // PMB & daftar ulang yang ditagihkan ke siswa ini (0033)
+  const paketS = paketSiswa(paket, s.id).sort(urutPaket)
+  const bayarPaket = paketS.reduce((t, p) => t + Math.min(p.total, dibayarPaket(s, p.id)), 0)
+  const dibayar = totalDibayar(s) + bayarPaket
+  const total = 12 * pengaturan.sppNominal + totalKegiatan(biaya) + paketS.reduce((t, p) => t + p.total, 0)
   const sisaTahunAjaran = total - dibayar
   const perluSekarang = sppPerluSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini) + kegiatanBelum(s, biaya)
+    + paketS.reduce((t, p) => t + kurangSekarangPaket(p, dibayarPaket(s, p.id)), 0)
   const jmlLunasSpp = lunasSpp(s, pengaturan.sppNominal)
   const jmlLunasKeg = biaya.filter((b, i) => dibayarKegiatan(s, i) >= b.nominal).length
 
@@ -84,7 +91,7 @@ export default function DetailSiswa({ onCatat, onUbah }) {
   const kirimWa = () => {
     const nomor = (s.hp || '').replace(/[^0-9]/g, '').replace(/^0/, '62')
     const teks = encodeURIComponent(
-      `Assalamu'alaikum, berikut link untuk memantau status pembayaran ${s.nama} di ${pengaturan.namaSekolah}:\n${urlPortal}`
+      `Assalamu'alaikum, berikut link untuk memantau status pembayaran ${s.nama} di ${pengaturan.namaSekolah}:\n${urlPortal}\n\nSaat link dibuka, masukkan NIS ananda (tertera di kuitansi pembayaran atau kartu siswa). Mohon link ini tidak dibagikan ke orang lain.`
     )
     window.open(`https://wa.me/${nomor}?text=${teks}`, '_blank')
   }
@@ -172,19 +179,46 @@ export default function DetailSiswa({ onCatat, onUbah }) {
               </div>
               <Track persen={biaya.length ? (jmlLunasKeg / biaya.length) * 100 : 0} warna="#8B5CF6" tinggi={7} />
             </div>
+            {paketS.map((p) => (
+              <div key={p.id} className="mt-3">
+                <div className="mb-1.5 flex items-center justify-between text-xs font-semibold">
+                  <span className="text-muted">{p.nama}</span>
+                  <span>{persenBayar(dibayarPaket(s, p.id), p.total)}% dibayar</span>
+                </div>
+                <Track persen={persenBayar(dibayarPaket(s, p.id), p.total)} warna={p.jenis === 'pmb' ? '#EC4899' : '#8B5CF6'} tinggi={7} />
+              </div>
+            ))}
           </div>
         </div>
 
         <div className="min-w-0">
-          <div className="lg:max-w-[300px]">
+          <div className="lg:max-w-[420px]">
             <Segment
               nilai={seg}
               ubah={setSeg}
-              opsi={[{ nilai: 'spp', label: 'Iuran SPP' }, { nilai: 'keg', label: 'Biaya kegiatan' }]}
+              opsi={[
+                { nilai: 'spp', label: 'Iuran SPP' },
+                { nilai: 'keg', label: 'Kegiatan' },
+                ...(paketS.length ? [{ nilai: 'paket', label: 'PMB & DU' }] : []),
+              ]}
             />
           </div>
 
-          <div className="lg:grid lg:grid-cols-2 lg:gap-3.5 2xl:grid-cols-3">
+          {seg === 'paket' && (
+            <div className="grid gap-3.5 lg:grid-cols-2">
+              {paketS.map((p) => (
+                <KartuPaket
+                  key={p.id}
+                  p={p}
+                  dibayar={dibayarPaket(s, p.id)}
+                  bisaCatat={bisaCatat}
+                  buka={() => setPeriode({ jenis: 'paket', indeks: p.id })}
+                />
+              ))}
+            </div>
+          )}
+
+          <div className={`lg:grid lg:grid-cols-2 lg:gap-3.5 2xl:grid-cols-3 ${seg === 'paket' ? '!hidden' : ''}`}>
             {seg === 'spp'
               ? BULAN.map((b, i) => {
                   const jml = dibayarSpp(s, i)
@@ -238,10 +272,17 @@ export default function DetailSiswa({ onCatat, onUbah }) {
               <div className="mb-1 text-[11.5px] font-bold uppercase tracking-wide text-muted">Link portal</div>
               <div className="break-all text-[13.5px] font-semibold">{urlPortal}</div>
             </div>
+            <div className="mb-4 flex items-start gap-3 rounded-2xl bg-warn-soft p-3.5">
+              <span className="tile h-[34px] w-[34px] shrink-0 rounded-[11px] bg-warn-soft text-warn"><Ikon.info size={18} /></span>
+              <div className="text-[12.5px] font-semibold leading-snug text-warn-deep">
+                Saat membuka link, orang tua diminta memasukkan <b>NIS ananda: {s.nis || '—'}</b>. NIS sengaja tidak ikut dikirim di pesan
+                WhatsApp — sampaikan terpisah atau lihat di kuitansi.
+              </div>
+            </div>
             <button className="bigbtn-wa mb-2.5" onClick={kirimWa}>Kirim via WhatsApp</button>
             <button className="bigbtn-ghost" onClick={salinLink}>Salin link</button>
             <p className="mt-4 text-center text-xs text-muted">
-              Link ini permanen untuk {s.wali || 'orang tua'} — buka kembali kapan saja tanpa perlu login.
+              Link ini permanen untuk {s.wali || 'orang tua'} — tanpa login, cukup NIS ananda.
             </p>
           </>
         ) : (
@@ -249,6 +290,52 @@ export default function DetailSiswa({ onCatat, onUbah }) {
         )}
       </Sheet>
     </>
+  )
+}
+
+/**
+ * Kartu PMB / daftar ulang satu siswa: progres, keterangan, jadwal cicilan.
+ * Ketuk "Catat cicilan" / kartunya → lembar rincian, riwayat & catat (SheetPeriode).
+ */
+function KartuPaket({ p, dibayar, bisaCatat, buka }) {
+  const st = statusPaket(p, dibayar)
+  const b = BADGE_PAKET[st]
+  const tahap = tahapPaket(p, dibayar)
+  const persen = persenBayar(dibayar, p.total)
+  return (
+    <div className="card !p-4">
+      <button className="flex w-full items-center gap-3 text-left" onClick={buka}>
+        <GambarKegiatan emoji={EMOJI_JENIS[p.jenis]} size={48} className="rounded-[15px]" />
+        <span className="min-w-0 flex-1">
+          <span className="flex items-center gap-1.5">
+            <span className={`permen permen-kecil permen-${WARNA_JENIS[p.jenis]} rounded-[8px] px-2 py-0.5 text-[10.5px] font-extrabold`}>{LABEL_JENIS[p.jenis]}</span>
+            <b className="truncate font-display text-[17px] font-semibold">{p.tahunAjaran}</b>
+          </span>
+          <span className="mt-0.5 block text-[12px] font-semibold text-muted">Dibayar {rp(dibayar)} dari {rp(p.total)}</span>
+        </span>
+        <Chip warna={b.warna}>{b.teks}</Chip>
+      </button>
+      <div className="mt-3 flex items-center gap-2.5">
+        <div className="flex-1"><Track persen={persen} warna={st === 'lunas' ? '#22C55E' : st === 'terlambat' ? '#EF4444' : '#F5A524'} tinggi={8} /></div>
+        <b className="text-[12px] font-extrabold">{persen}%</b>
+      </div>
+      {st !== 'lunas' && <p className={`mt-1.5 text-[12.5px] font-bold ${st === 'terlambat' ? 'text-danger' : 'text-muted'}`}>{keteranganPaket(p, dibayar)}</p>}
+      {tahap.length > 0 && (
+        <div className="mt-2.5 flex gap-1.5">
+          {tahap.map((t, i) => (
+            <span key={i} title={`${t.nama} · ${tglPendek(t.jatuhTempo, true)}`}
+              className={`flex-1 rounded-[10px] px-1.5 py-1.5 text-center text-[11px] font-extrabold leading-tight ${
+                t.lunas ? 'bg-ok-soft text-ok-deep' : t.lewat ? 'bg-danger-soft text-danger' : t.terisi > 0 ? 'bg-warn-soft text-warn-deep' : 'bg-canvas text-muted'}`}>
+              {t.nama.replace(/^Tahap\s*/i, 'T')}
+              <span className="block text-[10.5px] font-bold opacity-80">{tglPendek(t.jatuhTempo)}</span>
+            </span>
+          ))}
+        </div>
+      )}
+      <button className={`mt-3 w-full rounded-[14px] py-2.5 text-[13px] font-extrabold ${bisaCatat && st !== 'lunas' ? 'bg-brand text-white' : 'tombol-putih'}`} onClick={buka}>
+        {bisaCatat && st !== 'lunas' ? 'Catat cicilan' : 'Lihat rincian & riwayat'}
+      </button>
+    </div>
   )
 }
 

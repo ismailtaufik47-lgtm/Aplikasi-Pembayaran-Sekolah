@@ -100,7 +100,7 @@ export function periksaAkses(hak) {
  * Dipakai sidebar desktop, tab bar mobile, dan halaman Lainnya — supaya
  * ketiganya selalu konsisten.
  */
-export function menuSekolah(boleh) {
+export function menuSekolah(boleh, peran) {
   const lihatLaporan = boleh('lap_pembayaran', 'lihat') || boleh('lap_keuangan', 'lihat')
   return [
     { id: 'beranda', label: 'Beranda', emoji: 'beranda', ke: '/guru', grup: 'menu', ada: true },
@@ -110,8 +110,10 @@ export function menuSekolah(boleh) {
     { id: 'laporan', label: 'Laporan', emoji: 'laporan', ke: '/guru/laporan', grup: 'menu', sub: 'Laporan pembayaran & keuangan', ada: lihatLaporan },
     { id: 'kas', label: 'Kas sekolah', emoji: 'kas', ke: '/guru/kas', grup: 'menu', sub: 'Pengeluaran, pemasukan & saldo kas', ada: boleh('kas', 'lihat') },
     { id: 'ai', label: 'Tanya SAKU', emoji: 'ai', ke: '/guru/tanya-ai', grup: 'menu', sub: 'Sahabat Keuangan Sekolah — asisten 24 jam', ada: boleh('ai') },
-    { id: 'biaya', label: 'Jenis biaya', emoji: 'biaya', ke: '/guru/biaya', grup: 'atur', sub: 'Nominal SPP & biaya kegiatan', ada: boleh('biaya', 'lihat') },
+    { id: 'biaya', label: 'Jenis biaya', emoji: 'biaya', ke: '/guru/biaya', grup: 'atur', sub: 'SPP, kegiatan, PMB & daftar ulang', ada: boleh('biaya', 'lihat') },
     { id: 'kode-aktivasi', label: 'Kode aktivasi', emoji: 'kode', ke: '/guru/kode-aktivasi', grup: 'atur', sub: 'Undang akun Admin/TU baru', ada: boleh('sekolah') },
+    // Menonaktifkan akun Admin/TU — KHUSUS kepala sekolah (dicek juga di database, 0032).
+    { id: 'akun-staf', label: 'Akun staf', emoji: 'akunstaf', ke: '/guru/akun-staf', grup: 'atur', sub: 'Aktifkan / nonaktifkan akun Admin/TU', ada: peran === 'kepala' },
     { id: 'profil-sekolah', label: 'Profil sekolah', emoji: 'sekolah', ke: '/guru/profil-sekolah', grup: 'atur', sub: 'Identitas, logo & rekening sekolah', ada: boleh('sekolah') },
     { id: 'langganan', label: 'Langganan', emoji: 'langganan', ke: '/guru/langganan', grup: 'atur', sub: 'Masa aktif aplikasi & perpanjangan', ada: boleh('sekolah') },
   ].filter((m) => m.ada)

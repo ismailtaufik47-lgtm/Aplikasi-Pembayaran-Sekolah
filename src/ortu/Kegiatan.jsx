@@ -1,16 +1,30 @@
-import Avatar from '../components/Avatar.jsx'
-import { Chevron, Kosong } from '../components/ui.jsx'
+import { Chevron, Ikon, KosongCeria } from '../components/ui.jsx'
+import { GambarKegiatan } from '../components/Gambar.jsx'
 import { useData } from '../lib/store.jsx'
-import { FONT_EMOJI, emojiKegiatan } from '../lib/emojiKegiatan.js'
+import { emojiKegiatan } from '../lib/emojiKegiatan.js'
 import { jarakKegiatan, rp, tanggalKegiatan } from '../lib/format.js'
+import { JudulAnak } from './Beranda.jsx'
+
+const IkonLokasi = ({ size = 13 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
+    <path d="M12 21s-7-6.2-7-11.5A7 7 0 0 1 19 9.5C19 14.8 12 21 12 21z" />
+    <circle cx="12" cy="9.5" r="2.5" />
+  </svg>
+)
+
+/** Status bayar satu kegiatan untuk anak ini: teks + warna. */
+const statusBayar = ({ b, dibayar, lunas }) =>
+  lunas ? { teks: `Lunas · ${rp(b.nominal)}`, kelas: 'text-ok-deep' }
+  : dibayar > 0 ? { teks: `Dibayar sebagian · kurang ${rp(b.nominal - dibayar)}`, kelas: 'text-warn-deep' }
+  : { teks: `Belum dibayar · ${rp(b.nominal)}`, kelas: 'text-warn-deep' }
 
 /**
  * Halaman Kegiatan (tab bawah portal orang tua): semua kegiatan sekolah
  * tahun ajaran ini beserta jadwal & status bayarnya. Ketuk satu kegiatan
  * untuk membuka info lengkapnya (SheetKegiatan di sheets.jsx).
  *
- * Urutan: yang akan datang (terdekat dulu) → yang belum ada tanggalnya →
- * yang sudah terlaksana.
+ * Urutan: kegiatan terdekat (kartu kuning besar) → yang akan datang →
+ * yang belum ada tanggalnya → yang sudah terlaksana.
  */
 export default function Kegiatan({ aktif, bukaKegiatan }) {
   const { biaya, pengaturan } = useData()
@@ -27,50 +41,22 @@ export default function Kegiatan({ aktif, bukaKegiatan }) {
 
   return (
     <>
-      <div className="flex items-center gap-3 pb-1 pt-3.5 lg:pt-7">
-        <Avatar nama={a.nama} jenis={a.jenis} avatar={a.avatar} foto={a.foto} size={42} />
-        <div>
-          <h1 className="text-xl font-extrabold lg:text-[26px]">Kegiatan sekolah</h1>
-          <p className="text-[13px] text-muted">Jadwal & info kegiatan · {pengaturan.tahunAjaran}</p>
-        </div>
-      </div>
+      <JudulAnak anak={a} judul="Kegiatan sekolah" sub={`Jadwal & info biaya kegiatan ${pengaturan.tahunAjaran}`} />
 
       {biaya.length === 0 ? (
-        <div className="card mt-4"><Kosong>Belum ada kegiatan pada tahun ajaran ini.</Kosong></div>
+        <KosongCeria judul="Belum ada kegiatan">Sekolah belum menambahkan kegiatan untuk tahun ajaran ini.</KosongCeria>
       ) : (
-        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:items-start lg:gap-6">
-          <div>
-            {sorot && (
-              <button
-                onClick={() => bukaKegiatan(sorot.b.id)}
-                className="relative mt-4 block w-full overflow-hidden rounded-[24px] bg-brand p-5 text-left text-white"
-              >
-                <span className="relative text-[12px] font-bold uppercase tracking-wider opacity-90">Kegiatan terdekat</span>
-                <span className="relative mt-3 flex items-center gap-3.5">
-                  <span className="grid h-14 w-14 shrink-0 place-items-center rounded-2xl bg-white/95 text-[28px]" style={FONT_EMOJI}>
-                    {emojiKegiatan(sorot.b)}
-                  </span>
-                  <span className="min-w-0">
-                    <span className="block truncate text-[19px] font-extrabold">{sorot.b.nama}</span>
-                    <span className="block text-[13px] font-semibold opacity-90">{tanggalKegiatan(sorot.b)}</span>
-                  </span>
-                </span>
-                <span className="relative mt-4 flex flex-wrap items-center gap-2">
-                  <span className="rounded-pill bg-white px-3 py-1.5 text-[12px] font-extrabold text-brand">{sorot.j.label}</span>
-                  {sorot.b.waktu && <span className="rounded-pill bg-white/20 px-3 py-1.5 text-[12px] font-bold">🕐 {sorot.b.waktu}</span>}
-                  {sorot.b.lokasi && <span className="max-w-full truncate rounded-pill bg-white/20 px-3 py-1.5 text-[12px] font-bold">📍 {sorot.b.lokasi}</span>}
-                </span>
-                <span className="relative mt-3.5 block text-[12.5px] font-bold opacity-95">Lihat info lengkap ›</span>
-              </button>
-            )}
-
+        <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5 lg:grid-cols-2 lg:items-start lg:gap-6">
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5 lg:gap-6">
+            {sorot && <KartuTerdekat x={sorot} buka={() => bukaKegiatan(sorot.b.id)} />}
             {akanDatang.length > 1 && <Kelompok judul="Akan datang" daftar={akanDatang.slice(1)} buka={bukaKegiatan} />}
-            {tanpaTanggal.length > 0 && <Kelompok judul={akanDatang.length ? 'Jadwal menyusul' : 'Kegiatan'} daftar={tanpaTanggal} buka={bukaKegiatan} />}
+            {!sorot && tanpaTanggal.length > 0 && <Kelompok judul="Jadwal menyusul" daftar={tanpaTanggal} buka={bukaKegiatan} />}
           </div>
-          <div>
+          <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5 lg:gap-6">
+            {sorot && tanpaTanggal.length > 0 && <Kelompok judul="Jadwal menyusul" daftar={tanpaTanggal} buka={bukaKegiatan} />}
             {lewat.length > 0 && <Kelompok judul="Sudah terlaksana" daftar={lewat} buka={bukaKegiatan} redup />}
-            <p className="px-1 pt-4 text-center text-[11.5px] leading-relaxed text-muted">
-              Jadwal dan keterangan kegiatan diisi oleh pihak sekolah dan bisa berubah sewaktu-waktu.
+            <p className="sub-halaman px-3 text-center text-[12px] font-bold leading-relaxed">
+              Jadwal dan keterangan kegiatan diisi pihak sekolah dan bisa berubah sewaktu-waktu.
             </p>
           </div>
         </div>
@@ -79,31 +65,64 @@ export default function Kegiatan({ aktif, bukaKegiatan }) {
   )
 }
 
+const PilKecil = ({ ikon, children }) => (
+  <span className="inline-flex max-w-full items-center gap-1.5 rounded-pill bg-white/60 px-2.5 py-[5px] text-[11.5px] font-extrabold dark:bg-white/10">
+    {ikon}
+    <span className="truncate">{children}</span>
+  </span>
+)
+
+/** Kartu permen kuning untuk kegiatan yang paling dekat. */
+function KartuTerdekat({ x, buka }) {
+  const { b, j } = x
+  const st = statusBayar(x)
+  return (
+    <button onClick={buka} className="kartu-saldo relative block w-full overflow-hidden rounded-[26px] p-4 text-left transition active:translate-y-px lg:p-5">
+      <span className="text-[11px] font-extrabold uppercase tracking-[.08em]">Kegiatan terdekat</span>
+      <span className="mt-2 flex items-center gap-3">
+        <GambarKegiatan emoji={emojiKegiatan(b)} size={58} className="!rounded-[18px] shadow-[inset_0_-4px_0_rgba(0,0,0,.07)]" />
+        <span className="min-w-0">
+          <b className="line-clamp-2 block font-display text-[22px] font-bold leading-[1.1]">{b.nama}</b>
+          <span className="mt-0.5 block text-[12.5px] font-extrabold">{tanggalKegiatan(b)}</span>
+        </span>
+      </span>
+      <span className="mt-3 flex flex-wrap gap-1.5">
+        <PilKecil ikon={<Ikon.kalender size={13} />}>{j.label}</PilKecil>
+        {b.waktu && <PilKecil ikon={<Ikon.jam size={13} />}>{b.waktu}</PilKecil>}
+        {b.lokasi && <PilKecil ikon={<IkonLokasi />}>{b.lokasi}</PilKecil>}
+      </span>
+      <span className="mt-3 flex items-center justify-between gap-2 border-t-[1.5px] border-dashed border-[#3D2A00]/15 pt-2.5 dark:border-white/15">
+        <span className="min-w-0 truncate text-[12.5px] font-extrabold">{st.teks}</span>
+        <span className="flex shrink-0 items-center gap-0.5 text-[12.5px] font-extrabold">
+          Info lengkap
+          <Ikon.kembali size={14} className="rotate-180" />
+        </span>
+      </span>
+    </button>
+  )
+}
+
 function Kelompok({ judul, daftar, buka, redup }) {
   return (
-    <>
-      <div className="seghead lg:first:mt-4"><h2>{judul}</h2></div>
-      <div className="card py-1.5">
-        {daftar.map(({ b, j, dibayar, lunas }) => (
-          <button key={b.id} className={`row w-full text-left ${redup ? 'opacity-80' : ''}`} onClick={() => buka(b.id)}>
-            <span className="grid h-11 w-11 shrink-0 place-items-center rounded-[14px] bg-grape-soft text-[22px]" style={FONT_EMOJI}>
-              {emojiKegiatan(b)}
-            </span>
+    <section className="card !pb-1.5">
+      <h2 className="judul-kartu mb-0.5 text-[18px]">{judul}</h2>
+      {daftar.map((x) => {
+        const { b, j } = x
+        const st = statusBayar(x)
+        return (
+          <button key={b.id} className="row w-full items-center text-left" onClick={() => buka(b.id)}>
+            <GambarKegiatan emoji={emojiKegiatan(b)} size={44} className={`rounded-[14px] ${redup ? 'opacity-70 grayscale-[.35]' : ''}`} />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-[14.5px] font-bold">{b.nama}</span>
-              <span className="block truncate text-[12.5px] text-muted">
-                {j ? <>📅 {tanggalKegiatan(b, true)}{!j.selesai && <b className="text-brand"> · {j.label}</b>}</> : 'Tanggal belum ditentukan'}
+              <b className={`block truncate text-[14.5px] font-extrabold ${redup ? 'text-muted' : ''}`}>{b.nama}</b>
+              <span className="block truncate text-[12px] font-semibold text-muted">
+                {j ? <>{tanggalKegiatan(b, true)}{!j.selesai && <> · {j.label}</>}</> : 'Tanggal belum ditentukan'}
               </span>
-              <span className="mt-1 block text-[12px] font-bold">
-                {lunas ? <span className="text-ok-deep">✓ Lunas {rp(b.nominal)}</span>
-                  : dibayar > 0 ? <span className="text-warn-deep">Kurang {rp(b.nominal - dibayar)}</span>
-                  : <span className="text-warn-deep">Belum dibayar · {rp(b.nominal)}</span>}
-              </span>
+              <span className={`mt-0.5 block truncate text-[12px] font-extrabold ${st.kelas}`}>{st.teks}</span>
             </span>
             <Chevron />
           </button>
-        ))}
-      </div>
-    </>
+        )
+      })}
+    </section>
   )
 }

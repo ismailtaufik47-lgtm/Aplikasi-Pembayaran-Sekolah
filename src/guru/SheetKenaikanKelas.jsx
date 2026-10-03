@@ -141,7 +141,7 @@ export default function SheetKenaikanKelas({ buka, tutup, onSelesai }) {
                     key={k}
                     onClick={() => toggleKelas(k)}
                     className={`flex w-full items-center justify-between rounded-2xl border-2 px-4 py-3 text-left transition ${
-                      terpilih ? 'border-brand bg-brand-soft' : 'border-line bg-white'
+                      terpilih ? 'border-brand bg-brand-soft' : 'border-line bg-kartu'
                     }`}
                   >
                     <span className={`text-[14.5px] font-bold ${terpilih ? 'text-brand' : 'text-ink'}`}>
@@ -208,7 +208,7 @@ export default function SheetKenaikanKelas({ buka, tutup, onSelesai }) {
               const naikDikunci = j === 'akhir'  // kelas B: tidak bisa "naik" lagi
               const lulusDikunci = j === 'awal'  // kelas A: belum bisa lulus
               return (
-                <div key={k} className="rounded-2xl border border-line bg-white p-4">
+                <div key={k} className="rounded-2xl border border-line bg-kartu p-4">
                   <div className="mb-3 flex items-center justify-between">
                     <span className="font-extrabold text-ink">Kelas {k}</span>
                     <span className="text-[12px] text-muted">{n} siswa</span>

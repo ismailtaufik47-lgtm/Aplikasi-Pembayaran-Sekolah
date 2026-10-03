@@ -19,7 +19,11 @@ export function tahunAjaranBerjalan(d = new Date()) {
   return d.getMonth() >= 6 ? `${y}/${y + 1}` : `${y - 1}/${y}`
 }
 
-export const rp = (n) => 'Rp' + Number(n || 0).toLocaleString('id-ID')
+/**
+ * Rupiah dengan spasi: "Rp 150.000" (dipakai di semua layar & pesan WA).
+ * Spasinya non-breaking (\u00A0) supaya "Rp" tidak pernah terpisah baris dari angkanya.
+ */
+export const rp = (n) => (Number(n) < 0 ? '-' : '') + 'Rp\u00A0' + Math.abs(Number(n || 0)).toLocaleString('id-ID')
 
 export const tanggalPanjang = (d = new Date()) =>
   d.toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })

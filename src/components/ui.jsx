@@ -2,8 +2,9 @@
 import { useEffect, useRef } from 'react'
 import { useTema } from '../lib/tema.js'
 import { LogoKasceria, TulisanKasceria } from './Kasceria.jsx'
-import { Awan, BintangWajah, BukuPensil, Bukit, BukitLebar, Bulan, Bintang, Bunga, GedungTK, Pelangi } from './IlustrasiMasuk.jsx'
+import { Awan, BintangWajah, BukuPensil, Bukit, BukitLebar, Bulan, Bintang, GedungTK, Pelangi } from './IlustrasiMasuk.jsx'
 import { AnakUtuhLaki, AnakUtuhPerempuan, KoinMaskot, KoinSaku, PapanGrafik, TumpukanKoin } from './Gambar.jsx'
+import { TamanAyunan, TamanBola, TamanJungkat, TamanPerosotan, TamanPerosotanB, TamanSemakBunga, TamanSemakBungaB } from './TamanBermain.jsx'
 
 /**
  * Kerangka aplikasi.
@@ -118,6 +119,7 @@ const JALUR_MENU = {
   dompet: <><rect x="3" y="6" width="18" height="13" rx="3" /><path d="M3 10.5h18M16.5 14.8h1" /></>,
   gerigi: <><circle cx="12" cy="12" r="3" /><path d="M12 2.8v2.4M12 18.8v2.4M4.2 7.5l2 1.2M17.8 15.3l2 1.2M4.2 16.5l2-1.2M17.8 8.7l2-1.2" /><circle cx="12" cy="12" r="6.6" /></>,
   folder: <><path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" /></>,
+  orangPerisai: <><circle cx="9.5" cy="8" r="3.3" /><path d="M3.5 19.5c.9-3.4 3.3-5 6-5 1.2 0 2.3.3 3.2.8" /><path d="M17.5 12.5l3.5 1.4v2.6c0 2.3-1.5 3.9-3.5 4.5-2-.6-3.5-2.2-3.5-4.5v-2.6z" /></>,
 }
 
 /** id menu → { ikon, warna permen }. `e` = emoji lama (cadangan teks). */
@@ -134,6 +136,7 @@ export const EMOJI_MENU = {
   sekolah: { ikon: 'sekolah', warna: 'tosca', e: '🏫' },
   langganan: { ikon: 'permata', warna: 'ungu', e: '💎' },
   akun: { ikon: 'orang', warna: 'biru', e: '🙋' },
+  akunstaf: { ikon: 'orangPerisai', warna: 'tosca', e: '🛡️' },
   ringkasan: { ikon: 'naik', warna: 'ungu', e: '📈' },
   riwayat: { ikon: 'folder', warna: 'kuning', e: '🗂️' },
   ai: { ikon: 'robot', warna: 'biru', e: '🤖' },
@@ -260,8 +263,32 @@ function GambarKepala({ gambar, besar = false }) {
   return null
 }
 
+/**
+ * Gedung TK dengan dua anak berdiri UTUH sampai kaki di depannya (tidak
+ * tertutup rumput/semak), di atas gundukan rumput. Pelangi di belakang
+ * (siang) atau bulan & bintang (mode gelap).
+ *   besar=false → versi HP (±156px), besar=true → kartu sapaan PC.
+ */
+export function AdeganSekolah({ besar = false, className = '' }) {
+  const anak = besar ? { width: 60, height: 116 } : { width: 46, height: 88 }
+  return (
+    <div aria-hidden="true" className={`pointer-events-none ${className}`}>
+      <div className="dark:hidden">
+        <Pelangi className={besar ? 'absolute -right-10 top-2 w-[250px]' : 'absolute -right-5 top-0 w-[170px]'} />
+      </div>
+      <div className="hidden dark:block">
+        <Bintang className="absolute inset-0 h-full w-full" />
+        <Bulan className={besar ? 'absolute right-2 top-3 w-[50px]' : 'absolute right-3 top-0 w-[40px]'} />
+      </div>
+      <GedungTK className={`redup-malam absolute left-1/2 -translate-x-1/2 ${besar ? 'bottom-[2px] w-[250px]' : 'bottom-[2px] w-[150px]'}`} />
+      <AnakUtuhLaki className={`absolute bottom-0 ${besar ? 'left-[22px]' : 'left-0'}`} style={anak} />
+      <AnakUtuhPerempuan className={`absolute bottom-0 ${besar ? 'right-[22px]' : 'right-0'}`} style={anak} />
+    </div>
+  )
+}
+
 /** Pelangi & awan (siang) atau bulan & bintang (malam) di pojok kanan atas. */
-function LangitKepala() {
+export function LangitKepala() {
   return (
     <div aria-hidden="true" className="pointer-events-none absolute -right-[18px] -top-[58px] h-[190px] w-[240px] lg:-right-2 lg:-top-3 lg:h-[150px] lg:w-[260px]">
       <div className="dark:hidden">
@@ -317,21 +344,34 @@ export function KepalaHalaman({ judul, sub, gambar = 'anak', aksi, aksiHp, kemba
 }
 
 /**
- * Penutup halaman: bukit rumput + bunga, buku & bintang. Ditaruh paling bawah
- * area gulir (mt-auto) sehingga bagian bawah layar tidak pernah kosong dan
- * tidak ada ruang/padding sisa di bawahnya.
+ * Penutup halaman: taman bermain — anak main ayunan, perosotan (HP), plus
+ * jungkat-jungkit, buku & bintang di layar lebar. Ditaruh paling bawah area
+ * gulir (mt-auto) sehingga bagian bawah layar tidak pernah kosong dan tidak
+ * ada ruang/padding sisa di bawahnya.
  */
 export function KakiRumput({ className = '' }) {
   return (
-    <div aria-hidden="true" className={`pointer-events-none relative h-[92px] shrink-0 lg:h-[112px] ${className}`}>
-      <Bukit className="absolute inset-0 h-full w-full lg:hidden" />
-      <BukitLebar className="absolute inset-0 hidden h-full w-full lg:block" />
-      <Bunga warna="#FFFFFF" className="redup-malam absolute bottom-[30px] left-[26%] w-3 lg:bottom-[34px] lg:left-[20%]" />
-      <Bunga warna="#FF9CC2" className="redup-malam absolute bottom-[40px] left-[56%] w-3 lg:left-[46%]" />
-      <Bunga warna="#FFD84D" className="redup-malam absolute bottom-[26px] right-[26%] w-3 lg:right-[30%]" />
-      <Bunga warna="#FF9CC2" className="redup-malam absolute bottom-[34px] hidden w-3 lg:right-[12%] lg:block" />
-      <BukuPensil className="redup-malam absolute bottom-1 left-2 w-[60px] lg:bottom-3 lg:left-6 lg:w-[76px]" />
-      <BintangWajah className="redup-malam absolute bottom-2 right-2.5 w-[46px] lg:bottom-4 lg:right-7 lg:w-[56px]" />
+    <div aria-hidden="true" className={`pointer-events-none relative h-[150px] shrink-0 overflow-hidden lg:h-[180px] ${className}`}>
+      {/* HP & tablet */}
+      <div className="absolute inset-0 lg:hidden">
+        <Bukit className="absolute inset-x-0 bottom-0 h-[104px] w-full" />
+        <TamanAyunan className="redup-malam absolute bottom-[26px] left-2" />
+        <TamanSemakBunga className="redup-malam absolute bottom-[30px] left-[152px] max-[379px]:hidden" />
+        <TamanBola className="redup-malam absolute bottom-[26px] left-[214px] max-[379px]:hidden" />
+        <TamanPerosotan className="redup-malam absolute bottom-[30px] right-2" />
+      </div>
+      {/* layar lebar */}
+      <div className="absolute inset-0 hidden lg:block">
+        <BukitLebar className="absolute inset-x-0 bottom-0 h-[120px] w-full" />
+        <TamanAyunan className="redup-malam absolute bottom-[22px] left-[13%] h-auto w-[166px]" />
+        <TamanSemakBunga className="redup-malam absolute bottom-[26px] left-[31%]" />
+        <TamanJungkat className="redup-malam absolute bottom-[20px] left-[42%] h-auto w-[195px]" />
+        <TamanSemakBungaB className="redup-malam absolute bottom-[30px] left-[61%]" />
+        <TamanBola className="redup-malam absolute bottom-[22px] left-[69%] h-auto w-[18px]" />
+        <TamanPerosotanB className="redup-malam absolute bottom-[24px] right-[13%] h-auto w-[183px]" />
+        <BukuPensil className="redup-malam absolute bottom-3 left-[22px] w-[76px]" />
+        <BintangWajah className="redup-malam absolute bottom-4 right-[26px] w-[54px]" />
+      </div>
     </div>
   )
 }

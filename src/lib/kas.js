@@ -65,7 +65,7 @@ export function gerakanKas({ pembayaran = [], kas = [], mulai = null }) {
       sumber: 'bayar',
       jenis: 'masuk',
       tanggal: tanggalISO(new Date(p.tanggal)),
-      kategori: p.jenis === 'spp' ? 'SPP' : 'Biaya kegiatan',
+      kategori: p.jenis === 'spp' ? 'SPP' : p.jenis === 'paket' ? (String(p.ket).startsWith('Daftar ulang') ? 'Daftar ulang' : 'PMB') : 'Biaya kegiatan',
       nominal: p.nominal,
       keterangan: p.ket,
       batal: false,

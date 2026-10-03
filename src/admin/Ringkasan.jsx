@@ -18,10 +18,10 @@ const kunciBulan = (d) => `${d.getFullYear()}-${d.getMonth()}`
 /** Rupiah ringkas untuk sumbu: Rp350 rb, Rp1,2 jt. */
 const rpSingkat = (n) =>
   n >= 1e6
-    ? `Rp${(n / 1e6).toLocaleString('id-ID', { maximumFractionDigits: 1 })} jt`
+    ? `Rp ${(n / 1e6).toLocaleString('id-ID', { maximumFractionDigits: 1 })} jt`
     : n >= 1e3
-      ? `Rp${Math.round(n / 1e3)} rb`
-      : `Rp${n}`
+      ? `Rp ${Math.round(n / 1e3)} rb`
+      : `Rp ${n}`
 
 /** Batas atas sumbu yang "bulat": 1, 2, 2.5, 5 × 10^k. */
 function batasAtas(maks) {

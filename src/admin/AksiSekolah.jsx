@@ -84,7 +84,7 @@ function SheetPerpanjang({ s, tutup }) {
 
       {s.jumlahSiswaAktif === 0 && (
         <p className="mb-3 rounded-xl bg-warn-soft px-3.5 py-2.5 text-[12.5px] font-semibold text-warn-deep">
-          Sekolah ini belum punya siswa aktif, jadi nominal yang tercatat Rp0.
+          Sekolah ini belum punya siswa aktif, jadi nominal yang tercatat Rp 0.
         </p>
       )}
       {s.alasan === 'admin' && (

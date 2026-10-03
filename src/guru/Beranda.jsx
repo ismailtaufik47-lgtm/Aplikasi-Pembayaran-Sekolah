@@ -19,8 +19,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useData } from '../lib/store.jsx'
-import { Bintang, Bulan, GedungTK, Pelangi } from '../components/IlustrasiMasuk.jsx'
-import { AnakUtuhLaki, AnakUtuhPerempuan } from '../components/Gambar.jsx'
+import { useLoncengTagih } from '../lib/lonceng.js'
+import { AdeganSekolah as AdeganBeranda } from '../components/ui.jsx'
 import * as api from '../lib/api.js'
 import { GrafikArusKas, GrafikPembayaran, StatusPembayaran } from './GrafikBeranda.jsx'
 import {
@@ -32,6 +32,7 @@ import {
   BULAN, bulanBerjalan, labelTunggakan, perluDitagihSekarang, rp, sppPerluSekarang, tanggalISO, tanggalJatuhTempoDi,
 } from '../lib/format.js'
 import { NAMA_BULAN, geserBulan, hariLalu, kunciBulan } from '../lib/kas.js'
+import { LABEL_JENIS, paketTerlambat } from '../lib/paket.js'
 
 const HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', "Jum'at", 'Sabtu']
 
@@ -96,7 +97,7 @@ function susunLebar(kartu, kolom, kunci) {
 }
 
 export default function Beranda({ onCatat, onTambahSiswa }) {
-  const { pengaturan, siswa, pembayaran, petugas, segarkan, toast, boleh } = useData()
+  const { pengaturan, siswa, paket, pembayaran, petugas, segarkan, toast, boleh } = useData()
   const nav = useNavigate()
   const kini = bulanBerjalan()
 
@@ -178,17 +179,20 @@ export default function Beranda({ onCatat, onTambahSiswa }) {
     : `Jatuh tempo SPP berikutnya: ${tglJt} · ${jt.sisaHari} hari lagi`
   const kakiJt = jt.sisaHari === 0 ? `Hari ini, ${tglJt}` : jt.sisaHari <= 7 ? `${jt.sisaHari} hari lagi · ${tglJt}` : `Berikutnya ${tglJt}`
 
+  // Perlu ditagih = SPP lewat jatuh tempo ATAU cicilan PMB/daftar ulang yang terlambat (0033).
   const menunggak = useMemo(
     () =>
       siswa
-        .filter((s) => perluDitagihSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini))
-        .map((s) => ({
+        .map((s) => ({ s, telat: paketTerlambat(paket, s) }))
+        .filter(({ s, telat }) => telat.length || perluDitagihSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini))
+        .map(({ s, telat }) => ({
           s,
-          nominal: sppPerluSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini),
-          label: labelTunggakan(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini),
+          nominal: sppPerluSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini) + telat.reduce((t, x) => t + x.kurang, 0),
+          label: labelTunggakan(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)
+            || { teks: `${LABEL_JENIS[telat[0].p.jenis]} terlambat`, warna: 'red' },
         }))
         .sort((a, b) => b.nominal - a.nominal),
-    [siswa, pengaturan, kini],
+    [siswa, paket, pengaturan, kini],
   )
   const nilaiTunggakan = menunggak.reduce((t, m) => t + m.nominal, 0)
   const jumlahKelas = new Set(siswa.map((s) => s.kelas).filter(Boolean)).size
@@ -206,7 +210,7 @@ export default function Beranda({ onCatat, onTambahSiswa }) {
               jenis: 'masuk',
               judul: s?.nama || 'Pembayaran siswa',
               sub: [p.ket, s && `Kelas ${s.kelas}`, p.metode].filter(Boolean).join(' · '),
-              kategori: p.jenis === 'spp' ? 'SPP' : 'Kegiatan',
+              kategori: p.jenis === 'spp' ? 'SPP' : p.jenis === 'paket' ? (p.ket.startsWith('Daftar ulang') ? 'Daftar ulang' : 'PMB') : 'Kegiatan',
               tanggal: tanggalISO(new Date(p.tanggal)),
               urut: new Date(p.tanggal).getTime(),
               nominal: p.nominal,
@@ -329,7 +333,7 @@ export default function Beranda({ onCatat, onTambahSiswa }) {
     : [
         <KartuAngka key="siswa" warna="blue" ikon={<Garis.siswa size={21} />} label="Total siswa" nilai={siswa.length} kaki={`Siswa aktif${jumlahKelas ? ` · ${jumlahKelas} kelas` : ''}`} />,
         <KartuAngka key="bayar" warna="green" ikon={<Garis.masuk size={21} />} label="Pembayaran bulan ini" nilai={rp(masukBayar)} kaki={`${lunasBulanIni} dari ${siswa.length} siswa lunas SPP ${BULAN[kini]}`} />,
-        <KartuAngka key="tunggak" warna="amber" ikon={<Garis.jam size={21} />} label="Tunggakan SPP" nilai={rp(nilaiTunggakan)} kaki={`${menunggak.length} siswa perlu ditagih`} />,
+        <KartuAngka key="tunggak" warna="amber" ikon={<Garis.jam size={21} />} label={paket.length ? 'Tunggakan' : 'Tunggakan SPP'} nilai={rp(nilaiTunggakan)} kaki={`${menunggak.length} siswa perlu ditagih`} />,
         <KartuAngka key="jt" warna="grape" ikon={<Garis.kalender size={21} />} label="Jatuh tempo ≤ 7 hari" nilai={`${segeraJt} siswa`} kaki={kakiJt} />,
       ]
 
@@ -410,7 +414,13 @@ export default function Beranda({ onCatat, onTambahSiswa }) {
   const hariIni = new Date()
   const tglPanjang = `${HARI[hariIni.getDay()]}, ${hariIni.getDate()} ${NAMA_BULAN[hariIni.getMonth()]} ${hariIni.getFullYear()}`
   const tglPendek = `${HARI[hariIni.getDay()]}, ${hariIni.getDate()} ${NAMA_BULAN[hariIni.getMonth()].slice(0, 3)} ${hariIni.getFullYear()}`
-  const lonceng = () => toast(`${menunggak.length} siswa perlu ditagih`)
+  // Angka lonceng hanya untuk tunggakan BARU — hilang setelah lonceng diketuk.
+  const { baru: notifBaru, tandai: tandaiLonceng } = useLoncengTagih()
+  const lonceng = () => {
+    tandaiLonceng()
+    toast(menunggak.length ? `${menunggak.length} siswa perlu ditagih` : 'Tidak ada SPP yang lewat jatuh tempo')
+    if (menunggak.length && halamanTagihan) nav('/guru/tagihan')
+  }
 
   return (
     <>
@@ -467,11 +477,11 @@ export default function Beranda({ onCatat, onTambahSiswa }) {
               <Garis.muat size={16} />
               Muat ulang
             </button>
-            <button onClick={lonceng} aria-label={`${menunggak.length} siswa perlu ditagih`} className="tombol-putih relative grid h-10 w-11 place-items-center rounded-[14px]">
+            <button onClick={lonceng} aria-label={notifBaru ? `${notifBaru} siswa baru perlu ditagih` : `${menunggak.length} siswa perlu ditagih`} className="tombol-putih relative grid h-10 w-11 place-items-center rounded-[14px]">
               <Garis.lonceng size={18} />
-              {menunggak.length > 0 && (
+              {notifBaru > 0 && (
                 <span className="absolute -right-1.5 -top-1.5 grid h-[19px] min-w-[19px] place-items-center rounded-[10px] border-2 border-white bg-danger px-1 text-[10px] font-bold text-white dark:border-kartu">
-                  {menunggak.length}
+                  {notifBaru > 9 ? '9+' : notifBaru}
                 </span>
               )}
             </button>
@@ -504,29 +514,5 @@ export default function Beranda({ onCatat, onTambahSiswa }) {
       </div>
 
     </>
-  )
-}
-
-/**
- * Gedung TK dengan dua anak berdiri UTUH sampai kaki di depannya (tidak
- * tertutup rumput/semak), di atas gundukan rumput. Pelangi di belakang
- * (siang) atau bulan & bintang (mode gelap).
- *   besar=false → versi HP (±156px), besar=true → kartu sapaan PC.
- */
-function AdeganBeranda({ besar = false, className = '' }) {
-  const anak = besar ? { width: 60, height: 116 } : { width: 46, height: 88 }
-  return (
-    <div aria-hidden="true" className={`pointer-events-none ${className}`}>
-      <div className="dark:hidden">
-        <Pelangi className={besar ? 'absolute -right-10 top-2 w-[250px]' : 'absolute -right-5 top-0 w-[170px]'} />
-      </div>
-      <div className="hidden dark:block">
-        <Bintang className="absolute inset-0 h-full w-full" />
-        <Bulan className={besar ? 'absolute right-2 top-3 w-[50px]' : 'absolute right-3 top-0 w-[40px]'} />
-      </div>
-      <GedungTK className={`redup-malam absolute left-1/2 -translate-x-1/2 ${besar ? 'bottom-[2px] w-[250px]' : 'bottom-[2px] w-[150px]'}`} />
-      <AnakUtuhLaki className={`absolute bottom-0 ${besar ? 'left-[22px]' : 'left-0'}`} style={anak} />
-      <AnakUtuhPerempuan className={`absolute bottom-0 ${besar ? 'right-[22px]' : 'right-0'}`} style={anak} />
-    </div>
   )
 }

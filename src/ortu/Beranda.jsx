@@ -1,24 +1,28 @@
 import { useNavigate } from 'react-router-dom'
 import Avatar from '../components/Avatar.jsx'
-import IlustrasiSekolah from '../components/IlustrasiSekolah.jsx'
-import { Chevron, Ikon, Kosong } from '../components/ui.jsx'
+import { AdeganSekolah, Chip, Ikon, Kosong, LangitKepala } from '../components/ui.jsx'
+import { GambarKegiatan } from '../components/Gambar.jsx'
+import { Pelangi } from '../components/IlustrasiMasuk.jsx'
 import { useData } from '../lib/store.jsx'
-import { TombolLonceng, kalimatSpp } from './sheets.jsx'
-import { FONT_EMOJI, emojiKegiatan } from '../lib/emojiKegiatan.js'
+import { kalimatSpp } from './sheets.jsx'
+import { emojiKegiatan } from '../lib/emojiKegiatan.js'
+import { EMOJI_JENIS, LABEL_JENIS, dibayarPaket, kurangSekarangPaket, paketSiswa } from '../lib/paket.js'
 import {
   BULAN, bulanBerjalan, jarakKegiatan, kegiatanBelum, labelJatuhTempoPeriode, perluDitagihSekarang, rp,
   sppPerluSekarang, sppTertunggakRupiah, bulanTertunggak, statusSpp, tanggalKegiatan, teksJatuhTempo,
 } from '../lib/format.js'
 
 /**
- * Beranda portal orang tua.
+ * Beranda portal orang tua (desain "ceria").
  *
- * Urutan dari atas: sapaan + ilustrasi sekolah → kartu anak (tagihan yang
- * perlu dibayar, 4 menu cepat, status SPP bulan ini) → kegiatan terdekat →
- * ringkasan pembayaran → transaksi terbaru.
+ * Urutan dari atas: sapaan + gedung TK & dua anak → pilih anak → kartu anak
+ * (tagihan yang perlu dibayar + tombol rincian/cara bayar) → 4 menu cepat →
+ * peringatan SPP → kegiatan terdekat → ringkasan pembayaran → transaksi
+ * terbaru. Di layar lebar: kiri (kartu anak, menu, peringatan, kegiatan),
+ * kanan (ringkasan, transaksi).
  */
-export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaCaraBayar, bukaPengumuman, bukaKegiatan }) {
-  const { pengaturan, biaya, pembayaran, wali } = useData()
+export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaCaraBayar, bukaKegiatan }) {
+  const { pengaturan, biaya, paket, pembayaran, wali } = useData()
   const nav = useNavigate()
   const kini = bulanBerjalan()
   const a = aktif
@@ -29,17 +33,25 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
   const sppPerlu = sppPerluSekarang(a, spp, pengaturan.tanggalJatuhTempo, kini)
   const kegPerlu = kegiatanBelum(a, biaya)
   const nKegBelum = biaya.filter((b, i) => (a.kegiatan[i] || 0) < b.nominal).length
-  const perluSekarang = sppPerlu + kegPerlu
+  // PMB / daftar ulang: hanya tahap yang sudah jatuh tempo (tanpa jadwal → seluruh sisanya)
+  const paketPerlu = paketSiswa(paket, a.id).map((p) => ({ p, n: kurangSekarangPaket(p, dibayarPaket(a, p.id)) })).filter((x) => x.n > 0)
+  const pkPerlu = paketPerlu.reduce((t, x) => t + x.n, 0)
+  const perluSekarang = sppPerlu + kegPerlu + pkPerlu
   const lunasSemua = perluSekarang <= 0
-  // Judul kotak tagihan mengikuti isinya, supaya tidak bertentangan dengan
-  // keterangan "SPP bulan ini sudah lunas" di bawahnya.
+  const bagian = [
+    sppPerlu > 0 && `SPP ${rp(sppPerlu)}`,
+    kegPerlu > 0 && `Kegiatan ${rp(kegPerlu)}`,
+    ...paketPerlu.map((x) => `${LABEL_JENIS[x.p.jenis]} ${rp(x.n)}`),
+  ].filter(Boolean)
   const judulTagihan =
-    sppPerlu > 0 && kegPerlu > 0 ? 'Tagihan yang perlu dibayar'
+    bagian.length > 1 ? 'Tagihan yang perlu dibayar'
     : sppPerlu > 0 ? 'SPP yang perlu dibayar'
+    : pkPerlu > 0 ? `${LABEL_JENIS[paketPerlu[0].p.jenis]} yang perlu dibayar`
     : 'Biaya kegiatan yang belum dibayar'
   const rincianTagihan =
-    sppPerlu > 0 && kegPerlu > 0 ? `SPP ${rp(sppPerlu)} · Kegiatan ${rp(kegPerlu)}`
+    bagian.length > 1 ? bagian.join(' · ')
     : sppPerlu > 0 ? 'Sudah lewat jatuh tempo'
+    : pkPerlu > 0 ? `Cicilan ${paketPerlu[0].p.nama} yang sudah jatuh tempo`
     : `${nKegBelum} kegiatan belum lunas`
   const teksSpp = kalimatSpp(a, pengaturan, kini)
   const adaPerlu = !!teksSpp || perluDitagihSekarang(a, spp, pengaturan.tanggalJatuhTempo, kini)
@@ -57,311 +69,328 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
   const tunggakan = sppTertunggakRupiah(a, spp, kini)
   const nTunggak = bulanTertunggak(a, spp, kini)
 
-  return (
-    <>
-      {/* ---------- langit + sapaan ---------- */}
-      <div className="langit-portal relative -mx-[18px] px-[18px] pb-2 lg:mx-0 lg:mt-6 lg:rounded-[28px] lg:px-9 lg:pb-2">
-        <header className="relative z-10 flex items-center gap-3 pt-3 lg:hidden">
-          <LogoSekolah logo={pengaturan.logo} ukuran={46} />
-          <div className="min-w-0 leading-tight">
-            <div className="line-clamp-2 text-[15px] font-extrabold leading-tight">{pengaturan.namaSekolah}</div>
-            <div className="text-[12px] font-semibold text-muted">Portal Orang Tua</div>
+  const kartuAnak = (
+    <section className="kartu-anak-portal relative overflow-hidden rounded-[26px] p-[18px] text-white lg:p-5">
+      <Pelangi className="pointer-events-none absolute -top-3 right-[-30px] w-[170px] opacity-30 lg:right-[18%] lg:w-[190px]" />
+      <div className="relative flex items-center gap-3.5">
+        <Avatar nama={a.nama} jenis={a.jenis} avatar={a.avatar} foto={a.foto} size={60} className="ring-4 ring-white/90" />
+        <span className="min-w-0">
+          <b className="line-clamp-2 block font-display text-[21px] font-semibold leading-[1.15]">{a.nama}</b>
+          <span className="mt-0.5 block text-[12.5px] font-bold opacity-95">Kelas {a.kelas} · NIS {a.nis}</span>
+        </span>
+      </div>
+      <div className="relative mt-3.5 rounded-[18px] bg-kartu px-3.5 py-3 text-ink">
+        {lunasSemua ? (
+          <div className="flex items-center gap-3">
+            <span className="permen permen-tosca grid h-12 w-12 shrink-0 place-items-center rounded-[15px]"><Ikon.cek size={24} /></span>
+            <span className="min-w-0">
+              <b className="judul-halaman block font-display text-[21px] font-bold leading-tight">Semua tagihan lunas</b>
+              <span className="block text-[12px] font-bold leading-snug text-muted">
+                {iBerikut >= 0
+                  ? `Berikutnya: SPP ${BULAN[iBerikut]} ${rp(spp - (a.spp[iBerikut] || 0))} · jatuh tempo ${labelJatuhTempoPeriode(pengaturan.tanggalJatuhTempo, iBerikut)}`
+                  : 'SPP satu tahun ajaran ini sudah lunas semua. Terima kasih!'}
+              </span>
+            </span>
           </div>
-          <div className="ml-auto flex items-center gap-2.5">
-            <TombolLonceng anak={a} buka={bukaPengumuman} className="!h-11 !w-11 !rounded-full" />
-          </div>
-        </header>
-
-        <div className="relative mt-4 min-h-[150px] lg:mt-0 lg:flex lg:min-h-[190px] lg:items-center">
-          <div className="relative z-10 max-w-[60%] lg:max-w-[560px] lg:pt-4">
-            <h1 className="text-[22px] font-extrabold leading-tight tracking-tight lg:text-[30px]">
-              Assalamu'alaikum, {wali.nama} <span style={FONT_EMOJI}>👋</span>
-            </h1>
-            <p className="mt-2 max-w-[92%] text-[12.5px] leading-relaxed text-muted lg:max-w-none lg:text-[14.5px]">
-              Selamat datang di Portal Orang Tua {pengaturan.namaSekolah}. Di sini Ayah/Bunda bisa memantau semua informasi
-              pembayaran ananda dengan mudah dan aman.
-            </p>
-          </div>
-          <IlustrasiSekolah className="absolute -right-3 bottom-0 w-[44%] max-w-[200px] lg:right-2 lg:w-[290px] lg:max-w-none" />
+        ) : (
+          <>
+            <span className="text-[12px] font-bold text-muted">{judulTagihan}</span>
+            <b className="judul-halaman block break-all font-display text-[28px] font-bold leading-tight tracking-[-.3px] lg:text-[30px]">{rp(perluSekarang)}</b>
+            <span className="text-[12px] font-bold text-muted">{rincianTagihan}</span>
+          </>
+        )}
+        <div className="mt-3 grid grid-cols-2 gap-2">
+          <button onClick={() => nav(akar + '/tagihan')} className="flex h-[42px] items-center justify-center gap-1.5 rounded-[14px] bg-brand text-[13px] font-extrabold text-white active:translate-y-px">
+            <Ikon.nota size={17} />
+            Lihat rincian
+          </button>
+          <button onClick={bukaCaraBayar} className="flex h-[42px] items-center justify-center gap-1.5 rounded-[14px] bg-ok text-[13px] font-extrabold text-white active:translate-y-px">
+            <IkonBank size={17} />
+            Cara bayar
+          </button>
         </div>
       </div>
+    </section>
+  )
 
-      {anak.length > 1 && (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {anak.map((k) => (
-            <button
-              key={k.id}
-              onClick={() => pilihAnak(k.id)}
-              className={`flex shrink-0 items-center gap-2 rounded-2xl border py-1.5 pl-2 pr-3 shadow-soft ${
-                k.id === a.id ? 'border-brand bg-brand-soft' : 'border-line bg-kartu'
-              }`}
-            >
-              <Avatar nama={k.nama} jenis={k.jenis} avatar={k.avatar} foto={k.foto} size={30} />
-              <span className="text-left">
-                <span className="block text-[13px] font-bold">{k.panggilan}</span>
-                <span className="block text-[11px] font-semibold text-muted">Kelas {k.kelas}</span>
-              </span>
-            </button>
-          ))}
+  const menuCepat = (
+    <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+      <MenuCepat warna="tosca" ikon={<IkonBank size={20} />} judul="Cara bayar" sub="Rekening & tunai" onClick={bukaCaraBayar} />
+      <MenuCepat warna="ungu" ikon={<IkonRiwayat size={20} />} judul="Riwayat bayar" sub="Semua transaksi" onClick={() => nav(akar + '/riwayat')} />
+      <MenuCepat warna="biru" ikon={<Ikon.nota size={20} />} judul="Tagihan" sub="Rincian per bulan" onClick={() => nav(akar + '/tagihan')} />
+      <MenuCepat warna="kuning" ikon={<Ikon.kalender size={20} />} judul="Kegiatan" sub="Jadwal & info" onClick={() => nav(akar + '/kegiatan')} />
+    </div>
+  )
+
+  const peringatan = !lunasSemua && (
+    <button
+      onClick={() => nav(akar + '/tagihan')}
+      className={`flex w-full items-center gap-3 rounded-[20px] px-3.5 py-3 text-left ${adaPerlu ? 'spanduk-kuning' : 'kotak-lunas'}`}
+    >
+      <span className={`permen permen-kecil grid h-10 w-10 shrink-0 place-items-center rounded-[13px] ${adaPerlu ? 'permen-kuning' : 'permen-tosca'}`}>
+        {adaPerlu ? <Ikon.peringatan size={20} /> : <Ikon.cek size={20} />}
+      </span>
+      <span className="min-w-0 flex-1 text-[12px] font-bold leading-snug">
+        <b className="block text-[13.5px] font-extrabold">{adaPerlu ? 'Ada SPP yang perlu dibayar' : 'SPP bulan ini sudah lunas'}</b>
+        {adaPerlu
+          ? teksSpp || `SPP ${BULAN[kini]} belum dibayar. Jatuh tempo setiap ${teksJatuhTempo(pengaturan.tanggalJatuhTempo)}.`
+          : 'Terima kasih atas ketepatannya, Ayah/Bunda!'}
+      </span>
+      <Ikon.kembali size={16} className="shrink-0 rotate-180 opacity-70" />
+    </button>
+  )
+
+  // Cicilan PMB / daftar ulang yang terlambat → spanduk sendiri (bukan tergabung ke SPP)
+  const telatPaket = paketPerlu.filter((x) => paketSiswa(paket, a.id).includes(x.p) && x.p.tahap.length > 0)
+  const peringatanPaket = telatPaket.length > 0 && (
+    <button onClick={() => nav(akar + '/tagihan?tab=pmb')} className="spanduk-kuning flex w-full items-center gap-3 rounded-[20px] px-3.5 py-3 text-left">
+      <GambarKegiatan emoji={EMOJI_JENIS[telatPaket[0].p.jenis]} size={40} className="rounded-[13px]" />
+      <span className="min-w-0 flex-1 text-[12px] font-bold leading-snug">
+        <b className="block text-[13.5px] font-extrabold">Cicilan {telatPaket[0].p.nama} sudah jatuh tempo</b>
+        Kurang {rp(telatPaket.reduce((t, x) => t + x.n, 0))}. Ketuk untuk melihat jadwal & rinciannya.
+      </span>
+      <Ikon.kembali size={16} className="shrink-0 rotate-180 opacity-70" />
+    </button>
+  )
+
+  const kegiatanDekat = terdekat && (
+    <div className="card">
+      <KepalaKartu judul="Kegiatan terdekat" tautan="Semua" onTautan={() => nav(akar + '/kegiatan')} />
+      <button className="flex w-full items-center gap-3 text-left" onClick={() => bukaKegiatan(terdekat.b.id)}>
+        <GambarKegiatan emoji={emojiKegiatan(terdekat.b)} size={52} className="rounded-[16px]" />
+        <span className="min-w-0 flex-1">
+          <b className="block truncate text-[14.5px] font-extrabold">{terdekat.b.nama}</b>
+          <span className="block text-[12px] font-semibold text-muted">
+            {tanggalKegiatan(terdekat.b)}{terdekat.b.waktu ? ` · ${terdekat.b.waktu}` : ''}
+          </span>
+          {terdekat.b.lokasi && <span className="block truncate text-[12px] font-semibold text-muted">{terdekat.b.lokasi}</span>}
+        </span>
+        <Chip warna="blue">{terdekat.j.label}</Chip>
+      </button>
+    </div>
+  )
+
+  const ringkasan = (
+    <div>
+      <h2 className="judul-kartu mb-2.5 px-0.5 text-[19px]">Ringkasan pembayaran</h2>
+      <div className="grid grid-cols-2 gap-2.5">
+        {bulanRingkas.map((i, n) => (
+          <KotakRingkas
+            key={i}
+            warna={n === 0 ? 'pink' : 'kuning'}
+            ikon={<Ikon.kalender size={17} />}
+            judul={`SPP ${BULAN[i]}`}
+            sub={i === kini ? 'Bulan ini' : i < kini ? 'Bulan lalu' : 'Bulan depan'}
+            onClick={() => nav(akar + '/tagihan')}
+          >
+            <StatusMini status={status(i)} />
+          </KotakRingkas>
+        ))}
+        <KotakRingkas warna="ungu" ikon={<Ikon.dompet size={17} />} judul="Tunggakan" sub={nTunggak > 0 ? `${nTunggak} bulan` : 'Tidak ada'} onClick={() => nav(akar + '/tagihan')}>
+          <b className={`text-[14px] font-extrabold ${tunggakan > 0 ? 'text-danger' : 'text-ok-deep'}`}>{rp(tunggakan)}</b>
+        </KotakRingkas>
+        <KotakRingkas warna="tosca" ikon={<IkonRiwayat size={17} />} judul="Riwayat" sub={`${riwayatAnak.length} transaksi`} onClick={() => nav(akar + '/riwayat')}>
+          <span className="text-[12px] font-extrabold text-brand">Lihat semua →</span>
+        </KotakRingkas>
+      </div>
+    </div>
+  )
+
+  const transaksi = (
+    <div className="card">
+      <KepalaKartu judul="Transaksi terbaru" tautan={riwayatAnak.length ? 'Semua' : null} onTautan={() => nav(akar + '/riwayat')} />
+      {riwayatAnak.length === 0 ? (
+        <Kosong>Belum ada pembayaran tercatat.</Kosong>
+      ) : (
+        <div className="-mt-1">
+          {riwayatAnak.slice(0, 3).map((p) => <BarisTransaksi key={p.id} p={p} buka={() => bukaStruk(p.id)} />)}
         </div>
       )}
+    </div>
+  )
 
-      <div className="lg:mt-6 lg:grid lg:grid-cols-[minmax(0,1fr)_380px] lg:items-start lg:gap-6">
-        <div>
-          {/* ---------- kartu anak ---------- */}
-          <section className="mt-3 overflow-hidden rounded-[26px] bg-kartu shadow-soft lg:mt-0">
-            <div className="kartu-anak-atas flex items-center gap-3.5 px-4 pb-3 pt-4 lg:px-5 lg:pt-5">
-              <span className="rounded-full bg-kartu p-[3px] shadow-soft">
-                <Avatar nama={a.nama} jenis={a.jenis} avatar={a.avatar} foto={a.foto} size={62} />
-              </span>
-              <div className="min-w-0">
-                <div className="line-clamp-2 text-[18px] font-extrabold leading-tight lg:text-[20px]">{a.nama}</div>
-                <div className="mt-1 flex flex-wrap items-center gap-2">
-                  <span className="text-[13px] font-semibold text-muted">Kelas {a.kelas}</span>
-                  <span className="rounded-pill bg-brand-soft px-2.5 py-0.5 text-[11.5px] font-bold text-brand">NIS {a.nis}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="px-3.5 pb-3.5 lg:px-5 lg:pb-5">
-              {/* tagihan */}
-              {lunasSemua ? (
-                <div className="flex items-center gap-3 rounded-[20px] bg-ok-soft p-3.5">
-                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-ok text-white"><Ikon.cek size={24} /></span>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[18px] font-extrabold leading-tight text-ok-deep lg:text-[20px]">Semua tagihan lunas</div>
-                    <p className="mt-0.5 text-[12px] font-semibold leading-snug text-ok-deep">
-                      {iBerikut >= 0
-                        ? `Berikutnya: SPP ${BULAN[iBerikut]} ${rp(spp - (a.spp[iBerikut] || 0))} · jatuh tempo ${labelJatuhTempoPeriode(pengaturan.tanggalJatuhTempo, iBerikut)}`
-                        : 'SPP satu tahun ajaran ini sudah lunas semua. Terima kasih 🎉'}
-                    </p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-wrap items-center gap-x-3 gap-y-3 rounded-[20px] border border-line bg-kartu p-3.5">
-                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-brand-soft text-brand"><Ikon.dompet size={24} /></span>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[12.5px] font-semibold leading-snug text-muted">{judulTagihan}</div>
-                    <div className="break-all text-[24px] font-extrabold leading-tight tracking-tight lg:text-[28px]">{rp(perluSekarang)}</div>
-                    <p className="mt-0.5 text-[11.5px] font-semibold leading-snug text-muted">{rincianTagihan}</p>
-                  </div>
-                  <button
-                    className="flex w-full items-center justify-center gap-2 rounded-2xl bg-brand px-4 py-3 text-[13.5px] font-extrabold text-white transition hover:bg-brand-deep active:bg-brand-deep sm:ml-auto sm:w-auto"
-                    onClick={() => nav(akar + '/tagihan')}
-                  >
-                    <Ikon.nota size={18} />
-                    Lihat rincian
-                  </button>
-                </div>
-              )}
-
-              {/* menu cepat */}
-              <div className="mt-3 grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:gap-3">
-                <MenuCepat warna="hijau" ikon={<Ikon.dompet size={20} />} judul="Cara Bayar" sub="Rekening & tunai" onClick={bukaCaraBayar} />
-                <MenuCepat warna="ungu" ikon={<Ikon.dokumen size={20} />} judul="Riwayat Pembayaran" pendek="Riwayat Bayar" sub="Semua transaksi" onClick={() => nav(akar + '/riwayat')} />
-                <MenuCepat warna="biru" ikon={<Ikon.nota size={20} />} judul="Tagihan & Tunggakan" sub="Rincian per bulan" onClick={() => nav(akar + '/tagihan')} />
-                <MenuCepat warna="oranye" ikon={<Ikon.kalender size={20} />} judul="Biaya Kegiatan" sub="Jadwal & info" onClick={() => nav(akar + '/kegiatan')} />
-              </div>
-
-              {/* status SPP — disembunyikan kalau semua lunas (kotak hijau di atas sudah menjelaskan) */}
-              {!lunasSemua && <button
-                className={`mt-3 flex w-full items-center gap-3 rounded-[18px] p-3 text-left ${adaPerlu ? 'bg-warn-soft' : 'bg-ok-soft'}`}
-                onClick={() => nav(akar + '/tagihan')}
-              >
-                <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-full text-white ${adaPerlu ? 'bg-warn' : 'bg-ok'}`}>
-                  {adaPerlu ? <Ikon.peringatan size={18} /> : <Ikon.cek size={18} />}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className={`block text-[13.5px] font-extrabold ${adaPerlu ? 'text-warn-deep' : 'text-ok-deep'}`}>
-                    {adaPerlu ? 'Ada SPP yang perlu dibayar' : 'SPP bulan ini sudah lunas.'}
-                  </span>
-                  <span className={`block text-[12px] font-semibold leading-snug ${adaPerlu ? 'text-warn-deep' : 'text-ok-deep'} opacity-90`}>
-                    {adaPerlu
-                      ? teksSpp || `SPP ${BULAN[kini]} belum dibayar. Jatuh tempo setiap ${teksJatuhTempo(pengaturan.tanggalJatuhTempo)}.`
-                      : 'Terima kasih atas ketepatannya, Ayah/Bunda!'}
-                  </span>
-                </span>
-                <Chevron />
-              </button>}
-            </div>
-          </section>
-
-          {/* ---------- kegiatan terdekat ---------- */}
-          {terdekat && (
-            <>
-              <div className="seghead">
-                <h2>Kegiatan terdekat</h2>
-                <button className="text-[13px] font-bold text-brand" onClick={() => nav(akar + '/kegiatan')}>Lihat semua</button>
-              </div>
-              <button className="card flex w-full items-center gap-3 text-left" onClick={() => bukaKegiatan(terdekat.b.id)}>
-                <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-grape-soft text-[24px]" style={FONT_EMOJI}>
-                  {emojiKegiatan(terdekat.b)}
-                </span>
-                <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14.5px] font-extrabold">{terdekat.b.nama}</span>
-                  <span className="block text-[12.5px] font-semibold text-muted">{tanggalKegiatan(terdekat.b)}</span>
-                  {terdekat.b.waktu && <span className="block text-[12px] font-semibold text-muted">{terdekat.b.waktu}</span>}
-                </span>
-                <span className="shrink-0 rounded-pill bg-brand-soft px-2.5 py-1 text-[11px] font-extrabold text-brand">{terdekat.j.label}</span>
-              </button>
-            </>
-          )}
-        </div>
-
-        <div>
-          {/* ---------- ringkasan ---------- */}
-          <div className="seghead lg:mt-0">
-            <h2>Ringkasan Pembayaran</h2>
-            <button className="text-[13px] font-bold text-brand" onClick={() => nav(akar + '/tagihan')}>Lihat semua</button>
-          </div>
-          <div className="grid grid-cols-2 gap-2.5 lg:gap-3">
-            {bulanRingkas.map((i) => (
-              <KotakRingkas
-                key={i}
-                warna="biru"
-                ikon={<Ikon.kalender size={17} />}
-                judul={<>SPP {BULAN[i]}<span className="block text-[11px] font-semibold text-muted">{i === kini ? 'Bulan ini' : i < kini ? 'Bulan lalu' : 'Bulan depan'}</span></>}
-                onClick={() => nav(akar + '/tagihan')}
-              >
-                <StatusMini status={status(i)} />
-              </KotakRingkas>
-            ))}
-            <KotakRingkas
-              warna="oranye"
-              ikon={<span className="text-[17px]" style={FONT_EMOJI}>🪙</span>}
-              judul="Tunggakan"
-              onClick={() => nav(akar + '/tagihan')}
-            >
-              <span className={`block text-[13.5px] font-extrabold leading-tight ${tunggakan > 0 ? 'text-danger' : 'text-ok-deep'}`}>{rp(tunggakan)}</span>
-              <span className="block text-[10.5px] font-semibold text-muted">{nTunggak > 0 ? `${nTunggak} bulan` : 'Tidak ada'}</span>
-            </KotakRingkas>
-            <KotakRingkas warna="ungu" ikon={<Ikon.jam size={17} />} judul="Riwayat" onClick={() => nav(akar + '/riwayat')}>
-              <span className="flex items-center gap-1 text-[12px] font-extrabold text-brand">Lihat semua <span aria-hidden>›</span></span>
-            </KotakRingkas>
-          </div>
-
-          {/* ---------- transaksi terbaru ---------- */}
-          <div className="seghead">
-            <h2>Transaksi Terbaru</h2>
-            <button className="text-[13px] font-bold text-brand" onClick={() => nav(akar + '/riwayat')}>Lihat semua</button>
-          </div>
-          <div className="card py-1.5">
-            {riwayatAnak.length === 0 ? (
-              <Kosong>Belum ada pembayaran tercatat.</Kosong>
-            ) : (
-              riwayatAnak.slice(0, 3).map((p) => (
-                <button key={p.id} className="row w-full text-left" onClick={() => bukaStruk(p.id)}>
-                  <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-ok text-white"><Ikon.cek size={20} /></span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[14px] font-bold">{judulTransaksi(p.ket)}</span>
-                    <span className="block truncate text-[12px] text-muted">{tglPendek(p.tanggal)} · {p.metode}</span>
-                  </span>
-                  <span className="shrink-0 text-[14px] font-extrabold text-ok-deep">{rp(p.nominal)}</span>
-                  <Chevron />
-                </button>
-              ))
-            )}
-          </div>
-          <p className="px-1 pt-4 text-center text-[11.5px] leading-relaxed text-muted">
-            Status berubah setelah sekolah mencatat pembayaran, biasanya di hari yang sama.
-          </p>
+  return (
+    <>
+      {/* ---------- sapaan + gedung TK ---------- */}
+      <div className="relative mb-1 mt-1 min-h-[176px] lg:hidden">
+        <AdeganSekolah className="absolute -right-[14px] bottom-0 h-[156px] w-[176px]" />
+        <div className="relative z-[1] max-w-[52%] pt-1">
+          <h1 className="judul-halaman font-display text-[26px] font-bold leading-[1.12] tracking-[-.3px]">Assalamu'alaikum, {wali.nama}!</h1>
+          <p className="sub-halaman mt-2 text-[12.5px] font-bold leading-snug">Pantau tagihan & kegiatan ananda dengan mudah.</p>
         </div>
       </div>
+      <div className="hero-beranda relative mb-6 hidden min-h-[210px] overflow-hidden rounded-[28px] lg:flex">
+        <div className="relative z-[1] min-w-0 flex-1 px-9 py-8">
+          <h1 className="judul-halaman font-display text-[36px] font-bold leading-[1.1] tracking-[-.4px] xl:text-[38px]">Assalamu'alaikum, {wali.nama}!</h1>
+          <p className="sub-halaman mt-2 max-w-[540px] text-[15px] font-bold leading-relaxed">
+            Selamat datang di Portal Orang Tua {pengaturan.namaSekolah}. Pantau tagihan, pembayaran, dan kegiatan ananda dengan mudah.
+          </p>
+          {anak.length > 1 && <PilihAnak anak={anak} aktif={a} pilih={pilihAnak} className="mt-4" />}
+        </div>
+        <AdeganSekolah besar className="relative mr-8 hidden h-[210px] w-[360px] shrink-0 self-end xl:block" />
+      </div>
+
+      {anak.length > 1 && <PilihAnak anak={anak} aktif={a} pilih={pilihAnak} className="mb-3.5 lg:hidden" />}
+
+      <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5 lg:grid-cols-[minmax(0,1.55fr)_minmax(0,1fr)] lg:items-start lg:gap-6">
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3.5 lg:gap-[18px]">
+          {kartuAnak}
+          {menuCepat}
+          {peringatanPaket}
+          {peringatan}
+          {kegiatanDekat}
+        </div>
+        <div className="grid min-w-0 grid-cols-[minmax(0,1fr)] gap-3.5 lg:gap-[18px]">
+          {ringkasan}
+          {transaksi}
+        </div>
+      </div>
+      <p className="sub-halaman px-2 pb-1 pt-4 text-center text-[11.5px] font-bold leading-relaxed">
+        Status berubah setelah sekolah mencatat pembayaran — biasanya di hari yang sama.
+      </p>
     </>
   )
 }
 
-const tglPendek = (iso) => new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
+/* ---------- potongan kecil (dipakai juga halaman Riwayat) ---------- */
+
+export const IkonBank = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
+    <path d="M3 10l9-6 9 6" /><path d="M5 10v8M9.5 10v8M14.5 10v8M19 10v8M3 20h18" />
+  </svg>
+)
+export const IkonRiwayat = ({ size = 20 }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
+    <path d="M4 12a8 8 0 1 0 2.4-5.7" /><path d="M4 4.5V9h4.5" /><path d="M12 8v4.5l3 2" />
+  </svg>
+)
+
+export const tglPendek = (iso) => new Date(iso).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })
 
 /** "SPP bulanan — Agustus" → "SPP Agustus"; "Biaya kegiatan — Manasik haji" → "Manasik haji". */
-const judulTransaksi = (ket = '') =>
+export const judulTransaksi = (ket = '') =>
   ket.startsWith('SPP bulanan — ') ? 'SPP ' + ket.slice(14)
   : ket.startsWith('Biaya kegiatan — ') ? ket.slice(17)
   : ket
 
-/* ---------- potongan kecil ---------- */
-
-const WARNA = {
-  hijau: { latar: 'menu-hijau', ikon: 'bg-ok' },
-  ungu: { latar: 'menu-ungu', ikon: 'bg-grape' },
-  biru: { latar: 'menu-biru', ikon: 'bg-brand' },
-  oranye: { latar: 'menu-oranye', ikon: 'bg-warn' },
-}
-
-function MenuCepat({ warna, ikon, judul, pendek, sub, onClick }) {
-  const w = WARNA[warna]
+/** Satu baris transaksi: gambar kegiatan / ubin kalender SPP, nominal + "Kuitansi". */
+export function BarisTransaksi({ p, buka }) {
+  const { biaya, paket } = useData()
+  const b = p.jenis === 'kegiatan' ? biaya[p.indeks] : null
+  const pk = p.jenis === 'paket' ? paket.find((x) => x.id === p.paketId) : null
+  const emojiPk = pk ? EMOJI_JENIS[pk.jenis] : p.jenis === 'paket' ? (String(p.ket).startsWith('Daftar ulang') ? '📚' : '📝') : null
   return (
-    <button
-      onClick={onClick}
-      className={`${w.latar} flex items-center gap-2 rounded-[18px] p-2.5 text-left transition active:scale-[.97] sm:min-h-[122px] sm:flex-col sm:items-start sm:gap-0 sm:p-3 lg:p-3.5`}
-    >
-      <span className={`grid h-9 w-9 shrink-0 place-items-center rounded-xl text-white ${w.ikon}`}>{ikon}</span>
-      <span className="min-w-0 flex-1 sm:mt-2 sm:flex-none">
-        <span className="block text-[13px] font-extrabold leading-tight lg:text-[14px]">
-          {pendek ? <><span className="sm:hidden">{pendek}</span><span className="hidden sm:inline">{judul}</span></> : judul}
-        </span>
-        <span className="mt-0.5 block text-[11px] font-semibold leading-snug text-muted lg:text-[12px]">{sub}</span>
+    <button className="row w-full text-left" onClick={buka}>
+      {emojiPk ? (
+        <GambarKegiatan emoji={emojiPk} size={42} className="rounded-[13px]" />
+      ) : b ? (
+        <GambarKegiatan emoji={emojiKegiatan(b)} size={42} className="rounded-[13px]" />
+      ) : (
+        <span className="permen permen-kecil permen-biru grid h-[42px] w-[42px] shrink-0 place-items-center rounded-[13px]"><Ikon.kalender size={19} /></span>
+      )}
+      <span className="min-w-0 flex-1">
+        <b className="block truncate text-[14px] font-extrabold">{judulTransaksi(p.ket)}</b>
+        <span className="block truncate text-[12px] font-semibold text-muted">{tglPendek(p.tanggal)} · {p.metode}</span>
       </span>
-      <span className="hidden self-end pt-1 text-[16px] font-bold leading-none text-muted sm:mt-auto sm:block" aria-hidden>›</span>
+      <span className="shrink-0 text-right">
+        <b className="block text-[14px] font-extrabold text-ok-deep">{rp(p.nominal)}</b>
+        <span className="text-[12px] font-extrabold text-brand">Kuitansi</span>
+      </span>
     </button>
   )
 }
 
-function KotakRingkas({ warna, ikon, judul, children, onClick }) {
-  const w = WARNA[warna]
+export const KepalaKartu = ({ judul, sub, tautan, onTautan }) => (
+  <div className="mb-2.5 flex items-start justify-between gap-3">
+    <div className="min-w-0">
+      <h2 className="judul-kartu text-[18px] leading-tight">{judul}</h2>
+      {sub && <p className="mt-0.5 text-[12px] font-semibold text-muted">{sub}</p>}
+    </div>
+    {tautan && (
+      <button type="button" onClick={onTautan} className="flex shrink-0 items-center gap-0.5 pt-0.5 text-[13px] font-extrabold text-brand">
+        {tautan}
+        <Ikon.kembali size={15} className="rotate-180" />
+      </button>
+    )}
+  </div>
+)
+
+/** Pilih anak (kalau satu wali punya lebih dari satu anak). */
+export function PilihAnak({ anak, aktif, pilih, className = '' }) {
   return (
-    <button onClick={onClick} className="flex min-h-[118px] min-w-0 flex-col rounded-[18px] bg-kartu p-3 text-left shadow-soft active:scale-[.97] lg:p-3.5">
-      <span className={`${w.latar} grid h-8 w-8 place-items-center rounded-[10px] ${warna === 'biru' ? 'text-brand' : warna === 'ungu' ? 'text-grape' : ''}`}>{ikon}</span>
-      <span className="mt-2 block text-[12px] font-bold leading-tight lg:text-[12.5px]">{judul}</span>
-      <span className="mt-auto block pt-2">{children}</span>
+    <div className={`flex flex-wrap gap-2 ${className}`}>
+      {anak.map((k) => {
+        const on = k.id === aktif.id
+        return (
+          <button
+            key={k.id}
+            onClick={() => pilih(k.id)}
+            aria-pressed={on}
+            className={`flex shrink-0 items-center gap-2 rounded-pill py-[5px] pl-[5px] pr-3.5 text-left ${
+              on ? 'permen permen-kecil permen-biru' : 'border-[1.5px] border-[#DCE6F4] bg-kartu dark:border-line'
+            }`}
+          >
+            <Avatar nama={k.nama} jenis={k.jenis} avatar={k.avatar} foto={k.foto} size={32} />
+            <span>
+              <b className="block text-[13px] font-extrabold leading-tight">{k.panggilan}</b>
+              <span className="block text-[11px] font-bold opacity-80">Kelas {k.kelas}</span>
+            </span>
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function MenuCepat({ warna, ikon, judul, sub, onClick }) {
+  return (
+    <button onClick={onClick} className="card flex min-w-0 items-center gap-2.5 !rounded-[20px] !p-3 text-left transition active:scale-[.97]">
+      <span className={`permen permen-kecil permen-${warna} grid h-10 w-10 shrink-0 place-items-center rounded-[13px]`}>{ikon}</span>
+      <span className="min-w-0">
+        <b className="block truncate text-[13.5px] font-extrabold">{judul}</b>
+        <span className="block truncate text-[11px] font-semibold text-muted">{sub}</span>
+      </span>
+    </button>
+  )
+}
+
+function KotakRingkas({ warna, ikon, judul, sub, children, onClick }) {
+  return (
+    <button onClick={onClick} className="card flex min-h-[132px] min-w-0 flex-col items-start gap-2 !rounded-[18px] !p-3 text-left active:scale-[.97]">
+      <span className={`permen permen-kecil permen-${warna} grid h-[34px] w-[34px] place-items-center rounded-[11px]`}>{ikon}</span>
+      <span className="min-w-0">
+        <b className="block text-[13px] font-extrabold leading-tight">{judul}</b>
+        <span className="block text-[11.5px] font-semibold text-muted">{sub}</span>
+      </span>
+      <span className="mt-auto">{children}</span>
     </button>
   )
 }
 
 function StatusMini({ status }) {
   const s = {
-    lunas: ['LUNAS', 'bg-ok-soft text-ok-deep', '✓'],
-    sebagian: ['SEBAGIAN', 'bg-warn-soft text-warn-deep', '½'],
-    nunggak: ['TERLAMBAT', 'bg-danger-soft text-danger', '!'],
-    'belum-bayar': ['BELUM BAYAR', 'bg-warn-soft text-warn-deep', '!'],
-    menunggu: ['BELUM JATUH TEMPO', 'bg-isi text-muted', '·'],
+    lunas: ['Lunas', 'green'],
+    sebagian: ['Sebagian', 'amber'],
+    nunggak: ['Terlambat', 'red'],
+    'belum-bayar': ['Belum bayar', 'amber'],
+    menunggu: ['Belum jatuh tempo', 'grey'],
   }[status]
+  return <Chip warna={s[1]}>{s[0]}</Chip>
+}
+
+/** Kepala halaman portal: avatar anak + judul besar + keterangan, pelangi di pojok. */
+export function JudulAnak({ anak, judul, sub }) {
   return (
-    <span className={`inline-flex max-w-full items-center gap-1 rounded-pill px-1.5 py-1 text-[9.5px] font-extrabold leading-none tracking-wide lg:text-[10.5px] ${s[1]}`}>
-      <span className="grid h-3.5 w-3.5 shrink-0 place-items-center rounded-full bg-current">
-        <span className="text-[8px] font-black leading-none" style={{ color: 'rgb(var(--kartu))' }}>{s[2]}</span>
-      </span>
-      <span className="truncate">{s[0]}</span>
-    </span>
+    <header className="relative mb-4 mt-1 lg:mb-6 lg:mt-3">
+      <LangitKepala />
+      <div className="relative z-[1] flex items-center gap-3 lg:gap-4">
+        <Avatar nama={anak.nama} jenis={anak.jenis} avatar={anak.avatar} foto={anak.foto} size={48} className="ring-[3px] ring-white lg:!h-[60px] lg:!w-[60px]" />
+        <div className="min-w-0">
+          <h1 className="judul-halaman font-display text-[25px] font-bold leading-[1.1] tracking-[-.3px] lg:text-[32px]">{judul}</h1>
+          {sub && <p className="sub-halaman mt-0.5 text-[12.5px] font-bold leading-snug lg:text-[14px]">{sub}</p>}
+        </div>
+      </div>
+    </header>
   )
 }
 
-/** Logo sekolah dari Profil sekolah; kalau belum diunggah, ikon sekolah. */
-export function LogoSekolah({ logo, ukuran = 44 }) {
-  return (
-    <span
-      className="grid shrink-0 place-items-center overflow-hidden rounded-full bg-white shadow-soft"
-      style={{ width: ukuran, height: ukuran, background: '#fff' }}
-    >
-      {logo
-        ? <img src={logo} alt="Logo sekolah" className="h-[78%] w-[78%] object-contain" />
-        : <span style={{ ...FONT_EMOJI, fontSize: ukuran * 0.5 }}>🏫</span>}
-    </span>
-  )
-}
-
-/** Avatar orang tua di pojok kanan atas — membuka halaman Bantuan. */
-export function TombolWali({ wali, onClick, className = '' }) {
-  const n = (wali?.nama || '').toLowerCase()
-  const e = /^(bapak|pak|ayah|abi|bpk)\b/.test(n) ? '👨' : /^(ibu|bu|bunda|umi|ummi|mama)\b/.test(n) ? '👩' : '🙂'
-  return (
-    <button
-      onClick={onClick}
-      aria-label="Akun & bantuan"
-      className={`grid h-11 w-11 shrink-0 place-items-center rounded-full bg-brand-soft text-[22px] shadow-soft ring-2 ring-white ${className}`}
-      style={FONT_EMOJI}
-    >
-      {e}
-    </button>
-  )
-}

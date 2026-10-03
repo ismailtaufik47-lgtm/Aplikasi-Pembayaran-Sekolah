@@ -16,7 +16,7 @@ export default function Lainnya() {
   const { keluar } = useAuth()
   const nav = useNavigate()
 
-  const menu = menuSekolah(boleh)
+  const menu = menuSekolah(boleh, peran)
   const diTab = new Set(pilihTab(menu, boleh('pembayaran')).map((t) => t.id))
   const daftar = menu.filter((m) => !diTab.has(m.id))
 

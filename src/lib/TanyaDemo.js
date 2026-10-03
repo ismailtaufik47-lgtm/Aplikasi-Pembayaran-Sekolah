@@ -47,6 +47,7 @@ function transaksiHariIni({ pembayaran, siswa }) {
     dari: hariIni, sampai: hariIni, jumlah_transaksi: t.length, total,
     tunai: t.filter((p) => p.metode === 'Tunai').reduce((a, p) => a + p.nominal, 0),
     transfer: t.filter((p) => p.metode === 'Transfer').reduce((a, p) => a + p.nominal, 0),
+    tabungan: t.filter((p) => p.metode === 'Tabungan').reduce((a, p) => a + p.nominal, 0),
     transaksi: t.map((p) => ({
       waktu: new Date(p.tanggal).toLocaleString('sv-SE').slice(0, 16), siswa: nama(p.siswaId).nama, kelas: nama(p.siswaId).kelas,
       untuk: p.ket, nominal: p.nominal, metode: p.metode, petugas: p.petugas,
@@ -176,6 +177,64 @@ async function kasDemo(p, { pembayaran }) {
   return { jawaban, data: [{ alat: 'kas', hasil }] }
 }
 
+/** Bentuk sama dengan ai_status_kegiatan (0034): kelompok lunas / sebagian / belum. */
+function statusKegiatan({ siswa, biaya }, p) {
+  const dipilih = biaya.map((b, i) => ({ b, i })).filter(({ b }) => {
+    const n = b.nama.toLowerCase()
+    return p.includes(n) || n.split(/\s+/).some((k) => k.length > 4 && p.includes(k))
+  })
+  const daftar = dipilih.length ? dipilih : biaya.map((b, i) => ({ b, i }))
+  const urut = (a, b) => a.kelas.localeCompare(b.kelas) || a.nama.localeCompare(b.nama)
+  const kegiatan = daftar.map(({ b, i }) => {
+    const baris = siswa.map((s) => ({ nama: s.nama, kelas: s.kelas, dibayar: s.kegiatan[i] || 0 })).sort(urut)
+    const lunas = baris.filter((x) => x.dibayar >= b.nominal)
+    const sebagian = baris.filter((x) => x.dibayar > 0 && x.dibayar < b.nominal)
+    const belum = baris.filter((x) => !x.dibayar)
+    return {
+      kegiatan: b.nama, tanggal: b.tanggal || null, nominal_per_siswa: b.nominal, jumlah_siswa: baris.length,
+      target: b.nominal * baris.length,
+      terkumpul: baris.reduce((t, x) => t + Math.min(x.dibayar, b.nominal), 0),
+      kekurangan: baris.reduce((t, x) => t + Math.max(0, b.nominal - x.dibayar), 0),
+      lunas: { jumlah: lunas.length, siswa: lunas.map(({ nama, kelas }) => ({ nama, kelas })) },
+      sebagian: { jumlah: sebagian.length, siswa: sebagian.map((x) => ({ nama: x.nama, kelas: x.kelas, dibayar: x.dibayar, kurang: b.nominal - x.dibayar })) },
+      belum_bayar: { jumlah: belum.length, siswa: belum.map((x) => ({ nama: x.nama, kelas: x.kelas, kurang: b.nominal })) },
+    }
+  })
+  const perSiswa = [...siswa].sort(urut).map((s) => {
+    const kurang = daftar.filter(({ b, i }) => (s.kegiatan[i] || 0) < b.nominal)
+    return {
+      nama: s.nama, kelas: s.kelas, lunas: `${daftar.length - kurang.length} dari ${daftar.length} kegiatan`,
+      total_kurang: kurang.reduce((t, { b, i }) => t + b.nominal - (s.kegiatan[i] || 0), 0),
+      belum_lunas: kurang.map(({ b, i }) => ({ kegiatan: b.nama, kurang: b.nominal - (s.kegiatan[i] || 0), status: s.kegiatan[i] ? 'sebagian' : 'belum bayar' })),
+    }
+  })
+  const lunasSemua = perSiswa.filter((x) => !x.belum_lunas.length)
+  const masih = perSiswa.filter((x) => x.belum_lunas.length)
+  const hasil = {
+    kelas: 'semua kelas', jumlah_siswa_aktif: siswa.length, jumlah_kegiatan: daftar.length, kegiatan,
+    rekap_per_siswa: {
+      lunas_semua_kegiatan: { jumlah: lunasSemua.length, siswa: lunasSemua.map(({ nama, kelas }) => ({ nama, kelas })) },
+      masih_ada_kekurangan: { jumlah: masih.length, total_kurang: masih.reduce((t, x) => t + x.total_kurang, 0), siswa: masih },
+    },
+  }
+  const tabelNama = (arr) => '| No | Nama | Kelas |\n|---|---|---|\n' + arr.slice(0, 40).map((x, n) => `| ${n + 1} | ${x.nama} | ${x.kelas} |`).join('\n')
+  let jawaban
+  if (dipilih.length === 1) {
+    const k = kegiatan[0]
+    jawaban = `Untuk **${k.kegiatan}** (${rp(k.nominal_per_siswa)} per siswa): **${k.lunas.jumlah} siswa** sudah lunas, ` +
+      `**${k.sebagian.jumlah}** bayar sebagian, dan **${k.belum_bayar.jumlah}** belum bayar. Terkumpul **${rp(k.terkumpul)}** dari ${rp(k.target)}.` +
+      (k.lunas.jumlah ? `\n\n**Sudah lunas (${k.lunas.jumlah} siswa):**\n\n${tabelNama(k.lunas.siswa)}` : '') +
+      (k.sebagian.jumlah + k.belum_bayar.jumlah ? `\n\n**Belum lunas (${k.sebagian.jumlah + k.belum_bayar.jumlah} siswa):**\n\n${tabelNama([...k.sebagian.siswa, ...k.belum_bayar.siswa])}` : '')
+  } else {
+    jawaban = `Dari ${daftar.length} kegiatan, **${lunasSemua.length} siswa** sudah lunas semua dan **${masih.length} siswa** masih ada kekurangan ` +
+      `(total **${rp(hasil.rekap_per_siswa.masih_ada_kekurangan.total_kurang)}**).` +
+      (lunasSemua.length ? `\n\n**Lunas semua kegiatan (${lunasSemua.length} siswa):**\n\n${tabelNama(lunasSemua)}` : '') +
+      (masih.length ? `\n\n**Masih ada kekurangan (${masih.length} siswa):**\n\n| No | Nama | Kelas | Lunas | Kurang |\n|---|---|---|---|---|\n` +
+        masih.slice(0, 40).map((x, n) => `| ${n + 1} | ${x.nama} | ${x.kelas} | ${x.lunas} | ${rp(x.total_kurang)} |`).join('\n') : '')
+  }
+  return { jawaban, data: [{ alat: 'status_kegiatan', hasil }] }
+}
+
 export async function jawabDemo(pesan, data) {
   await new Promise((r) => setTimeout(r, 900))
   const p = pesan.toLowerCase()
@@ -183,8 +242,11 @@ export async function jawabDemo(pesan, data) {
     const h = await kasDemo(p, data)
     return { ...h, jawaban: h.jawaban + CATATAN, kuota: { terpakai: 1, batas: 30 } }
   }
+  const soalKegiatan = /kegiatan|manasik|outing|pentas|renang|wisuda|outbond|study tour/.test(p) ||
+    (data.biaya || []).some((b) => p.includes(b.nama.toLowerCase()))
   const hasil =
-    /hari ini|transaksi|yang bayar|kemarin/.test(p) ? transaksiHariIni(data)
+    soalKegiatan && /lunas|sudah bayar|belum bayar|sebagian|rekap/.test(p) ? statusKegiatan(data, p)
+    : /hari ini|transaksi|yang bayar|kemarin/.test(p) ? transaksiHariIni(data)
     : /kelas mana|per kelas|bandingkan|kelas/.test(p) ? perKelas(data)
     : /belum bayar|nunggak|tunggak|belum lunas|tagih/.test(p) ? tunggakan(data)
     : rekap(data)

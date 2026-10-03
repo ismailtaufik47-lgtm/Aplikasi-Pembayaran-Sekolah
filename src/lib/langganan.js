@@ -221,7 +221,7 @@ export function perluDiingatkan(l) {
   return l.status === 'kadaluarsa' || (l.status === 'trial') || (l.status === 'aktif' && l.sisaHari <= 7)
 }
 
-const rpSingkat = (n) => 'Rp' + Number(n || 0).toLocaleString('id-ID')
+const rpSingkat = (n) => 'Rp ' + Number(n || 0).toLocaleString('id-ID')
 
 export const tanggalPanjangLokal = (d) =>
   d ? new Date(d).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '-'

@@ -34,6 +34,8 @@ const bisaDiunduh = (data = []) =>
     if (d.alat === 'status_siswa') return h.siswa?.length > 0
     if (d.alat === 'transaksi') return h.jumlah_transaksi > 0
     if (d.alat === 'daftar_tunggakan') return h.jumlah_siswa > 0
+    if (d.alat === 'status_kegiatan') return h.kegiatan?.length > 0
+    if (d.alat === 'status_spp') return h.jumlah_siswa > 0
     return ['perbandingan_kelas', 'rekap_bulan', 'kas', 'kas_per_bulan'].includes(d.alat)
   })
 
@@ -48,6 +50,7 @@ function daftarSaran(bolehKas) {
       { e: '📉', label: 'Berapa pengeluaran bulan ini?', tanya: 'Berapa pengeluaran bulan ini dan untuk apa saja?' },
     ] : []),
     { e: '👨‍👩‍👧', label: 'Siapa yang belum bayar SPP?', tanya: 'Siapa saja yang belum bayar SPP?' },
+    { e: '✅', label: 'Siapa yang lunas semua kegiatan?', tanya: 'Siapa saja yang sudah lunas semua biaya kegiatan?' },
     ...(bolehKas ? [{ e: '📊', label: 'Ringkasan keuangan minggu ini', tanya: 'Buatkan ringkasan keuangan minggu ini' }] : []),
     { e: '📅', label: `Rekap SPP ${BULAN[kini]}`, tanya: `Buatkan rekap pembayaran bulan ${BULAN[kini]}` },
     { e: '🏫', label: 'Kelas mana paling banyak nunggak?', tanya: 'Kelas mana yang tunggakannya paling banyak?' },
@@ -186,7 +189,9 @@ export default function TanyaAI() {
           <SpandukLangganan pengaturan={pengaturan} />
 
           <div className="relative z-[1] flex items-center gap-2.5 pb-1 pt-3.5 lg:pt-7">
-            {/* hiasan langit */}
+            {/* hiasan langit — hanya saat layar sambutan; begitu percakapan
+                berjalan pojok kanan dipakai tombol "+ Percakapan baru" */}
+            {kosong && (
             <div aria-hidden="true" className="pointer-events-none absolute -right-[18px] -top-1 -z-[1] h-[130px] w-[200px] lg:-right-4 lg:top-2">
               <div className="dark:hidden">
                 <Pelangi className="absolute -right-6 top-3 w-[168px] lg:w-[196px]" />
@@ -196,6 +201,7 @@ export default function TanyaAI() {
                 <Bulan className="absolute right-5 top-4 w-[42px]" />
               </div>
             </div>
+            )}
             <Robot size={36} />
             <div className="min-w-0 flex-1 leading-tight">
               <h1 className="judul-halaman font-display text-[22px] font-bold lg:text-[26px]">Tanya SAKU</h1>
@@ -259,13 +265,13 @@ export default function TanyaAI() {
                     <Robot tampil="hidden sm:grid" />
                     <div
                       className={`min-w-0 max-w-full rounded-[20px] sm:max-w-[calc(100%-42px)] rounded-tl-[6px] px-3.5 py-3 sm:px-4 shadow-[0_8px_24px_rgba(30,64,140,.08)] ${
-                        m.galat ? 'bg-danger-soft text-danger' : 'bg-white'
+                        m.galat ? 'bg-danger-soft text-danger' : 'bg-kartu'
                       }`}
                     >
                       {m.galat ? (
                         <>
                           <p className="text-[14px] font-semibold">{m.teks}</p>
-                          <button onClick={() => ulangi(m)} className="mt-2 rounded-full bg-white px-3 py-1.5 text-[12.5px] font-bold text-danger">
+                          <button onClick={() => ulangi(m)} className="mt-2 rounded-full bg-kartu px-3 py-1.5 text-[12.5px] font-bold text-danger">
                             Coba lagi
                           </button>
                         </>
@@ -275,7 +281,7 @@ export default function TanyaAI() {
                           {bisaDiunduh(m.data) && (
                             <button
                               onClick={() => unduhExcel(m)}
-                              className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-line bg-white px-3 py-1.5 text-[12.5px] font-bold text-ok-deep hover:bg-ok-soft"
+                              className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-line bg-kartu px-3 py-1.5 text-[12.5px] font-bold text-ok-deep hover:bg-ok-soft"
                             >
                               <span style={FONT_EMOJI} aria-hidden="true">📥</span>
                               {unduh === m.id ? 'Menyiapkan…' : 'Unduh Excel'}
@@ -290,7 +296,7 @@ export default function TanyaAI() {
               {sibuk && (
                 <div className="flex animate-fade items-start gap-2.5">
                   <Robot tampil="hidden sm:grid" />
-                  <div className="flex items-center gap-2.5 rounded-[18px] rounded-tl-[6px] bg-white px-4 py-3 text-[13.5px] font-semibold text-muted shadow-soft">
+                  <div className="flex items-center gap-2.5 rounded-[18px] rounded-tl-[6px] bg-kartu px-4 py-3 text-[13.5px] font-semibold text-muted shadow-soft">
                     <span className="flex gap-1">
                       {[0, 1, 2].map((i) => (
                         <span key={i} className="h-1.5 w-1.5 animate-bounce rounded-full bg-brand" style={{ animationDelay: `${i * 0.15}s` }} />
@@ -316,7 +322,7 @@ export default function TanyaAI() {
                   key={s.label}
                   onClick={() => pilihSaran(s)}
                   disabled={sibuk}
-                  className="flex shrink-0 items-center gap-1.5 rounded-full border-[1.5px] border-[#CFE0FF] bg-white px-3 py-1.5 text-[12.5px] font-extrabold transition hover:border-brand disabled:opacity-50 dark:border-line"
+                  className="flex shrink-0 items-center gap-1.5 rounded-full border-[1.5px] border-[#CFE0FF] bg-kartu px-3 py-1.5 text-[12.5px] font-extrabold transition hover:border-brand disabled:opacity-50 dark:border-line"
                 >
                   <span style={FONT_EMOJI} aria-hidden="true">{s.e}</span>
                   {s.label}
@@ -329,7 +335,7 @@ export default function TanyaAI() {
               e.preventDefault()
               kirim()
             }}
-            className="flex items-end gap-2 rounded-[22px] border-[1.5px] border-[#DCE6F4] bg-white p-1.5 pl-4 shadow-[0_8px_24px_rgba(30,64,140,.08)] focus-within:border-brand dark:border-line"
+            className="flex items-end gap-2 rounded-[22px] border-[1.5px] border-[#DCE6F4] bg-kartu p-1.5 pl-4 shadow-[0_8px_24px_rgba(30,64,140,.08)] focus-within:border-brand dark:border-line"
           >
             <textarea
               ref={input}

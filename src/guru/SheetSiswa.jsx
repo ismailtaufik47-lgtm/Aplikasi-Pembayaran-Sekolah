@@ -11,6 +11,9 @@ import Avatar from '../components/Avatar.jsx'
 import PilihAvatar from '../components/PilihAvatar.jsx'
 import { Ikon, Sheet } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
+import { GambarKegiatan } from '../components/Gambar.jsx'
+import { rp } from '../lib/format.js'
+import { EMOJI_JENIS, urutPaket } from '../lib/paket.js'
 
 const kosong = {
   nama: '',
@@ -26,11 +29,13 @@ const kosong = {
 }
 
 export default function SheetSiswa({ buka, tutup, siswaId = null, onSimpan }) {
-  const { siswa, petugas, tambahSiswa, ubahSiswa, hapusSiswa, toast } = useData()
+  const { siswa, paket, petugas, tambahSiswa, ubahSiswa, hapusSiswa, toast } = useData()
   const [form, setForm] = useState(kosong)
   const [galat, setGalat] = useState('')
   const [sibuk, setSibuk] = useState(false)
   const [konfirmasi, setKonfirmasi] = useState(false)
+  const [tagihPaket, setTagihPaket] = useState(() => new Set()) // paket PMB/DU untuk siswa baru
+  const daftarPaket = useMemo(() => [...paket].sort(urutPaket), [paket])
 
   const sedangUbah = !!siswaId
   const kelasAda = useMemo(() => [...new Set(siswa.map((s) => s.kelas))].sort(), [siswa])
@@ -39,6 +44,9 @@ export default function SheetSiswa({ buka, tutup, siswaId = null, onSimpan }) {
     if (!buka) return
     setGalat('')
     setKonfirmasi(false)
+    // siswa baru: langsung tagihkan PMB terbaru (bisa dimatikan)
+    const pmb = daftarPaket.find((p) => p.jenis === 'pmb')
+    setTagihPaket(new Set(!siswaId && pmb ? [pmb.id] : []))
     const s = siswa.find((x) => x.id === siswaId)
     setForm(
       s
@@ -73,8 +81,8 @@ export default function SheetSiswa({ buka, tutup, siswaId = null, onSimpan }) {
         await ubahSiswa(siswaId, bersih)
         toast('Data ' + bersih.nama + ' diperbarui')
       } else {
-        await tambahSiswa(bersih)
-        toast(bersih.nama + ' ditambahkan ke kelas ' + bersih.kelas)
+        await tambahSiswa({ ...bersih, paketIds: [...tagihPaket] })
+        toast(bersih.nama + ' ditambahkan ke kelas ' + bersih.kelas + (tagihPaket.size ? ' · tagihan PMB/DU dibuat' : ''))
       }
       tutup()
       onSimpan?.()
@@ -115,7 +123,7 @@ export default function SheetSiswa({ buka, tutup, siswaId = null, onSimpan }) {
             type="button"
             onClick={() => setForm((f) => ({ ...f, jenis_kelamin: kode }))}
             className={`flex flex-1 items-center justify-center gap-2 rounded-[14px] border py-3 text-[13.5px] font-bold transition ${
-              form.jenis_kelamin === kode ? aktifKelas : 'border-line bg-white text-muted'
+              form.jenis_kelamin === kode ? aktifKelas : 'border-line bg-kartu text-muted'
             }`}
           >
             <Avatar nama="" jenis={kode} avatar={0} size={24} />
@@ -159,7 +167,7 @@ export default function SheetSiswa({ buka, tutup, siswaId = null, onSimpan }) {
               type="button"
               onClick={() => setForm((f) => ({ ...f, kelas: k }))}
               className={`rounded-pill px-3 py-1.5 text-xs font-bold ${
-                form.kelas === k ? 'bg-brand text-white' : 'bg-white text-muted border border-line'
+                form.kelas === k ? 'bg-brand text-white' : 'bg-kartu text-muted border border-line'
               }`}
             >
               {k}
@@ -191,6 +199,35 @@ export default function SheetSiswa({ buka, tutup, siswaId = null, onSimpan }) {
         rows={2}
       />
 
+      {!sedangUbah && daftarPaket.length > 0 && (
+        <div className="card mb-4 !p-3.5">
+          <div className="judul-kartu mb-1 text-[15px]">Tagihan PMB &amp; daftar ulang</div>
+          {daftarPaket.map((p) => {
+            const on = tagihPaket.has(p.id)
+            return (
+              <label key={p.id} className="flex cursor-pointer items-center gap-3 border-b-[1.5px] border-dashed border-line py-2.5 last:border-b-0">
+                <GambarKegiatan emoji={EMOJI_JENIS[p.jenis]} size={38} className="rounded-[12px]" />
+                <span className="min-w-0 flex-1">
+                  <b className="block truncate text-[13.5px] font-extrabold">Tagihkan {p.nama}</b>
+                  <span className="block truncate text-[12px] font-semibold text-muted">
+                    {rp(p.total)}{p.tahap.length ? ` · bisa dicicil ${p.tahap.length} tahap` : ''}
+                  </span>
+                </span>
+                <input
+                  type="checkbox"
+                  className="sr-only"
+                  checked={on}
+                  onChange={() => setTagihPaket((x) => { const b = new Set(x); b.has(p.id) ? b.delete(p.id) : b.add(p.id); return b })}
+                />
+                <span aria-hidden="true" className={`relative h-7 w-12 shrink-0 rounded-full transition ${on ? 'bg-ok shadow-[inset_0_-2px_0_#169A48]' : 'bg-[#D7DEEA] dark:bg-white/15'}`}>
+                  <i className={`absolute top-[3px] h-[22px] w-[22px] rounded-full bg-white shadow transition-all ${on ? 'left-[23px]' : 'left-[3px]'}`} />
+                </span>
+              </label>
+            )
+          })}
+        </div>
+      )}
+
       {galat && (
         <p className="mb-3 flex items-center gap-2 rounded-xl bg-danger-soft px-3 py-2.5 text-[13px] font-semibold text-danger">
           <Ikon.peringatan size={16} />
@@ -211,7 +248,7 @@ export default function SheetSiswa({ buka, tutup, siswaId = null, onSimpan }) {
                 Siswa dipindahkan ke daftar tidak aktif. Riwayat pembayarannya tetap tersimpan.
               </p>
               <div className="flex gap-2.5">
-                <button className="flex-1 rounded-xl bg-white py-2.5 text-[13px] font-extrabold" onClick={() => setKonfirmasi(false)}>
+                <button className="flex-1 rounded-xl bg-kartu py-2.5 text-[13px] font-extrabold" onClick={() => setKonfirmasi(false)}>
                   Batal
                 </button>
                 <button className="flex-1 rounded-xl bg-danger py-2.5 text-[13px] font-extrabold text-white" onClick={hapus}>
@@ -221,7 +258,7 @@ export default function SheetSiswa({ buka, tutup, siswaId = null, onSimpan }) {
             </div>
           ) : (
             <button
-              className="w-full rounded-2xl bg-white border border-danger-soft py-3.5 text-[15px] font-extrabold text-danger"
+              className="w-full rounded-2xl bg-kartu border border-danger-soft py-3.5 text-[15px] font-extrabold text-danger"
               onClick={() => setKonfirmasi(true)}
             >
               Keluarkan siswa

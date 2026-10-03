@@ -31,7 +31,7 @@
   }
   html { -webkit-tap-highlight-color: transparent; color-scheme: light; }
   html.dark { color-scheme: dark; }
-  body { @apply bg-[rgb(var(--latar-luar))] text-ink font-sans antialiased; }
+  body { @apply bg-[rgb(var(--latar-luar))] text-ink font-sans antialiased; word-spacing: .05em; }
 }
 
 @layer components {
@@ -351,3 +351,10 @@ button.permen-kecil:active:not(:disabled) { box-shadow: inset 0 -1px 0 var(--p-b
 .kartu-saldo-minus { background: linear-gradient(160deg, #FFD0E2 0%, #FFB3CF 100%); color: #6E0F3A; box-shadow: inset 0 -5px 0 #F090B6, 0 14px 28px rgba(236, 72, 153, .2); }
 .dark .kartu-saldo { background: linear-gradient(160deg, rgba(255, 214, 90, .22) 0%, rgba(255, 196, 60, .16) 100%); color: #FFE08A; box-shadow: inset 0 -5px 0 rgba(255, 214, 90, .3); }
 .dark .kartu-saldo-minus { background: rgba(255, 130, 180, .18); color: #FFC2DB; box-shadow: inset 0 -5px 0 rgba(255, 130, 180, .3); }
+/* portal: kartu anak (permen biru) & kotak "sudah lunas" (permen hijau muda) */
+.kartu-anak-portal { background: linear-gradient(160deg, #6A95FF 0%, #3B6EF6 75%); box-shadow: inset 0 -5px 0 #2A55CC, 0 12px 26px rgba(59, 110, 246, .28); }
+.dark .kartu-anak-portal { background: linear-gradient(160deg, #3D63C9 0%, #2A4DB0 70%); box-shadow: inset 0 -5px 0 #213F95, 0 12px 26px rgba(0, 0, 0, .4); }
+.kartu-paket-du { background: linear-gradient(160deg, #E7DDFF 0%, #CDB9FF 100%); color: #3B1F86; box-shadow: inset 0 -5px 0 #AE95EE, 0 14px 28px rgba(139, 92, 246, .2); }
+.dark .kartu-paket-du { background: rgba(170, 140, 255, .18); color: #D8CAFF; box-shadow: inset 0 -5px 0 rgba(170, 140, 255, .3); }
+.kotak-lunas { background: #DDF7EC; color: #0C5A47; box-shadow: inset 0 -3px 0 #B5EBD3; }
+.dark .kotak-lunas { background: rgba(90, 220, 190, .14); color: #A9F0DE; box-shadow: none; }

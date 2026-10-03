@@ -56,7 +56,7 @@ function sheetRingkasan(wb, { siswa, biaya, pembayaran, pengaturan, kini }) {
   ws.pageSetup = { fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0, footer: 0 } }
   ws.columns = [{ width: 22 }, { width: 20 }, { width: 20 }, { width: 22 }, { width: 20 }]
 
-  judulLembar(ws, 5, `Laporan Keuangan — ${pengaturan.namaSekolah}`, `Tahun ajaran ${pengaturan.tahunAjaran} · Dicetak ${tanggalPanjang()}`)
+  judulLembar(ws, 5, `Laporan Pembayaran SPP & Kegiatan — ${pengaturan.namaSekolah}`, `Tahun ajaran ${pengaturan.tahunAjaran} · Dicetak ${tanggalPanjang()}`)
 
   const masuk = pembayaran.reduce((t, p) => t + p.nominal, 0)
   const tunggakanSpp = siswa.reduce((t, s) => t + sppPerluSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini), 0)
@@ -165,7 +165,7 @@ function sheetSpp(wb, { siswa, pembayaran, pengaturan, kini }) {
     { width: 15 }, { width: 15 }, { width: 17 },
   ]
 
-  judulLembar(ws, colStatus, `SPP per Siswa — ${pengaturan.namaSekolah}`, `Tahun ajaran ${pengaturan.tahunAjaran} · Rp${pengaturan.sppNominal.toLocaleString('id-ID')}/bulan · Posisi ${tanggalPanjang()}`)
+  judulLembar(ws, colStatus, `SPP per Siswa — ${pengaturan.namaSekolah}`, `Tahun ajaran ${pengaturan.tahunAjaran} · Rp ${pengaturan.sppNominal.toLocaleString('id-ID')}/bulan · Posisi ${tanggalPanjang()}`)
 
   // header (baris 3) — nama bulan + tahun kalendernya di baris kecil
   const header = ['No', 'Nama Siswa', 'Kelas', 'NIS', ...BULAN.map((b, i) => `${b} ${tahunBulan(i)}`), 'Total Dibayar', 'Kurang Bayar', 'Status']
@@ -183,7 +183,7 @@ function sheetSpp(wb, { siswa, pembayaran, pengaturan, kini }) {
       const status = statusSpp(dibayar, pengaturan.sppNominal, i, kini, pengaturan.tanggalJatuhTempo)
       const cell = ws.getCell(r, 5 + i)
       cell.value = dibayar > 0 ? dibayar : status === 'menunggu' ? null : 0
-      cell.numFmt = '"Rp" #,##0'
+      cell.numFmt = '"Rp "#,##0'
       const gaya = gayaStatus(status)
       cell.fill = gaya.fill
       cell.font = { ...gaya.font, size: 9 }
@@ -192,7 +192,7 @@ function sheetSpp(wb, { siswa, pembayaran, pengaturan, kini }) {
 
     const totalDb = s.spp.reduce((t, v) => t + (v || 0), 0)
     ws.getCell(r, colTotal).value = totalDb
-    ws.getCell(r, colTotal).numFmt = '"Rp" #,##0'
+    ws.getCell(r, colTotal).numFmt = '"Rp "#,##0'
     ws.getCell(r, colTotal).font = { bold: true }
     ws.getCell(r, colTotal).alignment = { horizontal: 'right' }
 
@@ -201,7 +201,7 @@ function sheetSpp(wb, { siswa, pembayaran, pengaturan, kini }) {
     // termasuk bulan mendatang yang belum jatuh tempo.
     const kurang = sppPerluSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)
     ws.getCell(r, colKurang).value = kurang
-    ws.getCell(r, colKurang).numFmt = '"Rp" #,##0'
+    ws.getCell(r, colKurang).numFmt = '"Rp "#,##0'
     ws.getCell(r, colKurang).font = { bold: true, color: { argb: kurang > 0 ? WARNA.danger : WARNA.ok } }
     ws.getCell(r, colKurang).alignment = { horizontal: 'right' }
 
@@ -228,16 +228,16 @@ function sheetSpp(wb, { siswa, pembayaran, pengaturan, kini }) {
   BULAN.forEach((_, i) => {
     const c = ws.getCell(rTotal, 5 + i)
     c.value = siswa.reduce((t, s) => t + dibayarSpp(s, i), 0) || null
-    c.numFmt = '"Rp" #,##0'
+    c.numFmt = '"Rp "#,##0'
     c.font = { bold: true, size: 9 }
     c.alignment = { horizontal: 'right' }
   })
   ws.getCell(rTotal, colTotal).value = siswa.reduce((t, s) => t + s.spp.reduce((x, v) => x + (v || 0), 0), 0)
-  ws.getCell(rTotal, colTotal).numFmt = '"Rp" #,##0'
+  ws.getCell(rTotal, colTotal).numFmt = '"Rp "#,##0'
   ws.getCell(rTotal, colTotal).font = { bold: true }
   ws.getCell(rTotal, colTotal).alignment = { horizontal: 'right' }
   ws.getCell(rTotal, colKurang).value = siswa.reduce((t, s) => t + sppPerluSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini), 0)
-  ws.getCell(rTotal, colKurang).numFmt = '"Rp" #,##0'
+  ws.getCell(rTotal, colKurang).numFmt = '"Rp "#,##0'
   ws.getCell(rTotal, colKurang).font = { bold: true, color: { argb: WARNA.danger } }
   ws.getCell(rTotal, colKurang).alignment = { horizontal: 'right' }
   ws.getRow(rTotal).height = 20
@@ -312,12 +312,12 @@ function sheetKegiatan(wb, { siswa, biaya }) {
       if (dibayar >= b.nominal) jmlLunas++
       const cell = ws.getCell(r, 5 + i)
       cell.value = dibayar
-      cell.numFmt = '"Rp" #,##0'
+      cell.numFmt = '"Rp "#,##0'
       cell.alignment = { horizontal: 'right' }
     })
     const totalDb = biaya.reduce((t, _, i) => t + dibayarKegiatan(s, i), 0)
     ws.getCell(r, colTotal).value = totalDb
-    ws.getCell(r, colTotal).numFmt = '"Rp" #,##0'
+    ws.getCell(r, colTotal).numFmt = '"Rp "#,##0'
     ws.getCell(r, colTotal).font = { bold: true }
     ws.getCell(r, colTotal).alignment = { horizontal: 'right' }
 
@@ -341,12 +341,12 @@ function sheetKegiatan(wb, { siswa, biaya }) {
   biaya.forEach((_, i) => {
     const c = ws.getCell(rTotal, 5 + i)
     c.value = siswa.reduce((t, s) => t + dibayarKegiatan(s, i), 0)
-    c.numFmt = '"Rp" #,##0'
+    c.numFmt = '"Rp "#,##0'
     c.font = { bold: true }
     c.alignment = { horizontal: 'right' }
   })
   ws.getCell(rTotal, colTotal).value = siswa.reduce((t, s) => t + biaya.reduce((x, _, i) => x + dibayarKegiatan(s, i), 0), 0)
-  ws.getCell(rTotal, colTotal).numFmt = '"Rp" #,##0'
+  ws.getCell(rTotal, colTotal).numFmt = '"Rp "#,##0'
   ws.getCell(rTotal, colTotal).font = { bold: true }
   ws.getCell(rTotal, colTotal).alignment = { horizontal: 'right' }
   ws.getRow(rTotal).height = 20
@@ -419,7 +419,7 @@ function sheetPrioritas(wb, { siswa, biaya, pengaturan, kini }) {
     ws.getCell(r, 3).value = d.kelas
     ws.getCell(r, 4).value = d.nis
     ws.getCell(r, 5).value = d.kurang
-    ws.getCell(r, 5).numFmt = '"Rp" #,##0'
+    ws.getCell(r, 5).numFmt = '"Rp "#,##0'
     ws.getCell(r, 5).font = { bold: true, color: { argb: WARNA.danger } }
     ws.getCell(r, 5).alignment = { horizontal: 'right' }
     ws.getCell(r, 6).value = d.rentang
@@ -447,10 +447,10 @@ function sheetRiwayat(wb, { pembayaran, siswa }) {
     ws.getCell(r, 1).numFmt = 'dd/mm/yyyy hh:mm'
     ws.getCell(r, 2).value = s?.nama || '(siswa dihapus)'
     ws.getCell(r, 3).value = s?.kelas || '-'
-    ws.getCell(r, 4).value = p.jenis === 'spp' ? 'SPP' : 'Kegiatan'
+    ws.getCell(r, 4).value = p.jenis === 'spp' ? 'SPP' : p.jenis === 'paket' ? (String(p.ket).startsWith('Daftar ulang') ? 'Daftar ulang' : 'PMB') : 'Kegiatan'
     ws.getCell(r, 5).value = p.ket
     ws.getCell(r, 6).value = p.nominal
-    ws.getCell(r, 6).numFmt = '"Rp"#,##0'
+    ws.getCell(r, 6).numFmt = '"Rp "#,##0'
     ws.getCell(r, 6).font = { color: { argb: WARNA.ok }, bold: true }
     ws.getCell(r, 7).value = p.metode
     if (idx % 2 === 1) ws.getRow(r).eachCell((c) => { if (!c.fill || c.fill.fgColor?.argb !== WARNA.ok) c.fill = isiSel('FFF8FAFC') })

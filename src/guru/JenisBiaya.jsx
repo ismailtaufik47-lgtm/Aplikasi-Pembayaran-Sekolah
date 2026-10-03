@@ -6,9 +6,15 @@ import InputNominal from '../components/InputNominal.jsx'
 import { useData } from '../lib/store.jsx'
 import { AKHIR_BULAN, adaInfoKegiatan, jatuhTempoAkhirBulan, rp, tanggalKegiatan } from '../lib/format.js'
 import { PILIHAN_EMOJI, emojiKegiatan, tebakEmoji } from '../lib/emojiKegiatan.js'
+import { EMOJI_JENIS, LABEL_JENIS, WARNA_JENIS, urutPaket } from '../lib/paket.js'
+import SheetPaket from './SheetPaket.jsx'
+
+/** Nama kegiatan yang sebenarnya biaya PMB / daftar ulang (cara lama) → usulkan dipindah. */
+const POLA_PAKET = /^\s*(pmb|ppdb|spmb|du)\b|pendaftaran|daftar\s*ulang|uang\s+pangkal|registrasi\s*ulang|her[- ]?registrasi/i
+const tebakJenisPaket = (nama = '') => (/daftar\s*ulang|^\s*du\b|registrasi\s*ulang|her[- ]?registrasi/i.test(nama) ? 'du' : 'pmb')
 
 export default function JenisBiaya() {
-  const { biaya, pengaturan, tambahBiaya, hapusBiaya, ubahEmojiBiaya, ubahInfoBiaya, ubahPengaturan, toast, boleh } = useData()
+  const { biaya, paket, pengaturan, tambahBiaya, hapusBiaya, ubahEmojiBiaya, ubahInfoBiaya, ubahPengaturan, pindahkanBiayaKePaket, toast, boleh } = useData()
   const ro = !boleh('biaya') // hak akses "lihat" saja
   const nav = useNavigate()
   const [buka, setBuka] = useState(false)
@@ -22,6 +28,9 @@ export default function JenisBiaya() {
   const [bukaInfoBaru, setBukaInfoBaru] = useState(false)
   const [edit, setEdit] = useState(null) // { i, info } — sedang mengedit info kegiatan ke-i
   const [sibuk, setSibuk] = useState(false)
+  const [bukaPaket, setBukaPaket] = useState(null) // { id } ubah · { jenis } baru
+  const [hapusI, setHapusI] = useState(null) // konfirmasi hapus kegiatan ke-i
+  const [pindahI, setPindahI] = useState(null) // konfirmasi pindah kegiatan ke-i ke paket
 
   const terapkanEmoji = async (e) => {
     const untuk = pilihEmoji?.untuk
@@ -66,12 +75,13 @@ export default function JenisBiaya() {
         judul="Jenis biaya"
         gambar="koin"
         kembali={() => nav('/guru/lainnya')}
-        sub={ro ? 'Hanya bisa dilihat — perubahan dilakukan petugas yang berwenang' : 'Nominal SPP & biaya kegiatan — dipakai untuk semua siswa di sekolah ini'}
+        sub={ro ? 'Hanya bisa dilihat — perubahan dilakukan petugas yang berwenang' : 'SPP, biaya kegiatan, PMB & daftar ulang — semua biaya sekolah diatur di sini'}
         aksiHp={null}
         aksi={!ro && <BtnKecil utama onClick={() => setBuka(true)}><Ikon.plus size={16} />Tambah kegiatan</BtnKecil>}
       />
 
       <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-6">
+       <div>
        <div className="card mb-4">
         <div className="mb-3.5 flex items-center gap-3">
           <Tile warna="blue"><Ikon.kalender size={20} /></Tile>
@@ -129,6 +139,46 @@ export default function JenisBiaya() {
         </button>}
        </div>
 
+       {/* ---------- PMB & daftar ulang (0033) ---------- */}
+       <div className="card mb-4">
+        <div className="judul-kartu text-[17px]">PMB &amp; Daftar ulang</div>
+        <p className="mb-1.5 text-[12.5px] text-muted">Biaya masuk siswa baru &amp; daftar ulang siswa lama — dirinci dan bisa dicicil.</p>
+        {[...paket].sort(urutPaket).map((p) => (
+          <button key={p.id} className="row w-full items-center text-left" onClick={() => setBukaPaket({ id: p.id })}>
+            <GambarKegiatan emoji={EMOJI_JENIS[p.jenis]} size={44} className="rounded-[14px]" />
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-1.5">
+                <span className={`permen permen-kecil permen-${WARNA_JENIS[p.jenis]} rounded-[8px] px-2 py-0.5 text-[10.5px] font-extrabold`}>{LABEL_JENIS[p.jenis]}</span>
+                <b className="truncate text-[14px] font-extrabold">{p.tahunAjaran}</b>
+              </span>
+              <span className="mt-0.5 block truncate text-[12px] font-semibold text-muted">
+                {rp(p.total)} · {p.tahap.length ? `${p.tahap.length} tahap` : 'tanpa jadwal'} · {p.siswaIds.length} siswa
+              </span>
+            </span>
+            {!ro && <Ikon.kembali size={16} className="shrink-0 rotate-180 text-muted" />}
+          </button>
+        ))}
+        {paket.length === 0 && (
+          <p className="my-2 rounded-xl bg-canvas px-3.5 py-3 text-[12.5px] font-semibold text-muted">
+            Belum ada paket. Buat paket untuk mencatat biaya pendaftaran / daftar ulang lengkap dengan rinciannya — termasuk yang dulu dicatat manual.
+          </p>
+        )}
+        {!ro && (
+          <div className="mt-2.5 grid grid-cols-2 gap-2">
+            <button className="flex items-center justify-center gap-1.5 rounded-[14px] border-[1.5px] border-dashed border-[#B9CBEF] py-2.5 text-[12.5px] font-extrabold text-brand dark:border-line" onClick={() => setBukaPaket({ jenis: 'pmb' })}>
+              <Ikon.plus size={15} /> Paket PMB
+            </button>
+            <button className="flex items-center justify-center gap-1.5 rounded-[14px] border-[1.5px] border-dashed border-[#B9CBEF] py-2.5 text-[12.5px] font-extrabold text-brand dark:border-line" onClick={() => setBukaPaket({ jenis: 'du' })}>
+              <Ikon.plus size={15} /> Daftar ulang
+            </button>
+          </div>
+        )}
+        <p className="mt-2.5 text-[11.5px] font-semibold text-muted">
+          Siapa yang belum lunas? Lihat di menu <button className="font-extrabold text-brand" onClick={() => nav('/guru/tagihan')}>Tagihan › PMB / Daftar ulang</button>.
+        </p>
+       </div>
+       </div>
+
        <div>
       <div className="seghead lg:mt-0">
         <h2>Biaya kegiatan</h2>
@@ -167,11 +217,22 @@ export default function JenisBiaya() {
                     ? <span className="font-bold text-brand">{b.tanggal ? `📅 ${tanggalKegiatan(b, true)}` : 'ℹ️ Info terisi'}{ro ? '' : ' ›'}</span>
                     : ro ? <span className="text-muted">belum ada info</span> : <span className="font-bold text-warn-deep">+ Isi info kegiatan</span>}
                 </div>
+                {!ro && POLA_PAKET.test(b.nama) && (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => { e.stopPropagation(); setPindahI(i) }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') { e.stopPropagation(); setPindahI(i) } }}
+                    className="mt-1 inline-flex items-center gap-1 rounded-pill bg-rose-soft px-2.5 py-1 text-[11.5px] font-extrabold text-rose"
+                  >
+                    Pindahkan ke PMB &amp; Daftar ulang ›
+                  </span>
+                )}
               </button>
               {!ro && (
                 <button
                   className="shrink-0 rounded-[12px] bg-danger-soft px-3 py-2 text-xs font-extrabold text-danger"
-                  onClick={async () => { await hapusBiaya(i); toast(`${b.nama} dihapus`) }}
+                  onClick={() => setHapusI(i)}
                 >
                   Hapus
                 </button>
@@ -232,6 +293,39 @@ export default function JenisBiaya() {
             <button className="bigbtn-ghost" onClick={() => setEdit(null)} disabled={sibuk}>Batal</button>
           </>
         )}
+      </Sheet>
+
+      <SheetPaket buka={!!bukaPaket} tutup={() => setBukaPaket(null)} paketId={bukaPaket?.id || null} jenisAwal={bukaPaket?.jenis || 'pmb'} />
+
+      <Sheet buka={hapusI !== null} tutup={() => setHapusI(null)} judul={`Hapus ${biaya[hapusI]?.nama || 'kegiatan'}?`}
+        lead="Kegiatan ini hilang dari kartu semua siswa. Pembayaran yang sudah tercatat tetap tersimpan di riwayat.">
+        <button className="bigbtn-tutup mb-2.5" onClick={async () => { const b = biaya[hapusI]; setHapusI(null); await hapusBiaya(hapusI); toast(`${b.nama} dihapus`) }}>
+          Ya, hapus
+        </button>
+        <button className="bigbtn-ghost" onClick={() => setHapusI(null)}>Batal</button>
+      </Sheet>
+
+      <Sheet buka={pindahI !== null} tutup={() => !sibuk && setPindahI(null)} judul={`Pindahkan "${biaya[pindahI]?.nama || ''}"?`}
+        lead={`Menjadi paket ${LABEL_JENIS[tebakJenisPaket(biaya[pindahI]?.nama)]} ${pengaturan.tahunAjaran}. Semua pembayarannya ikut pindah, dan setelah itu rincian & jadwal cicilan bisa diatur.`}>
+        <div className="mb-3 grid grid-cols-2 gap-2.5">
+          {['pmb', 'du'].map((j) => (
+            <button key={j} disabled={sibuk} className="bigbtn-ghost !py-3 !text-[13.5px] disabled:opacity-60" onClick={async () => {
+              setSibuk(true)
+              try {
+                await pindahkanBiayaKePaket(pindahI, j)
+                toast(`Dipindahkan ke ${LABEL_JENIS[j]} ${pengaturan.tahunAjaran}`)
+                setPindahI(null)
+              } catch {
+                /* pesan ditampilkan store */
+              } finally {
+                setSibuk(false)
+              }
+            }}>
+              Jadikan {LABEL_JENIS[j]}
+            </button>
+          ))}
+        </div>
+        <button className="bigbtn-ghost" onClick={() => setPindahI(null)} disabled={sibuk}>Nanti saja</button>
       </Sheet>
 
       <Sheet

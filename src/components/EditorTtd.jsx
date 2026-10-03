@@ -234,10 +234,10 @@ function PadTtd({ onSelesai, onBatal }) {
         )}
       </div>
       <div className="mt-2.5 flex gap-2">
-        <button type="button" onClick={onBatal} className="rounded-xl border border-line bg-white px-3.5 py-2.5 text-[13px] font-bold">
+        <button type="button" onClick={onBatal} className="rounded-xl border border-line bg-kartu px-3.5 py-2.5 text-[13px] font-bold">
           Batal
         </button>
-        <button type="button" onClick={hapus} disabled={!ada} className="rounded-xl border border-line bg-white px-3.5 py-2.5 text-[13px] font-bold disabled:opacity-50">
+        <button type="button" onClick={hapus} disabled={!ada} className="rounded-xl border border-line bg-kartu px-3.5 py-2.5 text-[13px] font-bold disabled:opacity-50">
           Ulangi
         </button>
         <button type="button" onClick={pakai} disabled={!ada} className="flex-1 rounded-xl bg-brand px-3.5 py-2.5 text-[13px] font-extrabold text-white disabled:opacity-50">
@@ -267,7 +267,7 @@ function TombolUpload({ label, onFile }) {
   const ref = useRef(null)
   return (
     <>
-      <button type="button" onClick={() => ref.current?.click()} className="rounded-xl border border-line bg-white px-3.5 py-2.5 text-[13px] font-bold">
+      <button type="button" onClick={() => ref.current?.click()} className="rounded-xl border border-line bg-kartu px-3.5 py-2.5 text-[13px] font-bold">
         {label}
       </button>
       <input

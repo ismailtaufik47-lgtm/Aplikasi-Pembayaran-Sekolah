@@ -13,9 +13,14 @@ import InputNominal from '../components/InputNominal.jsx'
 import FormBatal from './FormBatal.jsx'
 import { useData } from '../lib/store.jsx'
 import { BULAN, bulanBerjalan, dibayarKegiatan, dibayarSpp, persenBayar, rp, statusSpp, tanggalISO } from '../lib/format.js'
+import { alokasiCicilan, dibayarPaket, keteranganPaket, statusPaket, tahapPaket, tglPendek } from '../lib/paket.js'
 
+/**
+ * jenis 'spp' (indeks = bulan), 'kegiatan' (indeks = urutan biaya), atau
+ * 'paket' (PMB / daftar ulang; indeks = id paket — tampil jadwal cicilan & rincian).
+ */
 export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, readOnly = false }) {
-  const { siswa, biaya, pengaturan, pembayaran, catatPembayaran, batalkanPembayaran, toast, boleh, cegahKunci } = useData()
+  const { siswa, biaya, paket, pengaturan, pembayaran, catatPembayaran, batalkanPembayaran, toast, boleh, cegahKunci } = useData()
   const bisaCatat = !readOnly && boleh('pembayaran')
   const bisaBatal = boleh('batal')
   const [mode, setMode] = useState('lihat') // 'lihat' | 'bayar' | 'sukses'
@@ -39,22 +44,29 @@ export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, read
   const s = siswa.find((x) => x.id === siswaId)
   if (!buka || !s || jenis == null || indeks == null) return null
 
-  const judul = jenis === 'spp' ? BULAN[indeks] : biaya[indeks]?.nama || ''
-  const target = jenis === 'spp' ? pengaturan.sppNominal : biaya[indeks]?.nominal || 0
-  const dibayar = jenis === 'spp' ? dibayarSpp(s, indeks) : dibayarKegiatan(s, indeks)
+  const pk = jenis === 'paket' ? paket.find((p) => p.id === indeks) : null
+  if (jenis === 'paket' && !pk) return null
+  const judul = jenis === 'spp' ? BULAN[indeks] : pk ? pk.nama : biaya[indeks]?.nama || ''
+  const target = jenis === 'spp' ? pengaturan.sppNominal : pk ? pk.total : biaya[indeks]?.nominal || 0
+  const dibayar = jenis === 'spp' ? dibayarSpp(s, indeks) : pk ? dibayarPaket(s, pk.id) : dibayarKegiatan(s, indeks)
   const sisa = Math.max(0, target - dibayar)
   const lunas = dibayar >= target
   const status = jenis === 'spp'
     ? statusSpp(dibayar, target, indeks, bulanBerjalan(), pengaturan.tanggalJatuhTempo)
+    : pk ? { lunas: 'lunas', terlambat: 'nunggak', mencicil: 'sebagian', belum: 'belum-bayar' }[statusPaket(pk, dibayar)]
     : (lunas ? 'lunas' : dibayar > 0 ? 'sebagian' : 'belum-bayar')
   const warnaStatus = { lunas: '#22C55E', sebagian: '#F5A524', nunggak: '#EF4444', 'belum-bayar': '#F5A524', menunggu: '#C9D0DC' }[status]
+  const tahap = pk ? tahapPaket(pk, dibayar) : []
+  const alokasi = pk && mode === 'bayar' ? alokasiCicilan(pk, dibayar, nominal) : []
   const transaksi = pembayaran.filter((p) => p.siswaId === siswaId && p.jenis === jenis && p.indeks === indeks)
   const nominalAngka = Number(nominal) || 0
   const lebihBayar = nominalAngka > sisa && sisa > 0
 
   const bukaFormBayar = () => {
     if (cegahKunci('bayar')) return
-    setNominal(sisa || target)
+    // paket: usulkan kekurangan tahap terdekat (bayar bebas, boleh diubah)
+    const t = pk ? tahap.find((x) => !x.lunas) : null
+    setNominal(t ? t.kurang : sisa || target)
     setMode('bayar')
   }
 
@@ -104,7 +116,7 @@ export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, read
             <Ikon.cek size={34} />
           </div>
           <h3 className="text-[18px] font-extrabold">
-            {sukses?.lunasSetelah ? (jenis === 'spp' ? `SPP ${judul}` : judul) + ' lunas' : 'Pembayaran sebagian tersimpan'}
+            {sukses?.lunasSetelah ? (jenis === 'spp' ? `SPP ${judul}` : judul) + ' lunas' : pk ? 'Cicilan tersimpan' : 'Pembayaran sebagian tersimpan'}
           </h3>
           <p className="mb-5 mt-1 text-[13.5px] text-muted">
             {s.nama}
@@ -135,14 +147,37 @@ export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, read
             </div>
             {!lunas && (
               <div className="mt-2.5 text-[13px] font-bold" style={{ color: status === 'menunggu' ? '#8A93A6' : warnaStatus }}>
-                Sisa {rp(sisa)}
+                Sisa {rp(sisa)}{pk ? ` · ${keteranganPaket(pk, dibayar)}` : ''}
               </div>
             )}
           </div>
 
+          {pk && tahap.length > 0 && (
+            <div className="mb-5">
+              <div className="mb-2 text-[13px] font-bold text-muted">Jadwal cicilan</div>
+              <div className="card !py-1.5">
+                {tahap.map((t, i) => (
+                  <div key={i} className="row items-center">
+                    <span className={`permen permen-kecil grid h-9 w-9 shrink-0 place-items-center rounded-[12px] font-display text-[15px] font-bold ${
+                      t.lunas ? 'permen-tosca' : t.lewat ? 'permen-pink' : t.terisi > 0 ? 'permen-kuning' : 'permen-abu'}`}>{i + 1}</span>
+                    <span className="min-w-0 flex-1">
+                      <b className="block text-[13.5px] font-extrabold">{t.nama} · {tglPendek(t.jatuhTempo, true)}</b>
+                      <span className="block text-[12px] font-semibold text-muted">
+                        {t.lunas ? `${rp(t.nominal)} · lunas` : t.terisi > 0 ? `Kurang ${rp(t.kurang)} dari ${rp(t.nominal)}` : rp(t.nominal)}
+                      </span>
+                    </span>
+                    <span className={`chip ${t.lunas ? 'bg-ok-soft text-ok-deep' : t.lewat ? 'bg-danger-soft text-danger' : 'bg-[#F1F2F6] text-muted dark:bg-white/10'}`}>
+                      {t.lunas ? 'Lunas' : t.lewat ? 'Terlambat' : 'Akan datang'}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {bisaCatat && !lunas && (
             <button className="bigbtn mb-5" onClick={bukaFormBayar}>
-              {dibayar > 0 ? 'Lanjutkan bayar sisa' : 'Catat pembayaran'}
+              {pk ? 'Catat cicilan' : dibayar > 0 ? 'Lanjutkan bayar sisa' : 'Catat pembayaran'}
             </button>
           )}
 
@@ -185,11 +220,38 @@ export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, read
               ))}
             </div>
           )}
+          {pk && (
+            <details className="mt-5 rounded-2xl bg-canvas px-4 py-1">
+              <summary className="cursor-pointer py-2.5 text-[13px] font-extrabold">Rincian biaya ({pk.rincian.length})</summary>
+              {pk.rincian.map((r, i) => (
+                <div key={i} className="flex justify-between gap-3 border-t border-dashed border-line py-2 text-[13px] font-semibold">
+                  <span className="text-muted">{r.nama}</span>
+                  <b>{rp(r.nominal)}</b>
+                </div>
+              ))}
+              <div className="flex justify-between border-t border-line py-2.5 text-[13.5px] font-extrabold">
+                <span>Total</span>
+                <span>{rp(pk.total)}</span>
+              </div>
+            </details>
+          )}
         </>
       ) : (
         <>
           <label className="mb-1.5 block text-[13px] font-bold">Jumlah dibayar</label>
           <InputNominal className="mb-1.5" value={nominal} onChange={setNominal} placeholder={String(sisa || target)} />
+          {pk && <PilihanCepat pk={pk} dibayar={dibayar} atur={setNominal} />}
+          {alokasi.length > 0 && (
+            <div className="mb-3 rounded-2xl bg-brand-soft px-3.5 py-2.5 text-[12.5px] font-semibold text-brand">
+              <b className="mb-0.5 block font-extrabold">Masuk ke</b>
+              {alokasi.map((a, i) => (
+                <div key={i} className="flex justify-between gap-3">
+                  <span>{a.nama}{a.nama !== 'Kelebihan' && (a.lunasSetelah ? ' → lunas' : ` · sisa ${rp(a.kurangSetelah)}`)}</span>
+                  <b>{rp(a.isi)}</b>
+                </div>
+              ))}
+            </div>
+          )}
           {lebihBayar ? (
             <p className="mb-4 flex items-start gap-2 rounded-xl bg-warn-soft px-3 py-2.5 text-xs font-semibold text-warn-deep">
               <Ikon.peringatan size={15} />
@@ -208,6 +270,7 @@ export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, read
           <div className="mb-4 flex gap-2.5">
             <Pilih on={metode === 'Tunai'} onClick={() => setMetode('Tunai')}>Tunai</Pilih>
             <Pilih on={metode === 'Transfer'} onClick={() => setMetode('Transfer')}>Transfer</Pilih>
+            <Pilih on={metode === 'Tabungan'} onClick={() => setMetode('Tabungan')} sub="dari tabungan">Tabungan</Pilih>
           </div>
 
           <label className="mb-1.5 block text-[13px] font-bold">Tanggal pembayaran</label>
@@ -237,13 +300,37 @@ export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, read
   )
 }
 
-const Pilih = ({ on, children, ...p }) => (
+/** Tombol nominal cepat untuk cicilan paket: kurang tahap terdekat & lunasi semua. */
+function PilihanCepat({ pk, dibayar, atur }) {
+  const sisa = pk.total - dibayar
+  if (sisa <= 0) return null
+  const tahap = tahapPaket(pk, dibayar)
+  const t = tahap.find((x) => !x.lunas)
+  const opsi = []
+  if (t && t.kurang < sisa) opsi.push([`${t.nama} · ${rp(t.kurang)}`, t.kurang])
+  opsi.push([`Lunasi · ${rp(sisa)}`, sisa])
+  return (
+    <div className="mb-3 flex flex-wrap gap-2">
+      {opsi.map(([label, n]) => (
+        <button key={label} type="button" onClick={() => atur(n)} className="tombol-putih rounded-pill px-3 py-1.5 text-[12px] font-extrabold">
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+/** Pilihan metode bayar (Tunai · Transfer · Tabungan). */
+const Pilih = ({ on, sub, children, ...p }) => (
   <button
+    type="button"
     {...p}
-    className={`flex-1 rounded-[14px] border py-3 text-[13.5px] font-bold ${
-      on ? 'border-brand bg-brand-soft text-brand' : 'border-line bg-white text-muted'
+    aria-pressed={on}
+    className={`flex min-w-0 flex-1 flex-col items-center justify-center rounded-[14px] px-1 py-2.5 text-[13.5px] font-extrabold leading-tight ${
+      on ? 'permen permen-kecil permen-biru' : 'border-[1.5px] border-[#DCE6F4] bg-kartu text-muted dark:border-line'
     }`}
   >
     {children}
+    {sub && <span className="mt-0.5 text-[10.5px] font-bold opacity-80">{sub}</span>}
   </button>
 )

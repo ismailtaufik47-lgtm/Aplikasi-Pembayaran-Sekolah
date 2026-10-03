@@ -30,7 +30,7 @@ const W = {
   teks: [21, 26, 38], abu: [110, 118, 135], garis: [226, 230, 238], latar: [246, 247, 251],
 }
 
-export const rp = (n) => 'Rp' + Math.round(Number(n) || 0).toLocaleString('id-ID')
+export const rp = (n) => 'Rp ' + Math.round(Number(n) || 0).toLocaleString('id-ID')
 
 const SATUAN = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh', 'sebelas']
 
@@ -245,14 +245,14 @@ export function isiKuitansiBayar(d) {
     baris: [
       ['Telah terima dari', d.siswa.wali ? `${d.siswa.wali} (orang tua/wali)` : `Orang tua/wali ${d.siswa.nama}`],
       ['Nama siswa', `${d.siswa.nama} · Kelas ${d.siswa.kelas}${d.siswa.nis ? ' · NIS ' + d.siswa.nis : ''}`],
-      ['Untuk pembayaran', d.keterangan],
-      ['Cara bayar', `${d.metode} · ${jamWib(d.dibayarPada)}`],
+      ['Untuk pembayaran', d.jenis === 'paket' && !lunas ? `${d.keterangan} (cicilan)` : d.keterangan],
+      ['Cara bayar', `${d.metode === 'Tabungan' ? 'Potong tabungan siswa' : d.metode} · ${jamWib(d.dibayarPada)}`],
       ['Dicatat oleh', d.petugas || '-'],
     ],
     nominal: d.nominal,
     status: lunas
       ? { teks: 'LUNAS', warna: 'ok' }
-      : { teks: `SEBAGIAN — sisa ${rp(sisa)}`, warna: 'warn' },
+      : { teks: `${d.jenis === 'paket' ? 'CICILAN' : 'SEBAGIAN'} — sisa ${rp(sisa)}`, warna: 'warn' },
     ttd: {
       jabatan: d.ttd?.jabatan || 'Kepala Sekolah',
       nama: d.ttd?.nama || d.sekolah.kepalaSekolah || '',

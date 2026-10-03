@@ -20,7 +20,14 @@ import { BintangWajah, Matahari } from '../components/IlustrasiMasuk.jsx'
 import SheetPeriode from './SheetPeriode.jsx'
 import { useData } from '../lib/store.jsx'
 import { emojiKegiatan } from '../lib/emojiKegiatan.js'
-import { BULAN, bulanBerjalan, dibayarKegiatan, dibayarSpp, labelJatuhTempoPeriode, rp, statusSpp, tanggalPanjang } from '../lib/format.js'
+import { BULAN, bulanBerjalan, dibayarKegiatan, dibayarSpp, labelJatuhTempoPeriode, persenBayar, rp, statusSpp } from '../lib/format.js'
+import {
+  BADGE_PAKET, EMOJI_JENIS, dibayarPaket, keteranganPaket, kurangSekarangPaket, statusPaket, tahapPaket, tglPendek, urutPaket,
+} from '../lib/paket.js'
+import SheetPaket from './SheetPaket.jsx'
+
+const JENIS_PAKET = ['pmb', 'du']
+const STATUS_DARI_PAKET = { lunas: 'lunas', terlambat: 'nunggak', mencicil: 'sebagian', belum: 'belum' }
 
 /** Status kegiatan sederhana: lunas / sebagian / belum (tidak ada konsep jatuh tempo). */
 function statusKegiatanItem(dibayar, target) {
@@ -41,8 +48,14 @@ function pesanTagihan(t, pengaturan) {
   // depannya supaya tidak jadi "Bapak/Ibu Ibu Wulan".
   const sapaan = t.wali || 'Bapak/Ibu Wali Murid'
   let pesan = `Assalamu'alaikum ${sapaan} 🙏\n\n`
-  pesan += `Mohon izin mengingatkan, tagihan *${t.labelJenis}* untuk ananda *${t.nama}* (${t.kelas}) sebesar *${rp(t.sisa)}* masih perlu dilunasi`
-  pesan += t.jatuhTempo ? ` (jatuh tempo ${t.jatuhTempo}).\n\n` : '.\n\n'
+  if (t.paketId && t.tagihSekarang > 0 && t.tagihSekarang < t.sisa) {
+    // PMB / daftar ulang yang dicicil: ingatkan tahap yang sudah jatuh tempo, sebutkan sisa totalnya
+    pesan += `Mohon izin mengingatkan, cicilan *${t.labelJenis}* untuk ananda *${t.nama}* (${t.kelas}) sebesar *${rp(t.tagihSekarang)}* sudah jatuh tempo${t.jatuhTempo ? ` (${t.jatuhTempo})` : ''}. `
+    pesan += `Sisa seluruh ${t.labelJenis} ${rp(t.sisa)}.\n\n`
+  } else {
+    pesan += `Mohon izin mengingatkan, tagihan *${t.labelJenis}* untuk ananda *${t.nama}* (${t.kelas}) sebesar *${rp(t.sisa)}* masih perlu dilunasi`
+    pesan += t.jatuhTempo ? ` (jatuh tempo ${t.jatuhTempo}).\n\n` : '.\n\n'
+  }
 
   const rekening = pengaturan.rekening || []
   if (rekening.length > 0) {
@@ -93,7 +106,7 @@ function labelStatusSpp(status, indeksBulan, kini) {
 
 
 export default function Tagihan() {
-  const { siswa, biaya, pengaturan, catatPembayaran, toast, boleh } = useData()
+  const { siswa, biaya, paket, pengaturan, toast, boleh } = useData()
   const bisaCatat = boleh('pembayaran')
   const nav = useNavigate()
   const kini = bulanBerjalan()
@@ -101,7 +114,10 @@ export default function Tagihan() {
   const [cari, setCari] = useState('')
   const [filter, setFilter] = useState('semua') // semua | belum | jatuh-tempo
   const [filterKelas, setFilterKelas] = useState('') // '' = semua kelas, atau nama kelas
-  const [jenisFilter, setJenisFilter] = useState('semua') // semua | spp | kegiatan
+  // semua | spp | kegiatan | pmb | du — ?jenis=pmb dari tautan Jenis biaya
+  const [jenisFilter, setJenisFilter] = useState(() => new URLSearchParams(window.location.search).get('jenis') || 'semua')
+  const [paketPilih, setPaketPilih] = useState(null) // id paket saat filter PMB/DU (kalau ada beberapa tahun ajaran)
+  const [aturPaket, setAturPaket] = useState(null) // id paket yang sedang diubah
   const [periode, setPeriode] = useState(null) // { siswaId, jenis, indeks } — buka SheetPeriode
   const [massal, setMassal] = useState(false)
   const [formBiaya, setFormBiaya] = useState(false)
@@ -130,6 +146,28 @@ export default function Tagihan() {
           badge: labelStatusSpp(status, i, kini),
         })
       }
+      paket.forEach((p) => {
+        if (!p.siswaIds.includes(s.id)) return
+        urut++
+        const dibayar = dibayarPaket(s, p.id)
+        const st = statusPaket(p, dibayar)
+        const tahap = tahapPaket(p, dibayar)
+        const acuan = tahap.find((t) => t.lewat && !t.lunas) || tahap.find((t) => !t.lunas)
+        daftar.push({
+          id: `${s.id}-paket-${p.id}`,
+          no: `TK-INV-${String(urut).padStart(4, '0')}`,
+          siswaId: s.id, nama: s.nama, kelas: s.kelas, jenis: p.jenis, indeks: p.id, paketId: p.id,
+          hp: s.hp, wali: s.wali, avatar: s.avatar, jenisKelamin: s.jenis, foto: s.foto,
+          labelJenis: p.nama,
+          emoji: EMOJI_JENIS[p.jenis],
+          jatuhTempo: acuan ? tglPendek(acuan.jatuhTempo, true) : null,
+          target: p.total, dibayar, sisa: Math.max(0, p.total - dibayar),
+          tagihSekarang: kurangSekarangPaket(p, dibayar),
+          ket: keteranganPaket(p, dibayar),
+          status: STATUS_DARI_PAKET[st],
+          badge: BADGE_PAKET[st],
+        })
+      })
       biaya.forEach((b, i) => {
         urut++
         const dibayar = dibayarKegiatan(s, i)
@@ -148,25 +186,33 @@ export default function Tagihan() {
       })
     })
     return daftar
-  }, [siswa, biaya, pengaturan, kini])
+  }, [siswa, biaya, paket, pengaturan, kini])
+
+  // paket yang tampil saat filter PMB / Daftar ulang
+  const paketJenis = useMemo(() => paket.filter((p) => p.jenis === jenisFilter).sort(urutPaket), [paket, jenisFilter])
+  const paketAktif = JENIS_PAKET.includes(jenisFilter) ? paketJenis.find((p) => p.id === paketPilih) || paketJenis[0] || null : null
+  const cocokJenis = (t) =>
+    jenisFilter === 'semua' || (t.jenis === jenisFilter && (!paketAktif || t.paketId === paketAktif.id))
+  const adaJenis = (j) => paket.some((p) => p.jenis === j)
 
   const ringkasan = useMemo(() => {
-    const r = { total: semuaTagihan.length, lunas: 0, belum: 0, sebagian: 0 }
-    semuaTagihan.forEach((t) => {
+    const baris = semuaTagihan.filter(cocokJenis)
+    const r = { total: baris.length, lunas: 0, belum: 0, sebagian: 0 }
+    baris.forEach((t) => {
       if (t.status === 'lunas') r.lunas++
       else if (t.status === 'sebagian') r.sebagian++
       else r.belum++
     })
     return r
-  }, [semuaTagihan])
+  }, [semuaTagihan, jenisFilter, paketAktif])
 
   const hasil = semuaTagihan.filter((t) => {
-    if (jenisFilter !== 'semua' && t.jenis !== jenisFilter) return false
+    if (!cocokJenis(t)) return false
     if (filter === 'belum' && t.status === 'lunas') return false
     if (filter === 'jatuh-tempo' && t.status !== 'nunggak') return false
     if (filterKelas && t.kelas !== filterKelas) return false
     const q = cari.toLowerCase()
-    if (q && !(t.nama.toLowerCase().includes(q) || t.no.toLowerCase().includes(q))) return false
+    if (q && !(t.nama.toLowerCase().includes(q) || t.no.toLowerCase().includes(q) || t.labelJenis.toLowerCase().includes(q))) return false
     return true
   })
 
@@ -205,19 +251,53 @@ export default function Tagihan() {
       <KepalaHalaman
         judul="Tagihan"
         gambar="koin"
-        sub={`SPP & biaya kegiatan tahun ajaran ${pengaturan.tahunAjaran || ''}`.trim()}
+        sub={`${paket.length ? 'SPP, kegiatan, PMB & daftar ulang' : 'SPP & biaya kegiatan'} · tahun ajaran ${pengaturan.tahunAjaran || ''}`.trim()}
       />
 
+      {/* ---------- jenis biaya: satu daftar untuk semua jenis ---------- */}
+      <div className="noscroll -mx-[18px] mb-3 flex gap-2 overflow-x-auto px-[18px] pb-1 lg:mx-0 lg:flex-wrap lg:overflow-visible lg:px-0">
+        {[
+          ['semua', 'Semua', 'biru'],
+          ['spp', 'SPP', 'biru'],
+          ['kegiatan', 'Kegiatan', 'kuning'],
+          ...(adaJenis('pmb') ? [['pmb', 'PMB', 'pink']] : []),
+          ...(adaJenis('du') ? [['du', 'Daftar ulang', 'ungu']] : []),
+        ].map(([v, l, w]) => (
+          <button
+            key={v}
+            type="button"
+            onClick={() => { setJenisFilter(v); setPaketPilih(null) }}
+            aria-pressed={jenisFilter === v}
+            className={`shrink-0 rounded-pill px-3.5 py-2 text-[13px] font-extrabold ${jenisFilter === v ? `permen permen-kecil permen-${w}` : 'tombol-putih'}`}
+          >
+            {l}
+          </button>
+        ))}
+      </div>
+
+      {paketAktif && (
+        <RingkasPaket
+          p={paketAktif}
+          pilihan={paketJenis}
+          pilih={setPaketPilih}
+          siswa={siswa}
+          bisaAtur={boleh('biaya')}
+          atur={() => setAturPaket(paketAktif.id)}
+          filter={filter}
+          aturFilter={setFilter}
+        />
+      )}
+
       {/* ---------- ringkasan (ubin permen) ---------- */}
-      <div className="grid grid-cols-4 gap-2 lg:max-w-[640px] lg:gap-3">
+      {!paketAktif && <div className="grid grid-cols-4 gap-2 lg:max-w-[640px] lg:gap-3">
         <AngkaPermen warna="biru" nilai={ringkasan.total} label="Semua" />
         <AngkaPermen warna="tosca" nilai={ringkasan.lunas} label="Lunas" />
         <AngkaPermen warna="pink" nilai={ringkasan.belum} label="Belum" />
         <AngkaPermen warna="kuning" nilai={ringkasan.sebagian} label="Sebagian" />
-      </div>
+      </div>}
 
       {/* ---------- pencarian ---------- */}
-      <KolomCari nilai={cari} ubah={setCari} placeholder="Cari nomor tagihan atau nama siswa…" className="mt-3.5 lg:max-w-md" />
+      <KolomCari nilai={cari} ubah={setCari} placeholder="Cari nama siswa, nama tagihan, atau nomor…" className="mt-3.5 lg:max-w-md" />
 
       {/* ---------- filter dropdown (kiri) + aksi utama (kanan), sejajar
           satu baris — ini yang tadinya jadi ruang kosong menganga ---------- */}
@@ -239,23 +319,19 @@ export default function Tagihan() {
             options={[{ value: '', label: 'Semua kelas' }, ...kelasTersedia.map((k) => ({ value: k, label: `Kelas ${k}` }))]}
             onChange={setFilterKelas}
           />
-          <FilterDropdown
-            label="Jenis biaya"
-            value={jenisFilter}
-            options={[
-              { value: 'semua', label: 'Semua jenis' },
-              { value: 'spp', label: 'Tagihan SPP' },
-              { value: 'kegiatan', label: 'Tagihan Kegiatan' },
-            ]}
-            onChange={setJenisFilter}
-          />
         </div>
 
         <div className="noscroll -mx-[18px] flex w-[calc(100%+36px)] gap-2.5 overflow-x-auto px-[18px] pb-1 lg:mx-0 lg:w-auto lg:flex-wrap lg:overflow-visible lg:px-0 lg:pb-0">
           {boleh('biaya') && (
             <BtnKecil utama onClick={() => setFormBiaya(true)}>
               <Ikon.plus size={16} />
-              Buat tagihan
+              Tagihan kegiatan
+            </BtnKecil>
+          )}
+          {boleh('biaya') && adaJenis('pmb') === false && adaJenis('du') === false && (
+            <BtnKecil onClick={() => nav('/guru/biaya')}>
+              <Ikon.plus size={16} />
+              PMB / daftar ulang
             </BtnKecil>
           )}
           <BtnKecil onClick={() => setMassal(true)}>
@@ -296,7 +372,7 @@ export default function Tagihan() {
               </thead>
               <tbody>
                 {hasil.slice(0, 150).map((t) => (
-                  <BarisDesktop key={t.id} t={t} nav={nav} kirimWa={kirimWa} bisaCatat={bisaCatat} onCatat={() => setPeriode({ siswaId: t.siswaId, jenis: t.jenis, indeks: t.indeks })} />
+                  <BarisDesktop key={t.id} t={t} nav={nav} kirimWa={kirimWa} bisaCatat={bisaCatat} onCatat={() => setPeriode({ siswaId: t.siswaId, jenis: t.paketId ? 'paket' : t.jenis, indeks: t.indeks })} />
                 ))}
               </tbody>
             </table>
@@ -304,7 +380,7 @@ export default function Tagihan() {
             {/* mobile: kartu */}
             <div className="px-3.5 lg:hidden">
               {hasil.slice(0, 150).map((t) => (
-                <BarisMobile key={t.id} t={t} nav={nav} kirimWa={kirimWa} bisaCatat={bisaCatat} onCatat={() => setPeriode({ siswaId: t.siswaId, jenis: t.jenis, indeks: t.indeks })} />
+                <BarisMobile key={t.id} t={t} nav={nav} kirimWa={kirimWa} bisaCatat={bisaCatat} onCatat={() => setPeriode({ siswaId: t.siswaId, jenis: t.paketId ? 'paket' : t.jenis, indeks: t.indeks })} />
               ))}
             </div>
             {hasil.length > 150 && (
@@ -332,7 +408,17 @@ export default function Tagihan() {
         indeks={periode?.indeks}
       />
       <SheetTagihanMassal buka={massal} tutup={() => setMassal(false)} tagihan={semuaTagihan} kirimWa={kirimWa} />
-      <SheetBuatTagihan buka={formBiaya} tutup={() => setFormBiaya(false)} />
+      <SheetBuatTagihan
+        buka={formBiaya}
+        tutup={() => setFormBiaya(false)}
+        jumlahSiswa={siswa.length}
+        selesai={(nama) => {
+          // langsung tunjukkan hasilnya: filter Kegiatan + cari nama tagihan baru
+          setJenisFilter('kegiatan'); setPaketPilih(null); setFilter('semua'); setFilterKelas(''); setCari(nama)
+        }}
+        keJenisBiaya={() => nav('/guru/biaya')}
+      />
+      <SheetPaket buka={!!aturPaket} tutup={() => setAturPaket(null)} paketId={aturPaket} />
     </>
   )
 }
@@ -342,7 +428,7 @@ export default function Tagihan() {
 function BarisDesktop({ t, nav, kirimWa, onCatat, bisaCatat }) {
   const b = t.badge
   return (
-    <tr className={`border-b border-line last:border-b-0 hover:bg-[#FAFBFF] ${t.status === 'nunggak' ? 'border-l-4 border-l-danger' : ''}`}>
+    <tr className={`border-b border-line last:border-b-0 hover:bg-canvas ${t.status === 'nunggak' ? 'border-l-4 border-l-danger' : ''}`}>
       <td className="whitespace-nowrap px-3.5 py-3 font-mono text-xs text-muted">{t.no}</td>
       <td className="px-2.5 py-3">
         <div className="flex items-center gap-2.5">
@@ -394,6 +480,7 @@ function BarisMobile({ t, nav, kirimWa, onCatat, bisaCatat }) {
           {t.emoji && <GambarKegiatan emoji={t.emoji} size={18} latar={false} />}
           <span className="truncate">{t.labelJenis} · {t.kelas} · {t.no}</span>
         </div>
+        {t.ket && t.sisa > 0 && <div className="mt-0.5 truncate text-[12px] font-bold text-[#34405C] dark:text-[#B8C3DC]">{t.ket}</div>}
         <div className="mt-1.5 flex items-center justify-between">
           <span className={`text-[13.5px] font-extrabold ${t.sisa > 0 ? 'text-danger' : 'text-ok-deep'}`}>
             {t.sisa > 0 ? `Sisa ${rp(t.sisa)}` : `Dibayar ${rp(t.dibayar)}`}
@@ -451,24 +538,31 @@ function SheetTagihanMassal({ buka, tutup, tagihan, kirimWa }) {
   )
 }
 
-/* ---------------- sheet: Buat Tagihan (jenis biaya kegiatan baru) ---------------- */
-
-function SheetBuatTagihan({ buka, tutup }) {
+/* ---------------- sheet: tagihan kegiatan baru ----------------
+ * Jalan pintas dari halaman Tagihan untuk membuat biaya KEGIATAN sekali bayar
+ * (study tour, manasik, baju olahraga…). Sama dengan "Tambah kegiatan" di
+ * Jenis biaya, versi ringkas. Setelah dibuat, daftar langsung disaring ke
+ * tagihan baru itu supaya hasilnya terlihat (dulu tenggelam di antara SPP).
+ */
+function SheetBuatTagihan({ buka, tutup, jumlahSiswa, selesai, keJenisBiaya }) {
   const { tambahBiaya, toast } = useData()
   const [nama, setNama] = useState('')
   const [nominal, setNominal] = useState('')
+  const [tanggal, setTanggal] = useState('')
   const [sibuk, setSibuk] = useState(false)
+  const n = Number(nominal) || 0
 
   const simpan = async () => {
-    if (!nama.trim()) return toast('Nama tagihan belum diisi')
-    const n = Number(nominal) || 0
+    if (!nama.trim()) return toast('Nama kegiatan belum diisi')
     if (n <= 0) return toast('Nominal belum diisi')
     setSibuk(true)
     try {
-      await tambahBiaya({ nama: nama.trim(), nominal: n })
-      toast(`Tagihan "${nama.trim()}" dibuat untuk semua siswa`)
-      setNama(''); setNominal('')
+      const judul = nama.trim()
+      await tambahBiaya({ nama: judul, nominal: n, info: tanggal ? { tanggal } : {} })
+      toast(`Tagihan "${judul}" dibuat untuk ${jumlahSiswa} siswa`)
+      setNama(''); setNominal(''); setTanggal('')
       tutup()
+      selesai?.(judul)
     } catch {
       /* pesan galat sudah ditangani store */
     } finally {
@@ -477,29 +571,112 @@ function SheetBuatTagihan({ buka, tutup }) {
   }
 
   return (
-    <Sheet buka={buka} tutup={tutup} judul="Buat tagihan baru" lead="Tagihan jenis kegiatan berlaku untuk semua siswa yang aktif">
-      <label className="mb-1.5 block text-[13px] font-bold">Nama tagihan</label>
+    <Sheet buka={buka} tutup={tutup} judul="Tagihan kegiatan baru" lead="Biaya sekali bayar di luar SPP, ditagihkan ke semua siswa aktif">
+      <div className="mb-4 rounded-[16px] bg-brand-soft px-3.5 py-3 text-[12.5px] font-bold leading-relaxed text-[#2A4A9E] dark:bg-white/5 dark:text-[#B8C9F2]">
+        Contoh: study tour, manasik, baju olahraga, foto kelas. Setelah dibuat, tagihan ini langsung muncul
+        di daftar Tagihan tiap siswa dan di portal orang tua — tinggal dicatat saat dibayar.
+      </div>
+      <label className="mb-1.5 block text-[13px] font-bold">Nama kegiatan</label>
       <input
         className="field-input mb-3.5"
         value={nama}
         onChange={(e) => setNama(e.target.value)}
-        placeholder="Contoh: Study tour, Baju olahraga…"
+        placeholder="Contoh: Study tour Taman Safari"
       />
       <label className="mb-1.5 block text-[13px] font-bold">Nominal per siswa</label>
       <input
         type="number"
-        className="field-input mb-4"
+        inputMode="numeric"
+        className="field-input"
         value={nominal}
         onChange={(e) => setNominal(e.target.value)}
         placeholder="150000"
       />
+      <div className="mb-3.5 mt-1 min-h-[18px] text-[12px] font-bold text-muted">
+        {n > 0 ? <>{rp(n)} × {jumlahSiswa} siswa = <b className="text-ink">{rp(n * jumlahSiswa)}</b></> : null}
+      </div>
+      <label className="mb-1.5 block text-[13px] font-bold">Tanggal kegiatan <span className="font-semibold text-muted">(boleh dikosongkan)</span></label>
+      <input type="date" className="field-input mb-4" value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
       <button className="bigbtn disabled:opacity-60" onClick={simpan} disabled={sibuk}>
-        {sibuk ? 'Membuat…' : 'Buat tagihan untuk semua siswa'}
+        {sibuk ? 'Membuat…' : `Buat tagihan untuk ${jumlahSiswa} siswa`}
       </button>
-      <p className="mt-3 text-center text-[11.5px] text-muted">
-        Ingin tagihan SPP bulanan? Itu sudah otomatis dibuat tiap bulan — tidak perlu dibuat manual.
+      <p className="mt-3 text-center text-[11.5px] leading-relaxed text-muted">
+        SPP bulanan sudah otomatis tiap bulan. PMB & daftar ulang diatur di{' '}
+        <button type="button" className="font-extrabold text-brand underline-offset-2 hover:underline" onClick={() => { tutup(); keJenisBiaya?.() }}>Jenis biaya</button>.
       </p>
     </Sheet>
+  )
+}
+
+/**
+ * Kartu ringkas satu paket PMB / daftar ulang di atas daftar tagihan:
+ * terkumpul, belum masuk, progres, dan jumlah siswa per status (ketuk untuk
+ * menyaring). Tombol "Atur" membuka form paket (rincian, jadwal, siswa).
+ */
+function RingkasPaket({ p, pilihan, pilih, siswa, bisaAtur, atur, filter, aturFilter }) {
+  const ditagih = siswa.filter((s) => p.siswaIds.includes(s.id))
+  const target = p.total * ditagih.length
+  const masuk = ditagih.reduce((t, s) => t + Math.min(p.total, dibayarPaket(s, p.id)), 0)
+  const hitung = { terlambat: 0, mencicil: 0, lunas: 0, belum: 0 }
+  ditagih.forEach((s) => hitung[statusPaket(p, dibayarPaket(s, p.id))]++)
+  const persen = persenBayar(masuk, target)
+  const gaya = p.jenis === 'pmb' ? 'kartu-saldo-minus' : 'kartu-paket-du'
+  return (
+    <section className="mb-3.5 lg:grid lg:grid-cols-[minmax(0,1.2fr)_minmax(0,1fr)] lg:items-stretch lg:gap-3">
+      <div className={`${gaya} relative overflow-hidden rounded-[24px] p-4`}>
+        {pilihan.length > 1 && (
+          <div className="mb-2.5 flex flex-wrap gap-1.5">
+            {pilihan.map((x) => (
+              <button key={x.id} type="button" onClick={() => pilih(x.id)}
+                className={`rounded-pill px-2.5 py-1 text-[11.5px] font-extrabold ${x.id === p.id ? 'bg-white text-ink' : 'bg-white/45'}`}>
+                {x.tahunAjaran}
+              </button>
+            ))}
+          </div>
+        )}
+        <div className="flex items-center gap-3">
+          <GambarKegiatan emoji={EMOJI_JENIS[p.jenis]} size={48} className="!rounded-[15px] shadow-[inset_0_-3px_0_rgba(0,0,0,.06)]" />
+          <span className="min-w-0 flex-1">
+            <b className="line-clamp-2 block font-display text-[19px] font-bold leading-tight">{p.nama}</b>
+            <span className="block text-[12px] font-extrabold opacity-90">
+              {ditagih.length} siswa · {rp(p.total)}/siswa{p.tahap.length ? ` · ${p.tahap.length} tahap` : ''}
+            </span>
+          </span>
+          {bisaAtur && (
+            <button type="button" onClick={atur} className="flex shrink-0 items-center gap-1 self-start rounded-[11px] bg-white/60 px-2.5 py-1.5 text-[12px] font-extrabold dark:bg-white/10">
+              <Ikon.pensil size={13} /> Atur
+            </button>
+          )}
+        </div>
+        <div className="mt-3 flex items-end justify-between gap-3">
+          <span>
+            <span className="block text-[11.5px] font-extrabold">Terkumpul</span>
+            <b className="font-display text-[22px] font-bold leading-tight">{rp(masuk)}</b>
+          </span>
+          <span className="text-right">
+            <span className="block text-[11.5px] font-extrabold">Belum masuk</span>
+            <b className="font-display text-[16px] font-bold">{rp(target - masuk)}</b>
+          </span>
+        </div>
+        <div className="mt-2 h-[9px] overflow-hidden rounded-full bg-white/65 dark:bg-white/15">
+          <i className="block h-full rounded-full bg-ok" style={{ width: `${persen}%` }} />
+        </div>
+        <div className="mt-1.5 text-[11.5px] font-extrabold">{persen}% dari {rp(target)}</div>
+      </div>
+      <div className="mt-2.5 grid grid-cols-3 gap-2 lg:mt-0 lg:grid-cols-1 lg:grid-rows-3">
+        {[
+          ['jatuh-tempo', 'Terlambat', hitung.terlambat, 'pink'],
+          ['belum', 'Belum lunas', hitung.terlambat + hitung.mencicil + hitung.belum, 'kuning'],
+          ['semua', 'Semua', ditagih.length, 'tosca'],
+        ].map(([v, l, n, w]) => (
+          <button key={v} type="button" onClick={() => aturFilter(v)} aria-pressed={filter === v}
+            className={`permen permen-${w} flex flex-col items-center justify-center rounded-[18px] px-1 py-2 lg:flex-row lg:justify-between lg:px-4 ${filter === v ? 'ring-[3px] ring-brand/60' : ''}`}>
+            <span className="font-display text-[22px] font-bold leading-none lg:order-2">{n}</span>
+            <span className="mt-1 text-[11.5px] font-extrabold lg:mt-0">{l}</span>
+          </button>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -547,7 +724,7 @@ function FilterDropdown({ label, value, options, onChange }) {
         </svg>
       </button>
       {buka && (
-        <div className="absolute left-0 top-[calc(100%+6px)] z-20 min-w-[180px] rounded-[18px] border border-line bg-white p-1.5 shadow-[0_12px_30px_rgba(30,64,140,.16)]">
+        <div className="absolute left-0 top-[calc(100%+6px)] z-20 min-w-[180px] rounded-[18px] border border-line bg-kartu p-1.5 shadow-[0_12px_30px_rgba(30,64,140,.16)]">
           {options.map((o) => (
             <button
               key={o.value}

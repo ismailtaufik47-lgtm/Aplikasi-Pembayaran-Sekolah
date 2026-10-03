@@ -1,14 +1,15 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { useParams } from 'react-router-dom'
 import Avatar from '../components/Avatar.jsx'
 import { Chip, Ikon, Sheet, Tile, Track } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import * as api from '../lib/api.js'
-import { FONT_EMOJI, emojiKegiatan } from '../lib/emojiKegiatan.js'
+import { emojiKegiatan } from '../lib/emojiKegiatan.js'
+import { GambarKegiatan } from '../components/Gambar.jsx'
 import {
   BULAN, adaInfoKegiatan, bulanBerjalan, jarakKegiatan, nomorKuitansi, persenBayar, rp, statusSpp,
   tanggalKegiatan, teksJatuhTempo, waSekolah,
 } from '../lib/format.js'
+import { EMOJI_JENIS, dibayarPaket, keteranganPaket, paketSiswa, statusPaket, tahapPaket } from '../lib/paket.js'
 
 const gabungBulan = (xs) => (xs.length <= 1 ? xs.join('') : `${xs.slice(0, -1).join(', ')} dan ${xs[xs.length - 1]}`)
 
@@ -46,9 +47,24 @@ export function kalimatSpp(anak, pengaturan, kini = bulanBerjalan()) {
  * hanya menghitung item yang punya anggota BARU sejak lonceng terakhir
  * dibuka (lihat tandaiDibaca di bawah).
  */
-export function daftarPemberitahuan(anak, pengaturan, biaya, kini = bulanBerjalan(), hariIni = new Date()) {
+export function daftarPemberitahuan(anak, pengaturan, biaya, kini = bulanBerjalan(), hariIni = new Date(), paket = []) {
   if (!anak) return []
   const hasil = []
+  // PMB / daftar ulang: tahap terlambat, atau tahap yang jatuh tempo ≤ 7 hari lagi
+  paketSiswa(paket, anak.id).forEach((p) => {
+    const d = dibayarPaket(anak, p.id)
+    if (d >= p.total) return
+    const st = statusPaket(p, d, hariIni)
+    const t = tahapPaket(p, d, hariIni).find((x) => !x.lunas)
+    const dekat = t && !t.lewat && (new Date(t.jatuhTempo) - hariIni) / 864e5 <= 7
+    if (st !== 'terlambat' && !dekat) return
+    hasil.push({
+      id: 'paket-' + p.id, warna: st === 'terlambat' ? 'red' : 'blue', emoji: EMOJI_JENIS[p.jenis],
+      judul: st === 'terlambat' ? `Cicilan ${p.nama} terlambat` : `Cicilan ${p.nama} segera jatuh tempo`,
+      isi: keteranganPaket(p, d, hariIni) + '.',
+      anggota: tahapPaket(p, d, hariIni).filter((x) => !x.lunas && (x.lewat || x === t)).map((x) => `${p.id}:${x.jatuhTempo}`),
+    })
+  })
   const teksSpp = kalimatSpp(anak, pengaturan, kini)
   if (teksSpp) {
     const bulan = BULAN.map((_, i) => i).filter((i) =>
@@ -130,24 +146,24 @@ const langgananBaca = (f) => {
 
 /** Jumlah pemberitahuan yang BELUM dibaca untuk anak ini — untuk angka di lonceng. */
 export function useJumlahNotif(anak) {
-  const { pengaturan, biaya } = useData()
+  const { pengaturan, biaya, paket } = useData()
   const semua = useSyncExternalStore(langgananBaca, bacaSemua, bacaSemua)
   if (!anak) return 0
-  return belumDibaca(anak.id, daftarPemberitahuan(anak, pengaturan, biaya), semua).length
+  return belumDibaca(anak.id, daftarPemberitahuan(anak, pengaturan, biaya, undefined, undefined, paket), semua).length
 }
 
 /** Tombol lonceng + angka pemberitahuan baru. Angka hilang setelah lonceng dibuka. */
-export function TombolLonceng({ anak, buka, className = '' }) {
+export function TombolLonceng({ anak, buka, putih = false, className = '' }) {
   const jumlah = useJumlahNotif(anak)
   return (
     <button
-      className={`tile relative bg-white shadow-soft ${className}`}
+      className={`relative grid shrink-0 place-items-center active:scale-95 ${putih ? 'tombol-putih h-[42px] w-[42px] rounded-[14px]' : 'tombol-bilah h-10 w-10 rounded-[14px]'} ${className}`}
       onClick={buka}
       aria-label={jumlah ? `Pemberitahuan, ${jumlah} baru` : 'Pemberitahuan'}
     >
       <Ikon.lonceng size={20} />
       {jumlah > 0 && (
-        <span className="absolute -right-1 -top-1 grid h-[19px] min-w-[19px] place-items-center rounded-[10px] border-2 border-canvas bg-danger px-1 text-[10px] font-bold text-white">
+        <span className="absolute -right-1.5 -top-1.5 grid h-[19px] min-w-[19px] place-items-center rounded-[10px] border-2 border-white bg-danger px-1 text-[10px] font-bold text-white dark:border-[#16264D]">
           {jumlah > 9 ? '9+' : jumlah}
         </span>
       )}
@@ -156,9 +172,8 @@ export function TombolLonceng({ anak, buka, className = '' }) {
 }
 
 /* ---------- bukti pembayaran ---------- */
-export function SheetStruk({ id, tutup }) {
+export function SheetStruk({ id, tutup, nis, token }) {
   const { pembayaran, siswa, pengaturan, toast } = useData()
-  const { token } = useParams()
   const [unduh, setUnduh] = useState(false)
   const p = pembayaran.find((x) => x.id === id)
   const s = p && siswa.find((x) => x.id === p.siswaId)
@@ -171,7 +186,7 @@ export function SheetStruk({ id, tutup }) {
     setUnduh(true)
     try {
       const [d, { unduhKuitansiBayar }] = await Promise.all([
-        api.kuitansiPortal(token, p.id, { p, s, pengaturan }),
+        api.kuitansiPortal(token, nis, p.id, { p, s, pengaturan }),
         import('../lib/dokumen.js'),
       ])
       await unduhKuitansiBayar(d)
@@ -259,7 +274,7 @@ export function SheetCaraBayar({ buka, tutup, anak }) {
     <Sheet buka={buka} tutup={tutup} judul="Cara pembayaran" lead="Pilih salah satu, lalu konfirmasi ke petugas TU atau admin.">
       <div className="mb-2.5 text-sm font-extrabold">1. Transfer ke rekening sekolah</div>
       {pengaturan.rekening.map((r, i) => (
-        <div key={r.nomor} className="mb-2.5 flex items-center gap-3 rounded-2xl bg-white p-3.5 shadow-soft">
+        <div key={r.nomor} className="card mb-2.5 flex items-center gap-3 !p-3.5">
           <Tile warna={i % 2 ? 'amber' : 'blue'} className="rounded-xl text-xs font-extrabold">{r.bank}</Tile>
           <div className="min-w-0 flex-1">
             <div className="truncate text-[15px] font-extrabold">{r.nomor}</div>
@@ -277,6 +292,15 @@ export function SheetCaraBayar({ buka, tutup, anak }) {
         <div className="min-w-0 flex-1">
           <div className="truncate text-[14.5px] font-bold">{anak.guru}</div>
           <div className="text-[12.5px] text-muted">Setiap hari kerja, 07.30–12.00</div>
+        </div>
+      </div>
+
+      <div className="mb-2.5 mt-4 text-sm font-extrabold">3. Ambil dari tabungan ananda</div>
+      <div className="card flex items-center gap-3 p-3.5">
+        <Tile warna="grape"><Ikon.dompet size={20} /></Tile>
+        <div className="min-w-0 flex-1">
+          <div className="text-[14.5px] font-bold">Potong saldo tabungan</div>
+          <div className="text-[12.5px] text-muted">Sampaikan ke petugas TU, pembayaran diambil dari tabungan ananda di sekolah.</div>
         </div>
       </div>
 
@@ -305,8 +329,8 @@ export function SheetCaraBayar({ buka, tutup, anak }) {
 
 /* ---------- pemberitahuan ---------- */
 export function SheetPengumuman({ buka, tutup, anak, bukaKegiatan }) {
-  const { pengaturan, biaya } = useData()
-  const daftar = daftarPemberitahuan(anak, pengaturan, biaya)
+  const { pengaturan, biaya, paket } = useData()
+  const daftar = daftarPemberitahuan(anak, pengaturan, biaya, undefined, undefined, paket)
   const [baru, setBaru] = useState([])
 
   // Saat lonceng dibuka: ingat mana yang baru (untuk titik merah), lalu
@@ -332,10 +356,11 @@ export function SheetPengumuman({ buka, tutup, anak, bukaKegiatan }) {
         daftar.map((d) => {
           const isi = (
             <>
-              <Tile warna={d.warna}>
-                {d.emoji ? <span className="text-[20px]" style={FONT_EMOJI}>{d.emoji}</span>
-                  : d.warna === 'red' ? <Ikon.peringatan size={20} /> : <Ikon.kalender size={20} />}
-              </Tile>
+              {d.emoji ? (
+                <GambarKegiatan emoji={d.emoji} size={40} className="rounded-[13px]" />
+              ) : (
+                <Tile warna={d.warna}>{d.warna === 'red' ? <Ikon.peringatan size={20} /> : <Ikon.kalender size={20} />}</Tile>
+              )}
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2 text-[14.5px] font-bold">
                   <span className="min-w-0">{d.judul}</span>
@@ -403,11 +428,9 @@ export function SheetKegiatan({ id, tutup, anak, bukaCaraBayar }) {
   return (
     <Sheet buka={!!b} tutup={tutup}>
       <div className="flex items-center gap-3.5 pr-10">
-        <span className="grid h-[58px] w-[58px] shrink-0 place-items-center rounded-[18px] bg-grape-soft text-[30px]" style={FONT_EMOJI}>
-          {emojiKegiatan(b)}
-        </span>
+        <GambarKegiatan emoji={emojiKegiatan(b)} size={58} className="!rounded-[18px] shadow-[inset_0_-4px_0_rgba(0,0,0,.06)]" />
         <div className="min-w-0 flex-1">
-          <h3 className="text-[19px] font-extrabold leading-tight">{b.nama}</h3>
+          <h3 className="font-display text-[21px] font-bold leading-tight text-[#1B2559] dark:text-ink">{b.nama}</h3>
           <div className="mt-1.5 flex flex-wrap gap-1.5">
             {j && (
               <Chip warna={j.selesai ? 'grey' : j.selisih <= 0 ? 'green' : 'blue'}>

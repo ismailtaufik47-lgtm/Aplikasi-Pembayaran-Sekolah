@@ -18,10 +18,13 @@ export const useData = () => useContext(Ctx)
 export function DataProvider({ children }) {
   const [siap, setSiap] = useState(false)
   const [galat, setGalat] = useState('')
+  // Portal orang tua: alasan gerbang NIS menolak ({ galat, sisa, menit }), null kalau tidak.
+  const [gerbang, setGerbang] = useState(null)
   const [pengaturan, setPengaturan] = useState(null)
   const [biaya, setBiaya] = useState([])
   const [siswa, setSiswa] = useState([])
   const [pembayaran, setPembayaran] = useState([])
+  const [paket, setPaket] = useState([]) // PMB & daftar ulang (lib/paket.js)
   const [wali, setWali] = useState(null)
   const [petugas, setPetugas] = useState('')
   const [peran, setPeran] = useState('')
@@ -30,6 +33,7 @@ export function DataProvider({ children }) {
   const [avatarSaya, setAvatarSaya] = useState(null)
   const [pesan, setPesan] = useState('')
   const sedang = useRef('')
+  const terakhir = useRef('') // sumber muat terakhir — dipakai "Coba lagi" walau muat sebelumnya gagal
 
   function toast(teks) {
     setPesan(teks)
@@ -43,6 +47,7 @@ export function DataProvider({ children }) {
     setBiaya(d.biaya)
     setSiswa(d.siswa)
     setPembayaran(d.pembayaran)
+    setPaket(d.paket || [])
     setWali(d.wali)
     setPetugas(d.petugas || '')
     setPeran(d.peran || '')
@@ -58,20 +63,23 @@ export function DataProvider({ children }) {
     const kunci = JSON.stringify(sumber)
     if (sedang.current === kunci) return
     sedang.current = kunci
+    terakhir.current = kunci
     setSiap(false)
     setGalat('')
     try {
       terapkan(
-        sumber.mode === 'ortu' ? await api.muatDataPortal(sumber.token) : await api.muatDataGuru()
+        sumber.mode === 'ortu' ? await api.muatDataPortal(sumber.token, sumber.nis) : await api.muatDataGuru()
       )
+      setGerbang(null)
     } catch (e) {
       sedang.current = ''
+      setGerbang(e.gerbang || null)
       setGalat(e.message)
     }
   }, [])
 
   const segarkan = useCallback(async () => {
-    const kunci = sedang.current
+    const kunci = sedang.current || terakhir.current
     sedang.current = ''
     if (kunci) await muat(JSON.parse(kunci))
   }, [muat])
@@ -88,17 +96,27 @@ export function DataProvider({ children }) {
     setSiswa((lama) =>
       lama.map((x) => {
         if (x.id !== siswaId) return x
-        const salin = { ...x, spp: [...x.spp], kegiatan: [...x.kegiatan] }
+        const salin = { ...x, spp: [...x.spp], kegiatan: [...x.kegiatan], paket: { ...(x.paket || {}) } }
         if (jenis === 'spp') salin.spp[indeks] = (salin.spp[indeks] || 0) + delta
+        else if (jenis === 'paket') salin.paket[indeks] = (salin.paket[indeks] || 0) + delta
         else salin.kegiatan[indeks] = (salin.kegiatan[indeks] || 0) + delta
         return salin
       })
     )
 
+  /**
+   * jenis 'spp' → indeks = bulan (0–11) · 'kegiatan' → indeks = urutan biaya ·
+   * 'paket' (PMB / daftar ulang) → indeks = id paket.
+   */
   async function catatPembayaran({ siswaId, jenis, indeks, nominal, metode, tanggal }) {
     const s = siswa.find((x) => x.id === siswaId)
+    const pk = jenis === 'paket' ? paket.find((p) => p.id === indeks) : null
+    if (jenis === 'paket' && !pk) {
+      toast('Paket PMB/daftar ulang tidak ditemukan. Muat ulang halaman.')
+      throw new Error('paket tidak ditemukan')
+    }
     const keterangan =
-      jenis === 'spp' ? `SPP bulanan — ${BULAN[indeks]}` : `Biaya kegiatan — ${biaya[indeks].nama}`
+      jenis === 'spp' ? `SPP bulanan — ${BULAN[indeks]}` : jenis === 'paket' ? pk.nama : `Biaya kegiatan — ${biaya[indeks].nama}`
 
     try {
       const baris = await api.catatPembayaran({
@@ -107,6 +125,7 @@ export function DataProvider({ children }) {
         jenis,
         periode: indeks,
         biayaId: jenis === 'kegiatan' ? biaya[indeks].id : null,
+        paketId: pk?.id || null,
         keterangan,
         nominal,
         metode,
@@ -119,6 +138,7 @@ export function DataProvider({ children }) {
         siswaId,
         jenis,
         indeks,
+        paketId: pk?.id || null,
         ket: keterangan,
         nominal,
         metode,
@@ -165,8 +185,19 @@ export function DataProvider({ children }) {
 
   /* ---------- data siswa ---------- */
 
-  async function tambahSiswa(form) {
+  /** form.paketIds (opsional): paket PMB/DU yang langsung ditagihkan ke siswa baru ini. */
+  async function tambahSiswa({ paketIds = [], ...form }) {
     const baris = await api.tambahSiswa({ sekolahId: pengaturan.id, ...form })
+    const gagalPaket = []
+    for (const id of paketIds) {
+      try {
+        await api.aturSiswaPaket(id, baris.id, true)
+        setPaket((lama) => lama.map((p) => (p.id === id ? { ...p, siswaIds: [...p.siswaIds, baris.id] } : p)))
+      } catch (e) {
+        gagalPaket.push(e.message)
+      }
+    }
+    if (gagalPaket.length) toast('Siswa tersimpan, tapi tagihan PMB/DU gagal ditambahkan: ' + gagalPaket[0])
     setSiswa((lama) =>
       [
         ...lama,
@@ -184,6 +215,7 @@ export function DataProvider({ children }) {
           foto: '',
           spp: Array(12).fill(0),
           kegiatan: biaya.map(() => 0),
+          paket: {},
         },
       ].sort((a, b) => a.nama.localeCompare(b.nama))
     )
@@ -288,11 +320,52 @@ export function DataProvider({ children }) {
     setSiswa((lama) =>
       lama.map((s) => ({ ...s, kegiatan: s.kegiatan.filter((_, idx) => idx !== i) }))
     )
+    // indeks pembayaran kegiatan ikut bergeser supaya riwayat tetap menunjuk kegiatan yang benar
+    setPembayaran((lama) =>
+      lama.map((p) => (p.jenis !== 'kegiatan' || p.indeks < i ? p : { ...p, indeks: p.indeks === i ? -1 : p.indeks - 1 }))
+    )
     try {
       await api.nonaktifkanBiaya(target.id)
     } catch (e) {
       toast('Gagal menghapus: ' + e.message)
       segarkan()
+    }
+  }
+
+  /* ---------- paket PMB & daftar ulang ---------- */
+
+  /** Simpan paket baru/perubahan (+ siswa yang ditagih). Mengembalikan paket tersimpan. */
+  async function simpanPaket(data) {
+    try {
+      const hasil = await api.simpanPaket(data)
+      setPaket((lama) => (lama.some((p) => p.id === hasil.id) ? lama.map((p) => (p.id === hasil.id ? hasil : p)) : [...lama, hasil]))
+      return hasil
+    } catch (e) {
+      toast(e.message)
+      throw e
+    }
+  }
+
+  async function hapusPaket(id) {
+    const adaBayar = pembayaran.some((p) => p.jenis === 'paket' && p.paketId === id)
+    try {
+      const hasil = await api.hapusPaket(id, adaBayar)
+      setPaket((lama) => lama.filter((p) => p.id !== id))
+      return hasil
+    } catch (e) {
+      toast(e.message)
+      throw e
+    }
+  }
+
+  /** Pindahkan biaya kegiatan lama (mis. "PMB") ke paket, lalu muat ulang data. */
+  async function pindahkanBiayaKePaket(i, jenis) {
+    try {
+      await api.pindahkanBiayaKePaket(biaya[i].id, jenis)
+      await segarkan()
+    } catch (e) {
+      toast(e.message)
+      throw e
     }
   }
 
@@ -355,11 +428,13 @@ export function DataProvider({ children }) {
     () => ({
       siap,
       galat,
+      gerbang,
       modeDemo: api.modeDemo,
       pengaturan,
       biaya,
       siswa,
       pembayaran,
+      paket,
       wali,
       petugas,
       peran,
@@ -387,6 +462,9 @@ export function DataProvider({ children }) {
       hapusBiaya,
       ubahEmojiBiaya,
       ubahInfoBiaya,
+      simpanPaket,
+      hapusPaket,
+      pindahkanBiayaKePaket,
       avatarSaya,
       ubahAvatarSaya,
       ubahPengaturan,
@@ -395,7 +473,7 @@ export function DataProvider({ children }) {
       aturPinAkun,
       matikanPinAkun,
     }),
-    [siap, galat, pengaturan, biaya, siswa, pembayaran, wali, petugas, peran, akses, pinAktif, avatarSaya, pesan, muat, segarkan]
+    [siap, galat, gerbang, pengaturan, biaya, siswa, pembayaran, paket, wali, petugas, peran, akses, pinAktif, avatarSaya, pesan, muat, segarkan]
   )
 
   return <Ctx.Provider value={nilai}>{children}</Ctx.Provider>

@@ -43,7 +43,9 @@ export default function RiwayatBayar() {
 
   const kunciHariIni = tanggalKunci(new Date().toISOString())
   const hariIni = pembayaran.filter((p) => tanggalKunci(p.tanggal) === kunciHariIni)
-  const tunai = pembayaran.filter((p) => p.metode === 'Tunai').length
+  const hitungMetode = (m) => pembayaran.filter((p) => p.metode === m).length
+  const tunai = hitungMetode('Tunai')
+  const tabungan = hitungMetode('Tabungan')
 
   /** Daftar tanggal unik yang punya transaksi — untuk dropdown pilihan cepat. */
   const tanggalTersedia = useMemo(() => {
@@ -94,7 +96,12 @@ export default function RiwayatBayar() {
       <div className="noscroll -mx-[18px] flex gap-3 overflow-x-auto px-[18px] pb-1.5 pt-1 lg:mx-0 lg:grid lg:grid-cols-3 lg:gap-4 lg:overflow-visible lg:px-0">
         <Stat warna="green" ikon={<Ikon.cek size={20} />} label="Masuk hari ini" nilai={rp(hariIni.reduce((t, p) => t + p.nominal, 0))} />
         <Stat warna="blue" ikon={<Ikon.jam size={20} />} label="Transaksi" nilai={pembayaran.length} />
-        <Stat warna="amber" ikon={<Ikon.dompet size={20} />} label="Tunai / transfer" nilai={`${tunai} / ${pembayaran.length - tunai}`} />
+        <Stat
+          warna="amber"
+          ikon={<Ikon.dompet size={20} />}
+          label={tabungan ? 'Tunai / transfer / tabungan' : 'Tunai / transfer'}
+          nilai={tabungan ? `${tunai} / ${pembayaran.length - tunai - tabungan} / ${tabungan}` : `${tunai} / ${pembayaran.length - tunai}`}
+        />
       </div>
 
       {/* ---------- filter tanggal ---------- */}
@@ -163,7 +170,7 @@ export default function RiwayatBayar() {
                         </span>
                         <span className="grid shrink-0 justify-items-end gap-1.5 text-right">
                           <span className="text-sm font-extrabold text-ok-deep">{rp(p.nominal)}</span>
-                          <Chip warna={p.metode === 'Tunai' ? 'green' : 'blue'}>{p.metode}</Chip>
+                          <Chip warna={WARNA_METODE[p.metode] || 'blue'}>{p.metode}</Chip>
                         </span>
                       </button>
                       <button
@@ -320,6 +327,9 @@ function DaftarBatal() {
     </>
   )
 }
+
+/** Warna chip metode bayar. */
+const WARNA_METODE = { Tunai: 'green', Transfer: 'blue', Tabungan: 'amber' }
 
 const Stat = ({ warna, ikon, label, nilai }) => (
   <div className="card min-w-[150px] p-[15px] lg:min-w-0 lg:p-[18px]">

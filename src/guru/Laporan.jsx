@@ -10,6 +10,7 @@ import { Chip, KepalaHalaman } from '../components/ui.jsx'
 import { GambarKegiatan } from '../components/Gambar.jsx'
 import { useData } from '../lib/store.jsx'
 import { FONT_EMOJI, emojiKegiatan } from '../lib/emojiKegiatan.js'
+import { EMOJI_JENIS, dibayarPaket } from '../lib/paket.js'
 import {
   BULAN, bulanBerjalan, dibayarSpp, perluDitagihSekarang, rp, sppPerluSekarang, statusRingkasSiswa,
 } from '../lib/format.js'
@@ -37,7 +38,7 @@ export default function Laporan() {
 }
 
 function LaporanPembayaran() {
-  const { siswa, biaya, pembayaran, pengaturan, toast, boleh } = useData()
+  const { siswa, biaya, paket, pembayaran, pengaturan, toast, boleh } = useData()
   const nav = useNavigate()
   const [unduh, setUnduh] = useState(null)
   const [rentang, setRentang] = useState(6)
@@ -70,7 +71,8 @@ function LaporanPembayaran() {
   /** Rekap SPP satu periode. Kegiatan masuk ke pendapatan menurut TANGGAL transaksinya. */
   const rekap = (i) => {
     const masukSpp = siswa.reduce((t, s) => t + dibayarSpp(s, i), 0)
-    const masukKegiatan = pembayaran.reduce((t, p) => (p.jenis === 'kegiatan' && bulanBerjalan(new Date(p.tanggal)) === i ? t + p.nominal : t), 0)
+    // kegiatan + PMB/daftar ulang: masuk menurut tanggal transaksinya
+    const masukKegiatan = pembayaran.reduce((t, p) => (p.jenis !== 'spp' && bulanBerjalan(new Date(p.tanggal)) === i ? t + p.nominal : t), 0)
     const lunas = siswa.filter((s) => dibayarSpp(s, i) >= spp).length
     const sebagian = siswa.filter((s) => dibayarSpp(s, i) > 0 && dibayarSpp(s, i) < spp).length
     return {
@@ -98,7 +100,7 @@ function LaporanPembayaran() {
     const k = Array(12).fill(0)
     pembayaran.forEach((p) => {
       if (p.jenis === 'spp' && p.indeks >= 0 && p.indeks < 12) s[p.indeks] += p.nominal
-      else if (p.jenis === 'kegiatan') k[bulanBerjalan(new Date(p.tanggal))] += p.nominal
+      else if (p.jenis !== 'spp') k[bulanBerjalan(new Date(p.tanggal))] += p.nominal
     })
     const mulai = rentang === 12 ? 0 : Math.max(0, kini - 5)
     const akhir = rentang === 12 ? 11 : kini
@@ -118,8 +120,9 @@ function LaporanPembayaran() {
   const jenis = useMemo(() => {
     const totalSpp = siswa.reduce((t, s) => t + s.spp.reduce((x, v) => x + (v || 0), 0), 0)
     const keg = biaya.map((b, i) => ({ nama: b.nama, e: emojiKegiatan(b), nilai: siswa.reduce((t, s) => t + (s.kegiatan[i] || 0), 0) }))
-    return [{ nama: 'Iuran SPP', e: '📅', nilai: totalSpp }, ...keg].filter((x) => x.nilai > 0).sort((a, b) => b.nilai - a.nilai)
-  }, [siswa, biaya])
+    const pk = paket.map((p) => ({ nama: p.nama, e: EMOJI_JENIS[p.jenis], nilai: siswa.reduce((t, s) => t + dibayarPaket(s, p.id), 0) }))
+    return [{ nama: 'Iuran SPP', e: '📅', nilai: totalSpp }, ...pk, ...keg].filter((x) => x.nilai > 0).sort((a, b) => b.nilai - a.nilai)
+  }, [siswa, biaya, paket])
   const totalJenis = jenis.reduce((t, x) => t + x.nilai, 0)
   const persen = (n, t) => (t ? Math.round((n / t) * 100) : 0)
 

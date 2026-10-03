@@ -19,7 +19,7 @@ const W = {
   danger: [185, 28, 28], dangerSoft: [253, 236, 236],
   teks: [21, 26, 38], abu: [110, 118, 135], garis: [226, 230, 238], latar: [246, 247, 251],
 }
-const rp = (n) => (n < 0 ? '-Rp' : 'Rp') + Math.abs(Math.round(Number(n) || 0)).toLocaleString('id-ID')
+const rp = (n) => (n < 0 ? '-Rp ' : 'Rp ') + Math.abs(Math.round(Number(n) || 0)).toLocaleString('id-ID')
 const tglPendek = (iso) => {
   const [y, m, d] = iso.split('-').map(Number)
   return `${d} ${NAMA_BULAN[m - 1].slice(0, 3)} ${y}`
@@ -176,7 +176,7 @@ export async function unduhExcelKas({ lap, baris, pengaturan }) {
   ws.columns = [{ width: 6 }, { width: 14 }, { width: 46 }, { width: 16 }, { width: 16 }, { width: 17 }]
   judulLembar(ws, 6, `Laporan Kas — ${labelBulan(lap.bulan)}`, `${pengaturan.namaSekolah} · dicetak ${tanggalPanjang()}`)
 
-  const uang = '"Rp"#,##0;[Red]-"Rp"#,##0'
+  const uang = '"Rp "#,##0;[Red]-"Rp "#,##0'
   let r = 4
   ;[
     ['Saldo awal bulan', lap.saldoAwal, WARNA.abuSoft],
@@ -235,3 +235,4 @@ export async function unduhExcelKas({ lap, baris, pengaturan }) {
   const buf = await wb.xlsx.writeBuffer()
   saveAs(new Blob([buf], { type: 'application/octet-stream' }), `Laporan-kas-${namaFile(labelBulan(lap.bulan))}.xlsx`)
 }
+

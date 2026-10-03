@@ -31,7 +31,7 @@ import {
   TRIAL_HARI,
 } from '../lib/langganan.js'
 
-const rp = (n) => 'Rp' + Number(n || 0).toLocaleString('id-ID')
+const rp = (n) => 'Rp ' + Number(n || 0).toLocaleString('id-ID')
 
 export default function Langganan({ terkunci = false }) {
   const { pengaturan, siswa } = useData()
@@ -69,7 +69,7 @@ export default function Langganan({ terkunci = false }) {
       <div className="min-h-dvh overflow-y-auto bg-canvas px-[18px] pb-16 pt-8">
         <div className="mx-auto w-full max-w-[560px]">
           <div className="mb-5 text-center">
-            <span className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-3xl bg-white text-3xl shadow-soft">
+            <span className="mx-auto mb-3 grid h-16 w-16 place-items-center rounded-3xl bg-kartu text-3xl shadow-soft">
               🔒
             </span>
             <h1 className="text-[22px] font-extrabold tracking-tight">Langganan berakhir</h1>
@@ -354,7 +354,7 @@ function DokumenSewa({ pengaturan, siswa, penerbit, l }) {
               <button
                 onClick={() => kuitansi(r)}
                 disabled={!!sibuk}
-                className="shrink-0 rounded-xl border border-line bg-white px-3 py-2 text-[12px] font-extrabold disabled:opacity-60"
+                className="shrink-0 rounded-xl border border-line bg-kartu px-3 py-2 text-[12px] font-extrabold disabled:opacity-60"
               >
                 {sibuk === r.id ? '…' : '📄 Kuitansi'}
               </button>

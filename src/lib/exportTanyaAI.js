@@ -11,7 +11,9 @@ import { saveAs } from 'file-saver'
 import { rp, tanggalISO, tanggalPanjang } from './format.js'
 import { WARNA, isiSel, judulLembar, baposHeader, PAGE_SETUP_LANDSCAPE } from './exportHelpers.js'
 
-const RUPIAH = '"Rp"#,##0'
+const RUPIAH = '"Rp "#,##0'
+/** Rupiah untuk teks di sel Excel: spasi biasa (bukan nbsp seperti di layar). */
+const rpX = (n) => rp(n).replace(/\u00A0/g, ' ')
 
 const LABEL_STATUS = {
   lunas: 'Lunas', sebagian: 'Sebagian', nunggak: 'Nunggak',
@@ -77,10 +79,10 @@ function lembarTunggakan(wb, h, sekolah) {
     i + 1, s.nama, s.kelas, s.wali || '',
     ...(perBulan ? [LABEL_STATUS[s.status_bulan_diminta] || s.status_bulan_diminta, s.kurang_bulan_diminta] : []),
     s.jumlah_bulan_nunggak,
-    (s.bulan_nunggak || []).map((b) => (b.dibayar > 0 ? `${b.bulan} (kurang ${rp(b.kurang)})` : b.bulan)).join(', ')
+    (s.bulan_nunggak || []).map((b) => (b.dibayar > 0 ? `${b.bulan} (kurang ${rpX(b.kurang)})` : b.bulan)).join(', ')
       + (s.bulan_berjalan_lewat_jatuh_tempo_belum_lunas ? (s.bulan_nunggak?.length ? ' + bulan ini' : 'Bulan ini') : ''),
     s.perlu_dibayar_sekarang_spp,
-    ...(kegiatan ? [(s.kegiatan_belum_lunas || []).map((k) => `${k.kegiatan} ${rp(k.kurang)}`).join(', ')] : []),
+    ...(kegiatan ? [(s.kegiatan_belum_lunas || []).map((k) => `${k.kegiatan} ${rpX(k.kurang)}`).join(', ')] : []),
   ])
   const r = tabel(ws, 4, kolom, baris)
   barisTotal(ws, r + 1, 'Total kekurangan SPP', h.total_kurang_spp_rupiah, kolom.findIndex((k) => k.label === 'Perlu dibayar (SPP)') + 1)
@@ -100,6 +102,7 @@ function lembarTransaksi(wb, h, sekolah) {
   barisTotal(ws, r + 1, `Total (${h.jumlah_transaksi} transaksi)`, h.total, 5)
   barisTotal(ws, r + 2, 'Tunai', h.tunai, 5)
   barisTotal(ws, r + 3, 'Transfer', h.transfer, 5)
+  if (h.tabungan) barisTotal(ws, r + 4, 'Tabungan', h.tabungan, 5)
 }
 
 function lembarKelas(wb, h, sekolah) {
@@ -144,14 +147,14 @@ function lembarRekap(wb, h, sekolah) {
     ['SPP bayar sebagian (siswa)', s.bayar_sebagian],
     ['SPP belum bayar sama sekali (siswa)', s.belum_bayar_sama_sekali],
     ['SPP belum jatuh tempo (siswa)', s.belum_jatuh_tempo],
-    ['Target SPP', rp(s.target_rupiah)],
-    ['SPP sudah masuk', rp(s.sudah_masuk_rupiah)],
-    ['Kekurangan SPP', rp(s.kekurangan_rupiah)],
-    ['Uang masuk selama bulan ini (semua)', rp(m.total)],
-    ['  – dari SPP', rp(m.spp)],
-    ['  – dari kegiatan', rp(m.kegiatan)],
-    ['  – tunai', rp(m.tunai)],
-    ['  – transfer', rp(m.transfer)],
+    ['Target SPP', rpX(s.target_rupiah)],
+    ['SPP sudah masuk', rpX(s.sudah_masuk_rupiah)],
+    ['Kekurangan SPP', rpX(s.kekurangan_rupiah)],
+    ['Uang masuk selama bulan ini (semua)', rpX(m.total)],
+    ['  – dari SPP', rpX(m.spp)],
+    ['  – dari kegiatan', rpX(m.kegiatan)],
+    ['  – tunai', rpX(m.tunai)],
+    ['  – transfer', rpX(m.transfer)],
     ['Jumlah transaksi', m.jumlah_transaksi],
   ])
 }
@@ -184,11 +187,71 @@ function lembarKas(wb, h, sekolah) {
 
 function lembarKasBulanan(wb, h, sekolah) {
   const ws = sheet(wb, 'Kas per bulan')
-  judulLembar(ws, 5, `Kas per bulan — ${sekolah}`, `Saldo kas saat ini ${rp(h.saldo_kas_saat_ini)} · dicetak ${tanggalPanjang()}`)
+  judulLembar(ws, 5, `Kas per bulan — ${sekolah}`, `Saldo kas saat ini ${rpX(h.saldo_kas_saat_ini)} · dicetak ${tanggalPanjang()}`)
   tabel(ws, 4, [
     { label: 'Bulan', lebar: 18 }, { label: 'Pemasukan', lebar: 16, rp: true }, { label: 'Pengeluaran', lebar: 16, rp: true },
     { label: 'Selisih', lebar: 16, rp: true }, { label: 'Saldo akhir', lebar: 16, rp: true },
   ], (h.bulan || []).map((b) => [b.bulan, b.pemasukan, b.pengeluaran, b.selisih, b.saldo_akhir]))
+}
+
+function lembarStatusKegiatan(wb, h, sekolah) {
+  const ws = sheet(wb, 'Status kegiatan')
+  const kolom = [
+    { label: 'No', lebar: 5 }, { label: 'Nama siswa', lebar: 26 }, { label: 'Kelas', lebar: 10 },
+    ...h.kegiatan.map((k) => ({ label: k.kegiatan, lebar: 16, wrap: true })),
+    { label: 'Total kurang', lebar: 16, rp: true },
+  ]
+  judulLembar(ws, kolom.length, `Status biaya kegiatan — ${sekolah}`,
+    `Kelas: ${Array.isArray(h.kelas) ? h.kelas.join(', ') : h.kelas} · ${h.jumlah_siswa_aktif} siswa · posisi ${tanggalPanjang()}`)
+  // satu baris per siswa, satu kolom per kegiatan
+  const peta = new Map()
+  h.kegiatan.forEach((k, j) => {
+    const isi = (arr, teks) => arr.forEach((x) => {
+      const kunci = `${x.kelas}|${x.nama}`
+      if (!peta.has(kunci)) peta.set(kunci, { nama: x.nama, kelas: x.kelas, sel: [], kurang: 0 })
+      const r = peta.get(kunci)
+      r.sel[j] = teks(x)
+      r.kurang += x.kurang || 0
+    })
+    isi(k.lunas.siswa, () => 'Lunas')
+    isi(k.sebagian.siswa, (x) => `Kurang ${rpX(x.kurang)}`)
+    isi(k.belum_bayar.siswa, () => 'Belum bayar')
+  })
+  const baris = [...peta.values()].sort((a, b) => a.kelas.localeCompare(b.kelas) || a.nama.localeCompare(b.nama))
+  let r = tabel(ws, 4, kolom, baris.map((x, i) => [i + 1, x.nama, x.kelas, ...h.kegiatan.map((_, j) => x.sel[j] || ''), x.kurang]))
+  // warnai sel status
+  baris.forEach((x, i) => h.kegiatan.forEach((_, j) => {
+    const c = ws.getCell(5 + i, 4 + j)
+    const t = String(c.value || '')
+    c.font = { bold: true, color: { argb: t === 'Lunas' ? 'FF15803D' : t.startsWith('Kurang') ? 'FFB45309' : 'FFDC2626' } }
+  }))
+  r = tabel(ws, r + 1, [
+    { label: 'Kegiatan', lebar: 26 }, { label: 'Lunas', lebar: 10 }, { label: 'Sebagian', lebar: 10 }, { label: 'Belum', lebar: 10 },
+    { label: 'Target', lebar: 16, rp: true }, { label: 'Terkumpul', lebar: 16, rp: true }, { label: 'Kekurangan', lebar: 16, rp: true },
+  ], h.kegiatan.map((k) => [k.kegiatan, k.lunas.jumlah, k.sebagian.jumlah, k.belum_bayar.jumlah, k.target, k.terkumpul, k.kekurangan]))
+  const rk = h.rekap_per_siswa
+  if (rk) {
+    ws.getCell(r + 1, 1).value = `Lunas semua kegiatan: ${rk.lunas_semua_kegiatan.jumlah} siswa · masih ada kekurangan: ${rk.masih_ada_kekurangan.jumlah} siswa`
+    ws.getCell(r + 1, 1).font = { bold: true }
+  }
+}
+
+function lembarStatusSpp(wb, h, sekolah) {
+  const ws = sheet(wb, `SPP ${h.bulan}`)
+  const kolom = [
+    { label: 'No', lebar: 5 }, { label: 'Nama siswa', lebar: 26 }, { label: 'Kelas', lebar: 10 },
+    { label: 'Status', lebar: 18 }, { label: 'Dibayar', lebar: 15, rp: true }, { label: 'Kurang', lebar: 15, rp: true },
+  ]
+  judulLembar(ws, kolom.length, `SPP ${h.bulan} — ${sekolah}`,
+    `Kelas: ${Array.isArray(h.kelas) ? h.kelas.join(', ') : h.kelas} · ${h.jumlah_siswa} siswa · posisi ${tanggalPanjang()}`)
+  const LABEL = { lunas: 'Lunas', sebagian: 'Sebagian', nunggak: 'Nunggak', belum_bayar_lewat_jatuh_tempo: 'Belum bayar', belum_jatuh_tempo: 'Belum jatuh tempo' }
+  const baris = []
+  Object.entries(LABEL).forEach(([k, label]) => (h.kelompok?.[k]?.siswa || []).forEach((x) => baris.push([
+    x.nama, x.kelas, label, k === 'lunas' ? h.nominal_spp : x.dibayar || 0, x.kurang || 0,
+  ])))
+  const r = tabel(ws, 4, kolom, baris.map((b, i) => [i + 1, ...b]))
+  barisTotal(ws, r + 1, 'Terkumpul', h.terkumpul, 5)
+  barisTotal(ws, r + 2, 'Kekurangan', h.kekurangan, 6)
 }
 
 const PEMBUAT = {
@@ -199,6 +262,8 @@ const PEMBUAT = {
   perbandingan_kelas: lembarKelas,
   status_siswa: lembarSiswa,
   rekap_bulan: lembarRekap,
+  status_kegiatan: lembarStatusKegiatan,
+  status_spp: lembarStatusSpp,
 }
 
 export async function unduhExcelTanyaAI(data, sekolah) {

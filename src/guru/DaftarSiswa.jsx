@@ -352,7 +352,7 @@ export default function DaftarSiswa({ onTambah, onUbah, terkunci = false }) {
                     </div>
                   </div>
                   <button
-                    className="shrink-0 rounded-xl border border-line bg-white px-3 py-1.5 text-[12px] font-bold text-brand"
+                    className="shrink-0 rounded-xl border border-line bg-kartu px-3 py-1.5 text-[12px] font-bold text-brand"
                     onClick={() => nav("/guru/siswa/" + s.id)}
                   >
                     Lihat

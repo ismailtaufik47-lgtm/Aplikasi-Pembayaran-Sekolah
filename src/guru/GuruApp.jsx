@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import {
   Shell, Toast, Ikon, Muat, Sidebar, MerekSidebar, NavLabel, NavItem, TabEmoji, TombolTema,
   KakiRumput, LogoSekolah, Sheet,
 } from '../components/ui.jsx'
-import { bulanBerjalan, perluDitagihSekarang } from '../lib/format.js'
+import { useLoncengTagih } from '../lib/lonceng.js'
 import { useData } from '../lib/store.jsx'
 import { AvatarStaf } from '../components/Avatar.jsx'
 import { useAuth } from '../lib/auth.jsx'
@@ -27,6 +27,9 @@ import ProfilSekolah from './ProfilSekolah.jsx'
 import Langganan from './langganan.jsx'
 import TanyaAI from './TanyaAI.jsx'
 import Kas from './Kas.jsx'
+import AkunStaf from './AkunStaf.jsx'
+import AkunNonaktif from './AkunNonaktif.jsx'
+import { AWALAN_NONAKTIF } from '../lib/api.js'
 import SpandukLangganan from '../components/Spanduklangganan.jsx'
 import { labelPeran, menuSekolah, pilihTab } from '../lib/akses.js'
 
@@ -50,6 +53,7 @@ export default function GuruApp() {
       : <Masuk onDaftar={() => setLayarMasuk('daftar')} />
   }
   if (galat?.includes('belum terhubung ke sekolah')) return <Onboarding onSelesai={segarkan} />
+  if (galat?.startsWith(AWALAN_NONAKTIF)) return <AkunNonaktif pesan={galat} onCobaLagi={segarkan} />
   if (galat) return <Muat aksi={segarkan}>Gagal memuat data: {galat}</Muat>
   if (!siap) return <Muat>Memuat data sekolah…</Muat>
 
@@ -68,7 +72,7 @@ export default function GuruApp() {
   }
 
   // Menu mengikuti hak akses akun (diatur admin aplikasi per sekolah).
-  const menu = menuSekolah(boleh)
+  const menu = menuSekolah(boleh, peran)
   const ada = (id) => menu.some((m) => m.id === id)
   const bisaCatat = boleh('pembayaran')
   const tab = pilihTab(menu, bisaCatat)
@@ -124,6 +128,7 @@ export default function GuruApp() {
               {ada('kas') && <Route path="kas" element={<Kas />} />}
               {ada('biaya') && <Route path="biaya" element={<JenisBiaya />} />}
               {ada('kode-aktivasi') && <Route path="kode-aktivasi" element={<KodeAktivasi />} />}
+              {ada('akun-staf') && <Route path="akun-staf" element={<AkunStaf />} />}
               {ada('profil-sekolah') && <Route path="profil-sekolah" element={<ProfilSekolah />} />}
               {ada('langganan') && <Route path="langganan" element={<Langganan />} />}
 
@@ -167,16 +172,13 @@ function AreaGulir({ pathname, children }) {
  * jumlah siswa yang perlu ditagih.
  */
 function BilahAtasHp({ nav, bolehTagihan }) {
-  const { pengaturan, siswa, petugas, peran, boleh, segarkan, toast, modeDemo } = useData()
+  const { pengaturan, petugas, peran, boleh, segarkan, toast, modeDemo } = useData()
   const { keluar } = useAuth()
   const [menu, setMenu] = useState(false)
-  const kini = bulanBerjalan()
-  const lihatTagih = boleh('pembayaran', 'lihat') || boleh('siswa', 'lihat')
-  const jumlahTagih = useMemo(
-    () => (lihatTagih ? siswa.filter((s) => perluDitagihSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)).length : 0),
-    [lihatTagih, siswa, pengaturan, kini],
-  )
+  // Angka lonceng = siswa yang BARU perlu ditagih; hilang setelah lonceng diketuk.
+  const { lihat: lihatTagih, jumlah: jumlahTagih, baru, tandai } = useLoncengTagih()
   const lonceng = () => {
+    tandai()
     toast(jumlahTagih ? `${jumlahTagih} siswa perlu ditagih` : 'Tidak ada SPP yang lewat jatuh tempo')
     if (jumlahTagih && bolehTagihan) nav('/guru/tagihan')
   }
@@ -197,13 +199,13 @@ function BilahAtasHp({ nav, bolehTagihan }) {
         <button
           type="button"
           onClick={lonceng}
-          aria-label={`${jumlahTagih} siswa perlu ditagih`}
+          aria-label={baru ? `${baru} siswa baru perlu ditagih` : `${jumlahTagih} siswa perlu ditagih`}
           className="tombol-bilah relative grid h-10 w-10 shrink-0 place-items-center rounded-[14px] active:scale-95"
         >
           <Ikon.lonceng size={20} />
-          {jumlahTagih > 0 && (
+          {baru > 0 && (
             <span className="absolute -right-1.5 -top-1.5 grid h-[19px] min-w-[19px] place-items-center rounded-[10px] border-2 border-white bg-danger px-1 text-[10px] font-bold text-white dark:border-[#16264D]">
-              {jumlahTagih}
+              {baru > 9 ? '9+' : baru}
             </span>
           )}
         </button>

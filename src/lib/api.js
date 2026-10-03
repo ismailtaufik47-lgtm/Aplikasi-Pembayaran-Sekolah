@@ -50,14 +50,29 @@ const kolomInfo = (i = {}) => ({
   perlengkapan: i.perlengkapan?.trim() || null,
 })
 
-function bentuk({ sekolah, biaya, siswa, pembayaran, wali }) {
+/** Baris paket_biaya (0033) → bentuk paket di aplikasi (lihat lib/paket.js). */
+const bentukPaket = (k, paketSiswa = []) => ({
+  id: k.id,
+  jenis: k.jenis,
+  tahunAjaran: k.tahun_ajaran,
+  nama: k.nama,
+  total: k.total,
+  rincian: Array.isArray(k.rincian) ? k.rincian : [],
+  tahap: Array.isArray(k.tahap) ? k.tahap : [],
+  siswaIds: k.siswa || paketSiswa.filter((x) => x.paket_id === k.id).map((x) => x.siswa_id),
+})
+
+function bentuk({ sekolah, biaya, siswa, pembayaran, wali, paket = [], paketSiswa = [] }) {
   const urutanBiaya = biaya.map((b) => b.id)
+  const daftarPaket = paket.map((k) => bentukPaket(k, paketSiswa))
 
   const daftarBayar = pembayaran.map((p) => ({
     id: p.id,
     siswaId: p.siswa_id,
     jenis: p.jenis,
-    indeks: p.jenis === 'spp' ? p.periode : urutanBiaya.indexOf(p.biaya_id),
+    // SPP: 0–11 · kegiatan: urutan di daftar biaya · paket (PMB/DU): id paket
+    indeks: p.jenis === 'spp' ? p.periode : p.jenis === 'paket' ? p.paket_id : urutanBiaya.indexOf(p.biaya_id),
+    paketId: p.paket_id || null,
     ket: p.keterangan,
     nominal: p.nominal,
     metode: p.metode,
@@ -69,9 +84,12 @@ function bentuk({ sekolah, biaya, siswa, pembayaran, wali }) {
   const daftarSiswa = siswa.map((s) => {
     const spp = Array(12).fill(0)
     const kegiatan = biaya.map(() => 0)
+    const bayarPaket = {}
     daftarBayar.forEach((p) => {
-      if (p.siswaId !== s.id || p.indeks < 0) return
-      if (p.jenis === 'spp') spp[p.indeks] += p.nominal
+      if (p.siswaId !== s.id) return
+      if (p.jenis === 'paket') bayarPaket[p.paketId] = (bayarPaket[p.paketId] || 0) + p.nominal
+      else if (p.indeks < 0) return
+      else if (p.jenis === 'spp') spp[p.indeks] += p.nominal
       else kegiatan[p.indeks] += p.nominal
     })
     return {
@@ -88,6 +106,7 @@ function bentuk({ sekolah, biaya, siswa, pembayaran, wali }) {
       foto: s.foto || '',
       spp,
       kegiatan,
+      paket: bayarPaket,
     }
   })
 
@@ -117,6 +136,7 @@ function bentuk({ sekolah, biaya, siswa, pembayaran, wali }) {
     biaya: biaya.map((b) => ({ id: b.id, nama: b.nama, nominal: b.nominal, emoji: b.emoji || null, ...infoKegiatan(b) })),
     siswa: daftarSiswa,
     pembayaran: daftarBayar,
+    paket: daftarPaket,
     wali: wali || null,
   }
 }
@@ -131,6 +151,7 @@ export async function muatDataGuru() {
   //   localStorage.setItem('tk_demo_habis', '1')  → coba tampilan sewa habis (transaksi terkunci)
   if (modeDemo) {
     const peran = demoPeran()
+    if (localStorageAman('tk_demo_nonaktif') === '1') throw new Error(pesanNonaktif({ sekolah: 'TK Tunas Ceria', oleh: 'Bu Kepsek' }))
     const d = bentuk(mock.bentukDemo())
     if (demoHabis()) d.pengaturan = { ...d.pengaturan, trialMulai: '2025-01-01', langgananSampai: '2025-02-01' }
     return {
@@ -151,9 +172,16 @@ export async function muatDataGuru() {
     .single()
 
   if (eProfil) throw new Error('Akun ini belum terhubung ke sekolah mana pun')
+  // Akun dinonaktifkan kepala sekolah (0032): baris profil masih terbaca,
+  // tapi data sekolahnya tidak (RLS) → tampilkan layar "akun dinonaktifkan".
+  if (!profil.sekolah) {
+    const { data: st } = await supabase.rpc('status_akun_saya')
+    if (st && st.aktif === false) throw new Error(pesanNonaktif(st))
+    throw new Error('Data sekolah tidak bisa dimuat. Coba lagi beberapa saat.')
+  }
 
   const sekolahId = profil.sekolah.id
-  const [siswa, biaya, pembayaran, logo, hak] = await Promise.all([
+  const [siswa, biaya, pembayaran, logo, hak, paket, paketSiswa] = await Promise.all([
     supabase.from('siswa').select('*').eq('sekolah_id', sekolahId).eq('aktif', true).order('nama'),
     supabase.from('biaya').select('*').eq('sekolah_id', sekolahId).eq('aktif', true).order('urutan'),
     supabase.from('pembayaran').select('*').eq('sekolah_id', sekolahId).order('dibayar_pada', { ascending: false }),
@@ -161,6 +189,9 @@ export async function muatDataGuru() {
     supabase.from('sekolah_ttd').select('logo').eq('sekolah_id', sekolahId).maybeSingle().then((r) => (r.error ? null : r.data?.logo || null), () => null),
     // Hak akses per fitur (0029). Kalau fungsinya belum ada → pakai standar peran.
     supabase.rpc('hak_akses_saya').then((r) => (r.error ? null : r.data), () => null),
+    // Paket PMB & daftar ulang (0033). Kalau tabelnya belum ada → aplikasi tetap jalan tanpa paket.
+    supabase.from('paket_biaya').select('*').eq('sekolah_id', sekolahId).eq('aktif', true).then((r) => (r.error ? [] : r.data), () => []),
+    supabase.from('paket_siswa').select('paket_id, siswa_id').eq('sekolah_id', sekolahId).then((r) => (r.error ? [] : r.data), () => []),
   ])
 
   const gagal = [siswa, biaya, pembayaran].find((r) => r.error)
@@ -171,6 +202,8 @@ export async function muatDataGuru() {
       biaya: biaya.data,
       siswa: siswa.data,
       pembayaran: pembayaran.data,
+      paket,
+      paketSiswa,
     })
   return {
     ...hasil,
@@ -183,29 +216,74 @@ export async function muatDataGuru() {
   }
 }
 
-/** Dipakai portal orang tua. Tanpa login, cukup token dari URL. */
-export async function muatDataPortal(token) {
+/* ===================== portal orang tua (tautan + NIS) ===================== */
+
+/** Pesan untuk layar gerbang NIS; `e.gerbang` = { galat, sisa, menit }. */
+function galatGerbang(g) {
+  const pesan =
+    g.galat === 'terkunci' ? `Terlalu banyak percobaan. Coba lagi dalam ${g.menit || 15} menit.`
+    : g.galat === 'nis_salah' ? `NIS tidak cocok dengan data ananda.${g.sisa ? ` Sisa ${g.sisa} kali percobaan.` : ''}`
+    : 'Masukkan NIS ananda untuk membuka portal.'
+  const e = new Error(pesan)
+  e.gerbang = g
+  return e
+}
+
+/** Normalisasi NIS: tanpa spasi/tanda baca, huruf kecil — sama dengan nis_rapi() di database. */
+export const nisRapi = (t) => String(t || '').toLowerCase().replace(/[^a-z0-9]/g, '')
+
+// Mode demo: meniru batas 5 kali salah di database.
+const demoGerbang = { gagal: 0, kunciSampai: 0 }
+function cekNisDemo(anak, nis) {
+  if (!nisRapi(nis)) return { galat: 'perlu_nis' }
+  if (demoGerbang.kunciSampai > Date.now()) return { galat: 'terkunci', menit: Math.ceil((demoGerbang.kunciSampai - Date.now()) / 60000) }
+  if (anak.some((s) => nisRapi(s.nis) === nisRapi(nis))) { demoGerbang.gagal = 0; return null }
+  demoGerbang.gagal += 1
+  if (demoGerbang.gagal >= 5) {
+    demoGerbang.gagal = 0
+    demoGerbang.kunciSampai = Date.now() + 15 * 60000
+    return { galat: 'terkunci', menit: 15 }
+  }
+  return { galat: 'nis_salah', sisa: 5 - demoGerbang.gagal }
+}
+
+/** Identitas sekolah untuk layar "Masukkan NIS" — tanpa data anak. */
+export async function portalGerbang(token) {
+  if (modeDemo) return { sekolah: 'TK Tunas Ceria', wa: '6281234567890', logo: null, aktif: true, demo: true }
+  if (!token) throw new Error('Tautan portal tidak lengkap. Minta tautan baru ke pihak sekolah.')
+  return panggil('portal_gerbang', { p_token: token })
+}
+
+/** Dipakai portal orang tua. Tanpa login: token dari URL + NIS salah satu anak. */
+export async function muatDataPortal(token, nis) {
   if (modeDemo) {
     const d = bentuk(mock.bentukDemo())
     const anak = d.siswa.filter((s) => mock.waliDemo.anak.includes(s.id))
-    return { ...d, siswa: anak, wali: { nama: mock.waliDemo.nama, anak: anak.map((s) => s.id) } }
+    const g = cekNisDemo(anak, nis)
+    if (g) throw galatGerbang(g)
+    const id = new Set(anak.map((s) => s.id))
+    const paket = d.paket.filter((p) => p.siswaIds.some((x) => id.has(x))).map((p) => ({ ...p, siswaIds: p.siswaIds.filter((x) => id.has(x)) }))
+    return { ...d, siswa: anak, paket, pembayaran: d.pembayaran.filter((p) => id.has(p.siswaId)), wali: { nama: mock.waliDemo.nama, anak: anak.map((s) => s.id) } }
   }
 
   if (!token) throw new Error('Tautan portal tidak lengkap. Minta tautan baru ke pihak sekolah.')
+  if (!nisRapi(nis)) throw galatGerbang({ galat: 'perlu_nis' })
 
-  const [{ data, error }, logo] = await Promise.all([
-    supabase.rpc('portal_wali', { p_token: token }),
-    // Logo sekolah untuk kepala portal (0027_logo_portal.sql). Kalau fungsinya
-    // belum ada atau gagal, portal tetap jalan dan menampilkan ikon 🏫.
-    supabase.rpc('portal_logo', { p_token: token }).then((r) => (r.error ? null : r.data), () => null),
+  const [{ data, error }, gerbang] = await Promise.all([
+    supabase.rpc('portal_wali', { p_token: token, p_nis: nis }),
+    // Logo sekolah untuk kepala portal. Kalau gagal, portal tetap jalan dengan gambar gedung sekolah.
+    supabase.rpc('portal_gerbang', { p_token: token }).then((r) => (r.error ? null : r.data), () => null),
   ])
   if (error) throw new Error(error.message)
+  if (data?.gerbang) throw galatGerbang(data.gerbang)
 
   const hasil = bentuk({
     sekolah: data.sekolah,
     biaya: data.biaya,
     siswa: data.siswa,
     pembayaran: data.pembayaran,
+    paket: data.paket || [],
+    paketSiswa: data.paket_siswa || [],
   })
   // Nama yang ditampilkan di portal diambil dari siswa.wali (nama orang tua
   // yang diisi/diperbarui guru), bukan dari tabel wali.nama (nama akun token
@@ -214,14 +292,14 @@ export async function muatDataPortal(token) {
   const namaWali = hasil.siswa[0]?.wali || data.wali.nama || 'Orang tua'
   return {
     ...hasil,
-    pengaturan: { ...hasil.pengaturan, logo: logo || null },
+    pengaturan: { ...hasil.pengaturan, logo: gerbang?.logo || null },
     wali: { nama: namaWali, anak: hasil.siswa.map((s) => s.id) },
   }
 }
 
 /* ===================== tulis (khusus guru) ===================== */
 
-export async function catatPembayaran({ sekolahId, siswaId, jenis, periode, biayaId, keterangan, nominal, metode, petugas, tanggal }) {
+export async function catatPembayaran({ sekolahId, siswaId, jenis, periode, biayaId, paketId, keterangan, nominal, metode, petugas, tanggal }) {
   const dibayarPada = tanggalKeTimestamp(tanggal) // undefined kalau tanggal tidak diisi -> kolom pakai default now()
   if (modeDemo) return { id: 'demo-' + Date.now(), dibayar_pada: dibayarPada || new Date().toISOString() }
 
@@ -234,6 +312,7 @@ export async function catatPembayaran({ sekolahId, siswaId, jenis, periode, biay
       jenis,
       periode: jenis === 'spp' ? periode : null,
       biaya_id: jenis === 'kegiatan' ? biayaId : null,
+      paket_id: jenis === 'paket' ? paketId : null,
       keterangan,
       nominal,
       metode,
@@ -244,7 +323,53 @@ export async function catatPembayaran({ sekolahId, siswaId, jenis, periode, biay
     .select()
     .single()
 
-  if (error) throw new Error(error.message)
+  if (error) throw new Error(pesanPaket(error))
+  return data
+}
+
+/* ---------- paket PMB & daftar ulang (0033) ---------- */
+
+function pesanPaket(error) {
+  const m = error?.message || String(error)
+  if (/paket_id|paket_biaya|paket_simpan|paket_hapus|paket_atur_siswa|pindahkan_biaya_ke_paket/i.test(m) && /does not exist|could not find|schema cache/i.test(m)) {
+    return 'Fitur PMB & Daftar ulang belum aktif di database. Jalankan file 0033_pmb_daftar_ulang.sql di Supabase SQL Editor.'
+  }
+  return m
+}
+
+/** Simpan paket baru / perubahan paket + daftar siswa yang ditagih (satu transaksi di database). */
+export async function simpanPaket({ id = null, jenis, tahunAjaran, nama, rincian, tahap, siswaIds }) {
+  const data = { jenis, tahunAjaran, nama, rincian, tahap }
+  if (modeDemo) {
+    const total = rincian.reduce((t, r) => t + Number(r.nominal), 0)
+    return bentukPaket({ id: id || 'demo-paket-' + Date.now(), jenis, tahun_ajaran: tahunAjaran, nama, rincian, tahap, total, siswa: siswaIds || [] })
+  }
+  const { data: baris, error } = await supabase.rpc('paket_simpan', { p_id: id, p_data: data, p_siswa: siswaIds ?? null })
+  if (error) throw new Error(pesanPaket(error))
+  return bentukPaket(baris)
+}
+
+/** Hapus paket. Yang sudah ada pembayarannya hanya diarsipkan → 'diarsipkan'. */
+export async function hapusPaket(id, adaBayar) {
+  if (modeDemo) return adaBayar ? 'diarsipkan' : 'dihapus'
+  const { data, error } = await supabase.rpc('paket_hapus', { p_id: id })
+  if (error) throw new Error(pesanPaket(error))
+  return data
+}
+
+/** Tagihkan (ikut=true) / lepaskan satu siswa dari paket. */
+export async function aturSiswaPaket(paketId, siswaId, ikut) {
+  if (modeDemo) return true
+  const { error } = await supabase.rpc('paket_atur_siswa', { p_paket: paketId, p_siswa: siswaId, p_ikut: ikut })
+  if (error) throw new Error(pesanPaket(error))
+  return true
+}
+
+/** Pindahkan biaya kegiatan lama ("PMB", "Daftar ulang") beserta pembayarannya ke paket. */
+export async function pindahkanBiayaKePaket(biayaId, jenis) {
+  if (modeDemo) throw new Error('Di mode demo, pemindahan ini tidak bisa dicoba.')
+  const { data, error } = await supabase.rpc('pindahkan_biaya_ke_paket', { p_biaya: biayaId, p_jenis: jenis })
+  if (error) throw new Error(pesanPaket(error))
   return data
 }
 
@@ -854,10 +979,12 @@ export async function kuitansiStaf(id, demo) {
   return panggil('kuitansi_staf', { p_id: id })
 }
 
-/** Data kuitansi untuk portal orang tua — dicek lewat token tautan. */
-export async function kuitansiPortal(token, id, demo) {
+/** Data kuitansi untuk portal orang tua — dicek lewat token tautan + NIS. */
+export async function kuitansiPortal(token, nis, id, demo) {
   if (modeDemo || !token) return kuitansiDemo(demo)
-  return panggil('kuitansi_portal', { p_token: token, p_id: id })
+  const d = await panggil('kuitansi_portal', { p_token: token, p_nis: nis, p_id: id })
+  if (d?.gerbang) throw galatGerbang(d.gerbang)
+  return d
 }
 
 /** Tanda tangan & stempel kuitansi sekolah (null kalau belum pernah diatur). */
@@ -1077,7 +1204,7 @@ export async function notaKas(id) {
   return data?.nota || null
 }
 
-const rpDemo = (n) => (n < 0 ? '-' : '') + 'Rp' + Math.abs(n).toLocaleString('id-ID')
+const rpDemo = (n) => (n < 0 ? '-' : '') + 'Rp ' + Math.abs(n).toLocaleString('id-ID')
 
 export async function catatKas({ jenis, tanggal, kategori, nominal, keterangan, nota, pencatat }, demo) {
   if (modeDemo) {
@@ -1161,3 +1288,44 @@ function demoHabis() {
     return false
   }
 }
+
+/* ===================== akun staf (kepala sekolah) ===================== */
+
+/** Pesan layar "akun dinonaktifkan". GuruApp mengenalinya dari awalan kalimatnya. */
+export const AWALAN_NONAKTIF = 'Akun Anda dinonaktifkan'
+function pesanNonaktif(st = {}) {
+  return `${AWALAN_NONAKTIF} oleh ${st.oleh || 'kepala sekolah'}${st.sekolah ? ` (${st.sekolah})` : ''}.`
+}
+
+function localStorageAman(kunci) {
+  try {
+    return localStorage.getItem(kunci)
+  } catch {
+    return null
+  }
+}
+
+// Mode demo: daftar akun contoh (perubahan hanya tersimpan selama halaman terbuka).
+const akunDemo = [
+  { id: 'demo-kepala', nama: 'Bu Kepsek', peran: 'kepala', avatar: 0, aktif: true, email: 'kepsek.tunasceria@gmail.com', bergabung: '2026-07-01T08:00:00+07:00', terakhirMasuk: new Date().toISOString(), saya: true },
+  { id: 'demo-rina', nama: 'Bu Rina', peran: 'admin', avatar: 3, aktif: true, email: 'rina.tu@gmail.com', bergabung: '2026-07-02T09:00:00+07:00', terakhirMasuk: new Date(Date.now() - 3 * 3600e3).toISOString() },
+  { id: 'demo-opik', nama: 'Pak Opik', peran: 'admin', avatar: 8, aktif: false, email: 'opik.admin@gmail.com', bergabung: '2026-07-05T09:00:00+07:00', terakhirMasuk: '2026-09-10T10:00:00+07:00', dinonaktifkanPada: '2026-09-20T13:00:00+07:00', dinonaktifkanOleh: 'Bu Kepsek' },
+]
+
+/** Semua akun di sekolah ini (khusus kepala sekolah). */
+export async function daftarAkunSekolah() {
+  if (modeDemo) return akunDemo.map((a) => ({ ...a }))
+  return panggil('akun_sekolah_daftar')
+}
+
+/** Nonaktifkan (aktif=false) atau aktifkan lagi akun Admin/TU. */
+export async function aturAkunAktif(id, aktif) {
+  if (modeDemo) {
+    const a = akunDemo.find((x) => x.id === id)
+    if (!a || a.peran === 'kepala') throw new Error('Akun kepala sekolah tidak bisa dinonaktifkan dari sini.')
+    Object.assign(a, { aktif, dinonaktifkanPada: aktif ? null : new Date().toISOString(), dinonaktifkanOleh: aktif ? null : 'Bu Kepsek' })
+    return { id, aktif }
+  }
+  return panggil('akun_sekolah_atur_aktif', { p_id: id, p_aktif: aktif })
+}
+

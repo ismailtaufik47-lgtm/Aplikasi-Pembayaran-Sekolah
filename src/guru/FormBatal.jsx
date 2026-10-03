@@ -37,7 +37,7 @@ export default function FormBatal({ nominal, jenis = 'bayar', sibuk, onKirim, on
             type="button"
             onClick={() => setAlasan(c)}
             className={`rounded-pill border px-3 py-1.5 text-[12px] font-bold ${
-              alasan === c ? 'border-danger bg-danger-soft text-danger' : 'border-line bg-white text-muted'
+              alasan === c ? 'border-danger bg-danger-soft text-danger' : 'border-line bg-kartu text-muted'
             }`}
           >
             {c}
