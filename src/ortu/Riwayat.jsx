@@ -37,7 +37,7 @@ export default function Riwayat({ aktif, bukaStruk }) {
         <div className="permen permen-tosca rounded-[20px] p-3.5">
           <Ikon.cek size={20} />
           <span className="mt-2 block text-[12px] font-extrabold">Total dibayar</span>
-          <b className="block break-all font-display text-[22px] font-bold leading-tight">{rp(total)}</b>
+          <b className="block break-words font-display text-[22px] font-bold leading-tight">{rp(total)}</b>
         </div>
         <div className="permen permen-ungu rounded-[20px] p-3.5">
           <Ikon.nota size={20} />

@@ -267,6 +267,9 @@ button.permen:active:not(:disabled) { transform: translateY(2px); box-shadow: in
   background-repeat: no-repeat;
 }
 .langit-gulir { background-attachment: local; }
+/* Hiasan kepala halaman (pelangi, awan) sengaja menjorok ke luar layar.
+   Jangan sampai wadah gulir ikut bisa digeser ke kanan di HP. */
+.langit-gulir { overflow-x: hidden; overflow-x: clip; }
 .dark .langit-app, .dark .langit-gulir {
   background-color: #111827;
   background-image: linear-gradient(180deg, #0D1733 0px, #16264D 260px, #151F35 560px, #121A2C 900px, #111827 1200px);
@@ -348,6 +351,10 @@ button.permen-kecil:active:not(:disabled) { box-shadow: inset 0 -1px 0 var(--p-b
 .dark .kartu-profil-siswa { background: linear-gradient(160deg, #3D63C9 0%, #2A4DB0 70%); box-shadow: inset 0 -5px 0 #213F95, 0 14px 28px rgba(0, 0, 0, .4); }
 /* kartu saldo kas: permen kuning (minus → pink) */
 .kartu-saldo { background: linear-gradient(160deg, #FFE68F 0%, #FFD35C 100%); color: #3D2A00; box-shadow: inset 0 -5px 0 #EDB52B, 0 14px 28px rgba(237, 181, 43, .25); }
+.kartu-dana { background: linear-gradient(160deg, #B8F0D8 0%, #8FE3C1 100%); color: #0C4A3A; box-shadow: inset 0 -5px 0 #5FCFA3, 0 12px 26px rgba(34, 197, 94, .2); }
+.kartu-dana-minus { background: linear-gradient(160deg, #FFD0E2 0%, #FFB3CF 100%); color: #6E0F3A; box-shadow: inset 0 -5px 0 #F090B6, 0 12px 26px rgba(236, 72, 153, .2); }
+.dark .kartu-dana { background: linear-gradient(160deg, rgba(90, 220, 190, .2) 0%, rgba(60, 200, 160, .13) 100%); color: #A9F0DE; box-shadow: inset 0 -5px 0 rgba(90, 220, 190, .3); }
+.dark .kartu-dana-minus { background: linear-gradient(160deg, rgba(255, 130, 180, .2) 0%, rgba(255, 110, 160, .13) 100%); color: #FFC2DB; box-shadow: inset 0 -5px 0 rgba(255, 130, 180, .3); }
 .kartu-saldo-minus { background: linear-gradient(160deg, #FFD0E2 0%, #FFB3CF 100%); color: #6E0F3A; box-shadow: inset 0 -5px 0 #F090B6, 0 14px 28px rgba(236, 72, 153, .2); }
 .dark .kartu-saldo { background: linear-gradient(160deg, rgba(255, 214, 90, .22) 0%, rgba(255, 196, 60, .16) 100%); color: #FFE08A; box-shadow: inset 0 -5px 0 rgba(255, 214, 90, .3); }
 .dark .kartu-saldo-minus { background: rgba(255, 130, 180, .18); color: #FFC2DB; box-shadow: inset 0 -5px 0 rgba(255, 130, 180, .3); }

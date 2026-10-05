@@ -224,7 +224,7 @@ export default function TanyaAI() {
               {bolehKas && kas !== false && (
                 <div className="kartu-saldo mx-auto mt-4 max-w-[440px] rounded-[20px] px-4 py-3.5">
                   <div className="text-[12.5px] font-extrabold opacity-85">Saldo kas saat ini</div>
-                  <div className="mt-0.5 break-all font-display text-[26px] font-bold leading-tight">
+                  <div className="mt-0.5 break-words font-display text-[26px] font-bold leading-tight">
                     {kas ? (kas.saldoKini < 0 ? '−' + rp(-kas.saldoKini) : rp(kas.saldoKini)) : '…'}
                   </div>
                   {kas && !kas.pengaturan && <div className="mt-1 text-[11.5px] font-bold opacity-85">Saldo awal kas belum diisi — dihitung dari nol</div>}

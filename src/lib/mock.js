@@ -169,10 +169,27 @@ export const kasDemo = [
   { id: 'k1', jenis: 'keluar', tanggal: tgl(40), kategori: 'Honor guru', nominal: 1500000, keterangan: 'Honor Bu Rina & Bu Yanti bulan lalu', dicatat_nama: 'Bu Kepsek' },
   { id: 'k2', jenis: 'keluar', tanggal: tgl(33), kategori: 'ATK', nominal: 185000, keterangan: 'Kertas HVS, krayon, lem', dicatat_nama: 'Bu Rina' },
   { id: 'k3', jenis: 'masuk', tanggal: tgl(30), kategori: 'Donasi', nominal: 750000, keterangan: 'Donasi alumni untuk mainan outdoor', dicatat_nama: 'Bu Kepsek' },
-  { id: 'k4', jenis: 'keluar', tanggal: tgl(21), kategori: 'Kegiatan', nominal: 1200000, keterangan: 'Sewa bus outing class', dicatat_nama: 'Bu Rina' },
+  { id: 'k4', jenis: 'keluar', tanggal: tgl(21), kategori: 'Transportasi', nominal: 1200000, keterangan: 'Sewa bus outing class', dicatat_nama: 'Bu Rina', biaya_id: 'b4', grup: 'g-out1', nota_file: ['demo/nota-a.svg'] },
+  { id: 'k4b', jenis: 'keluar', tanggal: tgl(21), kategori: 'Konsumsi', nominal: 210000, keterangan: 'Snack & air mineral outing', dicatat_nama: 'Bu Rina', biaya_id: 'b4', grup: 'g-out1', nota_file: ['demo/nota-a.svg'] },
+  { id: 'k10', jenis: 'keluar', tanggal: tgl(5), kategori: 'Perlengkapan', nominal: 240000, keterangan: 'Kain ihram & mukena anak', dicatat_nama: 'Bu Rina', biaya_id: 'b3', grup: 'g-man1', nota_file: ['demo/nota-b.svg'] },
+  { id: 'k11', jenis: 'keluar', tanggal: tgl(4), kategori: 'Konsumsi', nominal: 175000, keterangan: 'Nasi kotak 10 pcs', dicatat_nama: 'Bu Rina', biaya_id: 'b3', grup: 'g-man2', nota_file: ['demo/nota-c.svg'] },
+  { id: 'k12', jenis: 'keluar', tanggal: tgl(4), kategori: 'Konsumsi', nominal: 30000, keterangan: 'Air mineral 1 dus', dicatat_nama: 'Bu Rina', biaya_id: 'b3', grup: 'g-man2', nota_file: ['demo/nota-c.svg'] },
+  { id: 'k13', jenis: 'keluar', tanggal: tgl(2), kategori: 'Dokumentasi', nominal: 60000, keterangan: 'Cetak foto dokumentasi', dicatat_nama: 'Bu Rina', biaya_id: 'b3' },
   { id: 'k5', jenis: 'keluar', tanggal: tgl(12), kategori: 'Honor guru', nominal: 1500000, keterangan: 'Honor Bu Rina & Bu Yanti', dicatat_nama: 'Bu Kepsek' },
   { id: 'k6', jenis: 'keluar', tanggal: tgl(9), kategori: 'Listrik & air', nominal: 320000, keterangan: 'Token listrik & PDAM', dicatat_nama: 'Bu Rina' },
   { id: 'k7', jenis: 'keluar', tanggal: tgl(6), kategori: 'Konsumsi', nominal: 240000, keterangan: 'Snack rapat wali murid', dicatat_nama: 'Bu Rina' },
   { id: 'k8', jenis: 'keluar', tanggal: tgl(6), kategori: 'Konsumsi', nominal: 420000, keterangan: 'Salah ketik nominal', dicatat_nama: 'Bu Rina', dibatalkan_pada: new Date().toISOString(), dibatalkan_nama: 'Bu Kepsek', alasan_batal: 'Nominal salah, dicatat ulang' },
   { id: 'k9', jenis: 'masuk', tanggal: tgl(3), kategori: 'Dana BOP', nominal: 2000000, keterangan: 'BOP PAUD tahap 2', dicatat_nama: 'Bu Kepsek' },
 ]
+
+/** Foto nota contoh (mode demo) — gambar nota sederhana, bukan foto sungguhan. */
+function gambarNota(toko, baris) {
+  const isi = baris.map(([u, n], i) => `<text x="22" y="${118 + i * 30}" font-size="17" fill="#333">${u}</text><text x="378" y="${118 + i * 30}" font-size="17" text-anchor="end" fill="#333">${n}</text>`).join('')
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="${190 + baris.length * 30}" viewBox="0 0 400 ${190 + baris.length * 30}"><rect width="100%" height="100%" fill="#FFFDF6"/><text x="200" y="46" font-size="22" font-weight="700" text-anchor="middle" fill="#222" font-family="monospace">${toko}</text><text x="200" y="72" font-size="13" text-anchor="middle" fill="#777" font-family="monospace">NOTA CONTOH - MODE DEMO</text><g font-family="monospace">${isi}</g><line x1="22" x2="378" y1="${100 + baris.length * 30}" y2="${100 + baris.length * 30}" stroke="#999" stroke-dasharray="4 4"/></svg>`
+  return 'data:image/svg+xml;base64,' + btoa(svg)
+}
+export const notaDemo = () => ({
+  'demo/nota-a.svg': gambarNota('PO SINAR JAYA', [['Sewa bus 1 unit', '1.200.000'], ['Snack + air', '210.000']]),
+  'demo/nota-b.svg': gambarNota('TOKO BUSANA AMANAH', [['Kain ihram anak', '140.000'], ['Mukena anak', '100.000']]),
+  'demo/nota-c.svg': gambarNota('RM BAROKAH', [['Nasi kotak x10', '175.000'], ['Air mineral 1 dus', '30.000']]),
+})

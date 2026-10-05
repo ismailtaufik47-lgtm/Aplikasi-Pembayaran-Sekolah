@@ -95,7 +95,7 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
         ) : (
           <>
             <span className="text-[12px] font-bold text-muted">{judulTagihan}</span>
-            <b className="judul-halaman block break-all font-display text-[28px] font-bold leading-tight tracking-[-.3px] lg:text-[30px]">{rp(perluSekarang)}</b>
+            <b className="judul-halaman block break-words font-display text-[28px] font-bold leading-tight tracking-[-.3px] lg:text-[30px]">{rp(perluSekarang)}</b>
             <span className="text-[12px] font-bold text-muted">{rincianTagihan}</span>
           </>
         )}

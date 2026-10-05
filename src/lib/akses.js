@@ -123,11 +123,15 @@ export function menuSekolah(boleh, peran) {
  * Tab bar mobile: Beranda + 3 tab + Lainnya. Diisi berurutan menurut
  * prioritas dari menu yang boleh dibuka akun ini.
  */
+/**
+ * Tab bar HP. Tombol tengah "Transaksi" membuka pilihan catat pembayaran /
+ * pengeluaran / pemasukan lain — muncul kalau akun boleh salah satunya.
+ */
 export function pilihTab(menu, bisaCatat) {
   const ada = (id) => menu.find((m) => m.id === id)
   const urutan = [
     ada('siswa') && { id: 'siswa', emoji: 'siswa', label: 'Siswa', ke: '/guru/siswa' },
-    bisaCatat && { id: 'bayar', emoji: 'bayar', label: 'Bayar', catat: true },
+    bisaCatat && { id: 'bayar', emoji: 'bayar', label: 'Transaksi', catat: true },
     ada('pembayaran') && { id: 'pembayaran', emoji: 'pembayaran', label: 'Riwayat', ke: '/guru/pembayaran' },
     ada('laporan') && { id: 'laporan', emoji: 'laporan', label: 'Laporan', ke: '/guru/laporan' },
     ada('ai') && { id: 'ai', emoji: 'ai', label: 'SAKU', ke: '/guru/tanya-ai' },

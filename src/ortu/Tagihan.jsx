@@ -130,7 +130,7 @@ function PaketAnak({ p, dibayar }) {
             <GambarKegiatan emoji={EMOJI_JENIS[p.jenis]} size={54} className="!rounded-[16px] shadow-[inset_0_-4px_0_rgba(0,0,0,.07)]" />
             <span className="min-w-0">
               <span className="block text-[12px] font-extrabold">{st === 'lunas' ? 'Sudah lunas — terima kasih!' : 'Sisa yang perlu dibayar'}</span>
-              <b className="block break-all font-display text-[28px] font-bold leading-tight">{rp(st === 'lunas' ? p.total : sisa)}</b>
+              <b className="block break-words font-display text-[28px] font-bold leading-tight">{rp(st === 'lunas' ? p.total : sisa)}</b>
               <span className="block text-[12px] font-extrabold">Sudah dibayar {rp(dibayar)} dari {rp(p.total)}</span>
             </span>
           </div>

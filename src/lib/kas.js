@@ -27,11 +27,23 @@ export const KATEGORI_MASUK = [
   { nama: 'Lain-lain', e: '💰' },
 ]
 
+/** Kategori pengeluaran KEGIATAN (0035): dipakai saat pengeluaran diberi label kegiatan. */
+export const KATEGORI_KEGIATAN = [
+  { nama: 'Transportasi', e: '🚌', warna: 'biru' },
+  { nama: 'Konsumsi', e: '🍱', warna: 'kuning' },
+  { nama: 'Perlengkapan', e: '🎒', warna: 'tosca' },
+  { nama: 'Sewa tempat/alat', e: '🏕️', warna: 'ungu' },
+  { nama: 'Dokumentasi', e: '📸', warna: 'pink' },
+  { nama: 'Honor panitia', e: '🧑‍🏫', warna: 'biru' },
+  { nama: 'Lain-lain', e: '📦', warna: 'kuning' },
+]
+export const warnaKategoriKegiatan = (nama) => KATEGORI_KEGIATAN.find((k) => k.nama === nama)?.warna || 'kuning'
+
 /** Emoji untuk sebuah kategori (kategori buatan sendiri → emoji umum). */
 export function emojiKategori(nama, jenis) {
   if (nama === 'SPP') return '📅'
   if (nama === 'Biaya kegiatan') return '🎟️'
-  const daftar = jenis === 'masuk' ? KATEGORI_MASUK : KATEGORI_KELUAR
+  const daftar = jenis === 'masuk' ? KATEGORI_MASUK : [...KATEGORI_KELUAR, ...KATEGORI_KEGIATAN]
   return daftar.find((k) => k.nama.toLowerCase() === String(nama).toLowerCase())?.e || (jenis === 'masuk' ? '💰' : '🧾')
 }
 
@@ -192,8 +204,10 @@ export function arusKas(gerakan, sampai, n = 6) {
  * Riwayat transaksi satu rentang tanggal, terbaru dulu — bentuknya sama
  * dengan kas_riwayat() di database. Pembayaran orang tua digabung per hari.
  */
-export function riwayatKas(gerakan, { dari, sampai, mulaiDari = 0, batas = 30 }) {
+export function riwayatKas(gerakan, { dari, sampai, mulaiDari = 0, batas = 30, saring = 'semua' }) {
+  const berlabel = (g) => g.sumber === 'kas' && !!(g.asli?.biayaId || g.asli?.paketId)
   const diRentang = gerakan.filter((g) => g.tanggal >= dari && g.tanggal <= sampai)
+    .filter((g) => saring === 'semua' || (saring === 'kegiatan') === berlabel(g))
   const bayar = new Map()
   const item = []
   diRentang.forEach((g) => {
@@ -210,6 +224,7 @@ export function riwayatKas(gerakan, { dari, sampai, mulaiDari = 0, batas = 30 })
         keterangan: k.keterangan || '', dicatatNama: k.dicatatNama, dibuatPada: k.dibuatPada || '',
         dibatalkanPada: k.dibatalkanPada || null, dibatalkanNama: k.dibatalkanNama || null, alasanBatal: k.alasanBatal || null,
         adaNota: !!k.adaNota, sebelumMulai: !!g.sebelumMulai, jumlah: 1,
+        biayaId: k.biayaId || null, paketId: k.paketId || null, grup: k.grup || null, jmlNota: k.jmlNota || 0,
       })
     }
   })
@@ -278,4 +293,75 @@ export async function siapkanNota(file) {
   } finally {
     URL.revokeObjectURL(url)
   }
+}
+
+/* ===================== rekap per kegiatan (0035) ===================== */
+
+/**
+ * Rekap "uang masuk vs terpakai" untuk setiap kegiatan (biaya kegiatan aktif
+ * + paket PMB / daftar ulang). Dipakai Laporan › Kegiatan, Excel, dan kotak
+ * "Dana kegiatan" di form pengeluaran — supaya angkanya selalu sama.
+ *
+ * pengeluaran: hasil kas_pengeluaran_kegiatan() — baris kas SAH berlabel.
+ * Hasil per kegiatan:
+ *   { kunci: 'b:<id>' | 'p:<id>', id, jenis: 'kegiatan'|'pmb'|'du', nama, emoji, biaya|paket,
+ *     nominal, siswa, target, masuk, lunas, sebagian, belum, belumBayar: [{ nama, kelas, kurang }],
+ *     terpakai, sisa, perKategori: [{ kategori, nominal }], rincian: [baris kas], nota: [path unik] }
+ */
+export function rekapKegiatan({ biaya = [], paket = [], siswa = [], pengeluaran = [], emojiKegiatan, emojiPaket = {} }) {
+  const keluar = new Map()
+  pengeluaran.forEach((k) => {
+    const kunci = k.biayaId ? 'b:' + k.biayaId : k.paketId ? 'p:' + k.paketId : null
+    if (!kunci) return
+    if (!keluar.has(kunci)) keluar.set(kunci, [])
+    keluar.get(kunci).push(k)
+  })
+  const isi = (dasar, daftarSiswa, dibayar) => {
+    let masuk = 0, lunas = 0, sebagian = 0, belum = 0
+    const belumBayar = []
+    daftarSiswa.forEach((s) => {
+      const d = dibayar(s)
+      masuk += d
+      if (d >= dasar.nominal) lunas++
+      else {
+        if (d > 0) sebagian++
+        else belum++
+        belumBayar.push({ nama: s.nama, kelas: s.kelas, dibayar: d, kurang: dasar.nominal - d })
+      }
+    })
+    const rincian = (keluar.get(dasar.kunci) || []).slice().sort((a, b) => String(a.tanggal).localeCompare(String(b.tanggal)))
+    const terpakai = rincian.reduce((t, k) => t + Number(k.nominal), 0)
+    const per = new Map()
+    rincian.forEach((k) => per.set(k.kategori, (per.get(k.kategori) || 0) + Number(k.nominal)))
+    const nota = [...new Set(rincian.flatMap((k) => k.notaFile || []))]
+    return {
+      ...dasar, siswa: daftarSiswa.length, target: dasar.nominal * daftarSiswa.length, masuk, lunas, sebagian, belum,
+      belumBayar: belumBayar.sort((a, b) => a.kelas.localeCompare(b.kelas) || a.nama.localeCompare(b.nama)),
+      terpakai, sisa: masuk - terpakai,
+      perKategori: [...per.entries()].map(([kategori, nominal]) => ({ kategori, nominal })).sort((a, b) => b.nominal - a.nominal),
+      rincian, nota, notaLama: rincian.filter((k) => k.notaLama).length,
+    }
+  }
+  const dariBiaya = biaya.map((b, i) => isi(
+    { kunci: 'b:' + b.id, id: b.id, jenis: 'kegiatan', nama: b.nama, emoji: emojiKegiatan ? emojiKegiatan(b) : null, biaya: b,
+      nominal: Number(b.nominal) || 0, tanggal: b.tanggal || null, urut: i },
+    siswa, (s) => Number(s.kegiatan?.[i]) || 0,
+  ))
+  const dariPaket = paket.map((p, i) => isi(
+    { kunci: 'p:' + p.id, id: p.id, jenis: p.jenis, nama: p.nama, emoji: emojiPaket[p.jenis] || null, paket: p,
+      nominal: Number(p.total) || 0, tanggal: null, urut: 1000 + i },
+    siswa.filter((s) => p.siswaIds.includes(s.id)), (s) => Number(s.paket?.[p.id]) || 0,
+  ))
+  return [...dariBiaya, ...dariPaket]
+}
+
+/** Nama file foto nota di ZIP: "2026-10-06 Nasi kotak 35 pcs + Air mineral Rp 965.000.jpg". */
+export function namaFileNota(rincian, path, urutan = 0) {
+  const pakai = rincian.filter((k) => (k.notaFile || []).includes(path))
+  const tgl = pakai[0]?.tanggal || ''
+  const uraian = pakai.map((k) => k.uraian || k.kategori).join(' + ')
+  const total = pakai.reduce((t, k) => t + Number(k.nominal), 0)
+  const ext = (String(path).match(/\.(jpg|png|webp|svg)$/) || [, 'jpg'])[1]
+  const dasar = `${tgl} ${uraian}`.replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 90)
+  return `${dasar} Rp ${total.toLocaleString('id-ID')}${urutan ? ` (${urutan + 1})` : ''}.${ext}`
 }

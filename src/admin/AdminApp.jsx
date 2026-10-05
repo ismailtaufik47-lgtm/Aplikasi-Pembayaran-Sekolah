@@ -139,7 +139,7 @@ function Panel({ email, keluar }) {
         </nav>
       }
     >
-      <div className="noscroll flex-1 overflow-y-auto overscroll-contain px-[18px] pb-6 lg:px-8 lg:pb-10">
+      <div className="noscroll flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-[18px] pb-6 lg:px-8 lg:pb-10">
         <div className="mx-auto w-full lg:max-w-[1180px] 2xl:max-w-[1320px]">
           <Routes>
             <Route index element={<Ringkasan />} />

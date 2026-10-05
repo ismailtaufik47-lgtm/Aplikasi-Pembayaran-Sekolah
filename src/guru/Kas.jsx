@@ -12,8 +12,8 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import { BtnKecil, Chip, Ikon, KepalaHalaman, Kosong, Pil, Sheet } from '../components/ui.jsx'
-import { KoinMaskot } from '../components/Gambar.jsx'
+import { BtnKecil, Chevron, Chip, Ikon, KepalaHalaman, Kosong, Pil, Sheet } from '../components/ui.jsx'
+import { GambarKegiatan, KoinMaskot } from '../components/Gambar.jsx'
 import InputNominal from '../components/InputNominal.jsx'
 import FormBatal from './FormBatal.jsx'
 import { useData } from '../lib/store.jsx'
@@ -21,9 +21,10 @@ import * as api from '../lib/api.js'
 import { rp, tanggalISO, waktuTampil } from '../lib/format.js'
 import { FONT_EMOJI } from '../lib/emojiKegiatan.js'
 import {
-  KATEGORI_KELUAR, KATEGORI_MASUK, NAMA_BULAN, daftarBulan, emojiKategori, geserBulan, hariLalu,
-  kunciBulan, labelBulan, siapkanNota, tglKas,
+  KATEGORI_KEGIATAN, KATEGORI_KELUAR, KATEGORI_MASUK, NAMA_BULAN, daftarBulan, emojiKategori, geserBulan, hariLalu,
+  kunciBulan, labelBulan, siapkanNota, tglKas, warnaKategoriKegiatan,
 } from '../lib/kas.js'
+import { dariKunci, hitungRekapKegiatan, kunciLabel, pilihanKegiatan } from '../lib/kegiatanKas.js'
 
 const tglTampil = (iso) => {
   const [y, m, d] = iso.split('-').map(Number)
@@ -49,13 +50,21 @@ const RENTANG = [
   { id: 'pilih', label: 'Pilih tanggal' },
 ]
 
+const SARINGAN = [
+  { id: 'semua', label: 'Semua' },
+  { id: 'operasional', label: 'Operasional' },
+  { id: 'kegiatan', label: 'Kegiatan', warna: 'kuning' },
+]
+
 export default function Kas() {
-  const { pembayaran, pengaturan, petugas, toast, boleh, cegahKunci } = useData()
+  const { pembayaran, pengaturan, petugas, toast, boleh, cegahKunci, biaya, paket } = useData()
   const bisaCatat = boleh('kas')
   const bisaBatal = boleh('batal')
   // Hanya dipakai mode demo (tanpa database): pembayaran di layar ikut dihitung.
   const demo = useRef({})
-  demo.current = { pembayaran }
+  demo.current = { pembayaran, biaya, paket }
+  const label = pilihanKegiatan(biaya, paket)
+  const cariLabel = (g) => label.find((x) => x.kunci === kunciLabel(g)) || (kunciLabel(g) ? { nama: g.kegiatan || 'Kegiatan', emoji: '🎈' } : null)
 
   const [versi, setVersi] = useState(0) // naik setiap ada perubahan → muat ulang
   const segarkan = () => setVersi((v) => v + 1)
@@ -65,9 +74,11 @@ export default function Kas() {
   const [lap, setLap] = useState(null)
   const [rentang, setRentang] = useState({ id: '7', dari: hariLalu(6), sampai: tanggalISO() })
   const [riwayat, setRiwayat] = useState(null) // { item, lanjut, total }
+  const [saring, setSaring] = useState('semua') // semua | operasional | kegiatan
   const [memuatLagi, setMemuatLagi] = useState(false)
 
   const [form, setForm] = useState(null) // 'masuk' | 'keluar'
+  const [formKegiatan, setFormKegiatan] = useState('') // kunci kegiatan yang langsung dipilih (dari Laporan)
   const [detail, setDetail] = useState(null) // baris kas
   const [aturSaldo, setAturSaldo] = useState(false)
   const [unduh, setUnduh] = useState('')
@@ -92,17 +103,23 @@ export default function Kas() {
   useEffect(() => {
     let aktif = true
     setRiwayat(null)
-    api.kasRiwayat({ dari: rentang.dari, sampai: rentang.sampai, batas: PER_HALAMAN }, demo.current)
+    api.kasRiwayat({ dari: rentang.dari, sampai: rentang.sampai, batas: PER_HALAMAN, saring }, demo.current)
       .then((d) => aktif && setRiwayat(d))
       .catch((e) => aktif && setGalat(e.message))
     return () => { aktif = false }
-  }, [rentang.dari, rentang.sampai, versi])
+  }, [rentang.dari, rentang.sampai, saring, versi])
+
+  // Foto nota format lama (teks di database) dipindah ke penyimpanan foto,
+  // sedikit demi sedikit di latar belakang. Tidak mengganggu pemakaian.
+  useEffect(() => {
+    if (bisaCatat && pengaturan.id) api.pindahkanNotaLama(pengaturan.id)
+  }, [bisaCatat, pengaturan.id])
 
   const muatBerikutnya = async () => {
     if (!riwayat || memuatLagi) return
     setMemuatLagi(true)
     try {
-      const d = await api.kasRiwayat({ dari: rentang.dari, sampai: rentang.sampai, mulaiDari: riwayat.item.length, batas: PER_HALAMAN }, demo.current)
+      const d = await api.kasRiwayat({ dari: rentang.dari, sampai: rentang.sampai, mulaiDari: riwayat.item.length, batas: PER_HALAMAN, saring }, demo.current)
       setRiwayat((r) => ({ ...d, item: [...r.item, ...d.item] }))
     } catch (e) {
       toast('Gagal memuat: ' + e.message)
@@ -118,12 +135,13 @@ export default function Kas() {
     if (info && !bulanTersedia.includes(bulan)) setBulan(bulan < bulanTersedia[0] ? bulanTersedia[0] : bulanTersedia[bulanTersedia.length - 1])
   }, [info]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const bukaForm = (jenis) => {
+  const bukaForm = (jenis, kegiatan = '') => {
     if (cegahKunci('kas')) return
     if (info && !info.pengaturan) {
       toast('Isi saldo awal kas dulu — cukup sekali')
       return setAturSaldo(true)
     }
+    setFormKegiatan(jenis === 'keluar' ? kegiatan : '')
     setForm(jenis)
   }
   const bukaSaldo = () => !cegahKunci('saldo') && setAturSaldo(true)
@@ -132,14 +150,14 @@ export default function Kas() {
   // form langsung dibuka setelah ringkasan kas termuat (perlu tahu saldo awal).
   const lokasi = useLocation()
   const navigasi = useNavigate()
-  const mintaCatat = useRef(lokasi.state?.catat || null)
+  // (juga saat sudah berada di halaman Kas lalu tombol "Transaksi" ditekan lagi)
   useEffect(() => {
-    if (!info || !mintaCatat.current) return
-    const jenis = mintaCatat.current
-    mintaCatat.current = null
+    const minta = lokasi.state?.catat
+    if (!info || !minta) return
+    const kegiatan = lokasi.state.kegiatan || ''
     navigasi(lokasi.pathname, { replace: true, state: null })
-    if (bisaCatat && (jenis === 'keluar' || jenis === 'masuk')) bukaForm(jenis)
-  }, [info]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (bisaCatat && (minta === 'keluar' || minta === 'masuk')) bukaForm(minta, kegiatan)
+  }, [info, lokasi.state]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const pilihRentang = (id) => {
     const r = RENTANG.find((x) => x.id === id)
@@ -216,10 +234,10 @@ export default function Kas() {
 
           {/* ---------- saldo sekarang (kartu permen kuning + maskot koin) ---------- */}
           <div className={`kartu-saldo relative mt-3 overflow-hidden rounded-[26px] p-[18px] lg:mt-4 lg:p-6 ${minus ? 'kartu-saldo-minus' : ''}`}>
-            <KoinMaskot className="pointer-events-none absolute -bottom-1 right-2 h-[112px] w-[112px] lg:right-8 lg:h-[132px] lg:w-[132px]" />
-            <div className="relative pr-[104px] lg:pr-[150px]">
+            <KoinMaskot className="pointer-events-none absolute -bottom-1 right-1 h-[96px] w-[96px] sm:right-2 sm:h-[112px] sm:w-[112px] lg:right-8 lg:h-[132px] lg:w-[132px]" />
+            <div className="relative pr-[84px] sm:pr-[104px] lg:pr-[150px]">
               <div className="text-[13px] font-extrabold opacity-85">Saldo kas saat ini</div>
-              <div className="mt-1 break-all font-display text-[32px] font-bold leading-[1.05] tracking-[-.3px] lg:text-[40px]">{rpTanda(info.saldoKini)}</div>
+              <div className={`mt-1 break-words font-display font-bold leading-[1.05] tracking-[-.3px] lg:text-[40px] ${rpTanda(info.saldoKini).length > 12 ? 'text-[26px] sm:text-[32px]' : 'text-[32px]'}`}>{rpTanda(info.saldoKini)}</div>
               <div className="mt-3 flex flex-wrap items-center gap-2 text-[12.5px] font-bold">
                 <span className="rounded-full bg-white/60 px-3 py-1.5 dark:bg-white/10">
                   {atur ? `Saldo awal ${rp(atur.saldoAwal)} per ${tglKas(atur.mulai, true)}` : 'Saldo awal belum diisi'}
@@ -257,6 +275,19 @@ export default function Kas() {
                   </Pil>
                 ))}
               </div>
+              <div className="noscroll -mx-[18px] mb-2.5 flex items-center gap-1.5 overflow-x-auto px-[18px] lg:mx-0 lg:px-0" role="group" aria-label="Saring transaksi">
+                {SARINGAN.map((x) => (
+                  <button
+                    key={x.id}
+                    type="button"
+                    aria-pressed={saring === x.id}
+                    onClick={() => setSaring(x.id)}
+                    className={`shrink-0 rounded-pill px-3 py-1.5 text-[12.5px] font-extrabold ${saring === x.id ? `permen permen-kecil permen-${x.warna || 'biru'}` : 'text-muted hover:text-ink'}`}
+                  >
+                    {x.label}
+                  </button>
+                ))}
+              </div>
               {rentang.id === 'pilih' && <PilihTanggal awal={rentang} min={atur?.mulai} terapkan={(dari, sampai) => setRentang({ id: 'pilih', dari, sampai })} toast={toast} />}
 
               <div className="mb-2.5 flex flex-wrap items-center gap-x-3 gap-y-1 px-1 text-[12.5px] font-semibold text-muted">
@@ -273,7 +304,13 @@ export default function Kas() {
                 <div className="card"><Kosong>Memuat transaksi…</Kosong></div>
               ) : (
                 <>
-                  <DaftarTransaksi item={riwayat.item} buka={setDetail} kosong={rentang.id === '7' ? 'Belum ada transaksi dalam 7 hari terakhir.' : 'Tidak ada transaksi pada rentang tanggal ini.'} />
+                  <DaftarTransaksi
+                    item={riwayat.item}
+                    buka={setDetail}
+                    cariLabel={cariLabel}
+                    kosong={saring === 'kegiatan' ? 'Belum ada pengeluaran kegiatan pada rentang tanggal ini.'
+                      : rentang.id === '7' ? 'Belum ada transaksi dalam 7 hari terakhir.' : 'Tidak ada transaksi pada rentang tanggal ini.'}
+                  />
                   {riwayat.lanjut && (
                     <button className="bigbtn-ghost mt-3 !py-2.5 !text-[13.5px] disabled:opacity-60" disabled={memuatLagi} onClick={muatBerikutnya}>
                       {memuatLagi ? 'Memuat…' : 'Muat transaksi sebelumnya'}
@@ -362,6 +399,7 @@ export default function Kas() {
 
       <SheetCatatKas
         jenis={form}
+        awalKegiatan={formKegiatan}
         tutup={() => setForm(null)}
         mulai={atur?.mulai}
         onUbahMulai={() => { setForm(null); bukaSaldo() }}
@@ -380,6 +418,9 @@ export default function Kas() {
       <SheetDetailKas
         baris={detail}
         tutup={() => setDetail(null)}
+        bisaCatat={bisaCatat}
+        label={label}
+        onUbahLabel={() => { setDetail(null); segarkan() }}
         bisaBatal={bisaBatal}
         cegahKunci={cegahKunci}
         oleh={petugas}
@@ -446,38 +487,100 @@ function PilihTanggal({ awal, min, terapkan, toast }) {
   )
 }
 
-/* ---------- daftar transaksi, dikelompokkan per tanggal ---------- */
-function DaftarTransaksi({ item, buka, kosong }) {
+/* ---------- daftar transaksi, dikelompokkan per tanggal & per catatan (grup) ---------- */
+function DaftarTransaksi({ item, buka, kosong, cariLabel }) {
   if (item.length === 0) return <div className="card"><Kosong>{kosong}</Kosong></div>
-  const grup = []
+  const hari = []
   item.forEach((g) => {
-    const akhir = grup[grup.length - 1]
-    if (akhir && akhir.tanggal === g.tanggal) akhir.item.push(g)
-    else grup.push({ tanggal: g.tanggal, item: [g] })
+    let h = hari[hari.length - 1]
+    if (!h || h.tanggal !== g.tanggal) hari.push((h = { tanggal: g.tanggal, baris: [] }))
+    // rincian yang dicatat bersamaan (grup sama) digabung jadi satu kartu
+    const akhir = h.baris[h.baris.length - 1]
+    if (g.sumber === 'kas' && g.grup && akhir?.grup === g.grup) akhir.xs.push(g)
+    else h.baris.push({ grup: g.sumber === 'kas' ? g.grup : null, xs: [g] })
   })
   return (
     <div className="grid gap-3">
-      {grup.map(({ tanggal, item: xs }) => (
-        <div key={tanggal}>
+      {hari.map(({ tanggal, baris }) => (
+        <div key={tanggal} className="min-w-0">
           <div className="mb-1.5 px-1 text-[12px] font-bold text-muted">{tglTampil(tanggal)}</div>
           <div className="card py-1">
-            {xs.map((g) =>
-              g.sumber === 'bayar' ? (
-                <div key={'b' + g.tanggal} className="row">
-                  <span className="permen permen-kecil permen-biru grid h-10 w-10 shrink-0 place-items-center rounded-[13px]"><Ikon.siswa size={19} /></span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-[14px] font-bold">Pembayaran orang tua</span>
-                    <span className="block truncate text-[12px] text-muted">SPP & biaya kegiatan · {g.jumlah} transaksi</span>
-                  </span>
-                  <span className="shrink-0 text-[14px] font-extrabold text-ok-deep">+{rp(g.nominal)}</span>
-                </div>
-              ) : (
-                <BarisKas key={g.id} g={g} buka={buka} />
-              ),
-            )}
+            {baris.map(({ xs }) => {
+              const g = xs[0]
+              if (g.sumber === 'bayar') {
+                return (
+                  <div key={'b' + g.tanggal} className="row">
+                    <span className="permen permen-kecil permen-biru grid h-10 w-10 shrink-0 place-items-center rounded-[13px]"><Ikon.siswa size={19} /></span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[14px] font-bold">Pembayaran orang tua</span>
+                      <span className="block truncate text-[12px] text-muted">SPP & biaya kegiatan · {g.jumlah} transaksi</span>
+                    </span>
+                    <span className="shrink-0 text-[14px] font-extrabold text-ok-deep">+{rp(g.nominal)}</span>
+                  </div>
+                )
+              }
+              const lab = cariLabel(g)
+              return xs.length === 1 && !lab ? <BarisKas key={g.id} g={g} buka={buka} /> : <BarisGrup key={g.id} xs={xs} lab={lab} buka={buka} />
+            })}
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+const LencanaKegiatan = () => (
+  <span className="permen permen-kecil permen-kuning shrink-0 rounded-[7px] px-1.5 py-px text-[10px] font-extrabold">Kegiatan</span>
+)
+
+/** Satu catatan berlabel kegiatan dan/atau beberapa rincian. */
+function BarisGrup({ xs, lab, buka }) {
+  const sah = xs.filter((x) => !x.dibatalkanPada)
+  const total = sah.reduce((t, x) => t + x.nominal, 0)
+  const semuaBatal = sah.length === 0
+  const nota = Math.max(...xs.map((x) => x.jmlNota || (x.adaNota ? 1 : 0)))
+  const kategori = [...new Set(xs.map((x) => x.kategori))].join(', ')
+  const satu = xs.length === 1
+  const ikon = lab ? (
+    <GambarKegiatan emoji={lab.emoji} size={40} className={`rounded-[13px] ${semuaBatal ? 'opacity-50' : ''}`} />
+  ) : (
+    <span className="permen permen-kecil permen-pink grid h-10 w-10 shrink-0 place-items-center rounded-[13px]">
+      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M7 17 17 7" /><path d="M9 7h8v8" /></svg>
+    </span>
+  )
+  const kepala = (
+    <>
+      {ikon}
+      <span className={`block min-w-0 flex-1 ${semuaBatal ? 'opacity-60' : ''}`}>
+        <span className="flex min-w-0 items-center gap-1.5">
+          <span className={`min-w-0 truncate text-[14px] font-bold ${semuaBatal ? 'line-through' : ''}`}>{lab ? lab.nama : `${xs.length} rincian`}</span>
+          {lab && <LencanaKegiatan />}
+        </span>
+        <span className="block truncate text-[12px] text-muted">
+          {satu ? `${xs[0].keterangan || xs[0].kategori} · ${xs[0].kategori}` : `${xs.length} rincian · ${kategori}`}
+          {nota ? ` · 📎 ${nota} nota` : ''}
+        </span>
+      </span>
+      <span className="grid shrink-0 justify-items-end gap-1">
+        <span className={`text-[14px] font-extrabold ${semuaBatal ? 'text-muted line-through' : 'text-danger'}`}>−{rp(semuaBatal ? xs.reduce((t, x) => t + x.nominal, 0) : total)}</span>
+        {semuaBatal ? <Chip>Dibatalkan</Chip> : xs.some((x) => x.sebelumMulai) ? <Chip warna="amber">Tidak dihitung</Chip> : null}
+      </span>
+    </>
+  )
+  if (satu) return <button className="row w-full text-left" onClick={() => buka(xs[0])}>{kepala}</button>
+  return (
+    <div className="py-1">
+      <div className="row !border-0 !pb-1">{kepala}</div>
+      <div className="mb-2 ml-[52px] rounded-[14px] bg-isi px-2.5 py-1 dark:bg-white/5">
+        {xs.map((x) => (
+          <button key={x.id} className="flex w-full items-center gap-2 py-1.5 text-left text-[12.5px]" onClick={() => buka(x)}>
+            <span style={FONT_EMOJI} aria-hidden="true">{emojiKategori(x.kategori, 'keluar')}</span>
+            <span className={`min-w-0 flex-1 truncate font-semibold ${x.dibatalkanPada ? 'text-muted line-through' : ''}`}>{x.keterangan || x.kategori}</span>
+            <span className={`shrink-0 font-extrabold ${x.dibatalkanPada ? 'text-muted line-through' : 'text-[#34405C] dark:text-[#B8C3DC]'}`}>{rp(x.nominal)}</span>
+            <Chevron />
+          </button>
+        ))}
+      </div>
     </div>
   )
 }
@@ -543,18 +646,40 @@ function BlokKategori({ judul, data, total, jenis }) {
 }
 
 /* ---------- form catat ---------- */
-const KOSONG = { tanggal: '', kategori: '', lain: '', nominal: '', keterangan: '', nota: null }
+const MAKS_NOTA = 3
+const RINCIAN_KOSONG = () => ({ kunci: Math.random().toString(36).slice(2), uraian: '', kategori: '', nominal: '' })
+const KOSONG = { tanggal: '', untuk: 'operasional', kegiatan: '', kategori: '', lain: '', nominal: '', keterangan: '', nota: [], rincian: [] }
 
-function SheetCatatKas({ jenis, tutup, mulai, onUbahMulai, kategoriLain, pencatat, demo, onSimpan, toast }) {
+function SheetCatatKas({ jenis, awalKegiatan, tutup, mulai, onUbahMulai, kategoriLain, pencatat, demo, onSimpan, toast }) {
+  const { biaya, paket, siswa, pengaturan } = useData()
   const [f, setF] = useState(KOSONG)
   const [sibuk, setSibuk] = useState(false)
   const [olahNota, setOlahNota] = useState(false)
   const [saldo, setSaldo] = useState(null) // { tersedia, dibatasiTanggal } untuk pengeluaran
   const [galat, setGalat] = useState('') // penolakan dari database, tampil di dalam form
+  const [pengeluaranKeg, setPengeluaranKeg] = useState(null) // untuk kotak "Dana kegiatan"
+  const pilihan = pilihanKegiatan(biaya, paket)
+
   useEffect(() => {
-    if (jenis) setF({ ...KOSONG, tanggal: tanggalISO() })
+    if (jenis) {
+      setF({
+        ...KOSONG, tanggal: tanggalISO(), rincian: [RINCIAN_KOSONG()],
+        untuk: awalKegiatan ? 'kegiatan' : 'operasional', kegiatan: awalKegiatan || '',
+      })
+    }
     setGalat('')
-  }, [jenis])
+  }, [jenis, awalKegiatan])
+
+  const modeKegiatan = jenis === 'keluar' && f.untuk === 'kegiatan'
+  // dana kegiatan (uang masuk vs terpakai) dimuat sekali saat mode kegiatan dibuka
+  useEffect(() => {
+    if (!modeKegiatan || pengeluaranKeg) return
+    api.kasPengeluaranKegiatan().then(setPengeluaranKeg).catch(() => setPengeluaranKeg([]))
+  }, [modeKegiatan]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { if (!jenis) setPengeluaranKeg(null) }, [jenis])
+  const dana = modeKegiatan && f.kegiatan && pengeluaranKeg
+    ? hitungRekapKegiatan({ biaya, paket, siswa, pengeluaran: pengeluaranKeg }).find((k) => k.kunci === f.kegiatan)
+    : null
 
   // Pengeluaran: tampilkan saldo yang masih bisa dipakai pada tanggal itu.
   const tglSah = !!f.tanggal && (!mulai || f.tanggal >= mulai) && f.tanggal <= tanggalISO()
@@ -567,25 +692,41 @@ function SheetCatatKas({ jenis, tutup, mulai, onUbahMulai, kategoriLain, pencata
     }, 250)
     return () => { aktif = false; clearTimeout(t) }
   }, [jenis, f.tanggal, tglSah]) // eslint-disable-line react-hooks/exhaustive-deps
-  const nominalAngka = Number(f.nominal) || 0
-  const lebih = jenis === 'keluar' && saldo && nominalAngka > saldo.tersedia
+
+  const rincianIsi = f.rincian.filter((r) => r.uraian.trim() || r.kategori || Number(r.nominal))
+  const total = modeKegiatan ? rincianIsi.reduce((t, r) => t + (Number(r.nominal) || 0), 0) : Number(f.nominal) || 0
+  const lebih = jenis === 'keluar' && saldo && total > saldo.tersedia
 
   const bawaan = (jenis === 'masuk' ? KATEGORI_MASUK : KATEGORI_KELUAR).map((k) => k.nama)
-  const pilihan = [...bawaan, ...kategoriLain.filter((k) => !bawaan.some((b) => b.toLowerCase() === k.toLowerCase()))]
+  const pilihanKategori = [...bawaan, ...kategoriLain.filter((k) => !bawaan.some((b) => b.toLowerCase() === k.toLowerCase()) && !KATEGORI_KEGIATAN.some((b) => b.nama === k))]
   const ubah = (u) => { setGalat(''); setF((x) => ({ ...x, ...u })) }
+  const ubahRincian = (kunci, u) => { setGalat(''); setF((x) => ({ ...x, rincian: x.rincian.map((r) => (r.kunci === kunci ? { ...r, ...u } : r)) })) }
   const kategori = f.kategori === '__lain' ? f.lain.trim() : f.kategori
 
   const simpan = async () => {
-    if (!kategori) return toast('Pilih kategori dulu')
-    if (!Number(f.nominal)) return toast('Isi nominalnya')
     if (!f.tanggal) return toast('Isi tanggalnya')
     if (mulai && f.tanggal < mulai) return toast(`Tanggal sebelum tanggal mulai kas (${tglKas(mulai, true)})`)
+    let rincian
+    if (modeKegiatan) {
+      if (!f.kegiatan) return toast('Pilih kegiatannya dulu')
+      if (!rincianIsi.length) return toast('Isi minimal satu rincian')
+      const kurang = rincianIsi.findIndex((r) => !r.uraian.trim() || !r.kategori || !Number(r.nominal))
+      if (kurang >= 0) return toast(`Rincian ${kurang + 1}: lengkapi uraian, kategori, dan nominalnya`)
+      rincian = rincianIsi.map((r) => ({ uraian: r.uraian.trim(), kategori: r.kategori, nominal: Number(r.nominal) }))
+    } else {
+      if (!kategori) return toast('Pilih kategori dulu')
+      if (!Number(f.nominal)) return toast('Isi nominalnya')
+      rincian = [{ uraian: f.keterangan.trim(), kategori, nominal: Number(f.nominal) }]
+    }
     if (lebih) return toast(`Saldo kas tidak cukup — maksimal ${rp(saldo.tersedia)}`)
     setSibuk(true)
     try {
-      const baris = await api.catatKas({ jenis, tanggal: f.tanggal, kategori, nominal: Number(f.nominal), keterangan: f.keterangan.trim(), nota: f.nota, pencatat }, demo.current)
-      onSimpan(baris)
-      toast(jenis === 'keluar' ? 'Pengeluaran dicatat' : 'Pemasukan dicatat')
+      const { biayaId, paketId } = modeKegiatan ? dariKunci(f.kegiatan) : { biayaId: null, paketId: null }
+      const hasil = await api.catatKasRincian({
+        jenis, tanggal: f.tanggal, rincian, biayaId, paketId, nota: f.nota, sekolahId: pengaturan.id, pencatat,
+      }, demo.current)
+      onSimpan({ tanggal: hasil.tanggal })
+      toast(jenis === 'masuk' ? 'Pemasukan dicatat' : rincian.length > 1 ? `${rincian.length} rincian pengeluaran dicatat` : 'Pengeluaran dicatat')
       tutup()
     } catch (e) {
       setGalat(e.message)
@@ -594,11 +735,14 @@ function SheetCatatKas({ jenis, tutup, mulai, onUbahMulai, kategoriLain, pencata
     }
   }
 
-  const pilihNota = async (file) => {
-    if (!file) return
+  const pilihNota = async (files) => {
+    const daftar = [...(files || [])].slice(0, MAKS_NOTA - f.nota.length)
+    if (!daftar.length) return
     setOlahNota(true)
     try {
-      ubah({ nota: await siapkanNota(file) })
+      const hasil = []
+      for (const file of daftar) hasil.push(await siapkanNota(file))
+      setF((x) => ({ ...x, nota: [...x.nota, ...hasil].slice(0, MAKS_NOTA) }))
     } catch (e) {
       toast(e.message)
     } finally {
@@ -607,6 +751,7 @@ function SheetCatatKas({ jenis, tutup, mulai, onUbahMulai, kategoriLain, pencata
   }
 
   const label = 'mb-1.5 block text-[13px] font-bold'
+  const pilihKegiatan = pilihan.find((x) => x.kunci === f.kegiatan)
   return (
     <Sheet
       buka={!!jenis}
@@ -614,39 +759,102 @@ function SheetCatatKas({ jenis, tutup, mulai, onUbahMulai, kategoriLain, pencata
       judul={jenis === 'keluar' ? 'Catat pengeluaran' : 'Catat pemasukan lain'}
       lead={jenis === 'keluar' ? 'Uang yang keluar dari kas sekolah.' : 'Di luar SPP & biaya kegiatan (itu sudah tercatat otomatis).'}
     >
-      <label className={label}>Kategori</label>
-      <div className="mb-3 flex flex-wrap gap-2">
-        {pilihan.map((k) => (
-          <button
-            key={k}
-            onClick={() => ubah({ kategori: k })}
-            className={`flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-[13px] font-bold ${
-              f.kategori === k ? (jenis === 'keluar' ? 'border-danger bg-danger-soft text-danger' : 'border-ok bg-ok-soft text-ok-deep') : 'border-line bg-kartu'
-            }`}
-          >
-            <span style={FONT_EMOJI}>{emojiKategori(k, jenis)}</span>{k}
-          </button>
-        ))}
-        <button
-          onClick={() => ubah({ kategori: '__lain' })}
-          className={`rounded-pill border px-3 py-1.5 text-[13px] font-bold ${f.kategori === '__lain' ? 'border-brand bg-brand-soft text-brand' : 'border-dashed border-line bg-kartu'}`}
-        >
-          ✏️ Kategori lain…
-        </button>
-      </div>
-      {f.kategori === '__lain' && (
-        <input className="field-input mb-3" maxLength={40} autoFocus placeholder="Nama kategori, mis. Seragam guru" value={f.lain} onChange={(e) => ubah({ lain: e.target.value })} />
+      {jenis === 'keluar' && (
+        <>
+          <label className={label}>Pengeluaran ini untuk</label>
+          <div className="mb-3 grid grid-cols-2 gap-2">
+            {[['operasional', 'Operasional', 'listrik, ATK, honor…'], ['kegiatan', 'Kegiatan', 'manasik, outing, PMB…']].map(([id, j, sub]) => (
+              <button
+                key={id}
+                type="button"
+                aria-pressed={f.untuk === id}
+                onClick={() => ubah({ untuk: id })}
+                className={`rounded-[16px] px-3 py-2.5 text-left ${f.untuk === id ? 'permen permen-kecil permen-kuning' : 'border-[1.5px] border-[#DCE6F4] bg-kartu dark:border-line'}`}
+              >
+                <b className="block text-[13.5px] font-extrabold">{j}</b>
+                <span className="text-[11px] font-bold opacity-75">{sub}</span>
+              </button>
+            ))}
+          </div>
+        </>
       )}
 
-      <div className="mb-3 grid grid-cols-2 gap-2.5">
+      {modeKegiatan ? (
+        <>
+          <label className={label}>Kegiatan</label>
+          {pilihan.length === 0 ? (
+            <p className="mb-3 rounded-xl bg-isi px-3 py-2.5 text-[12.5px] font-semibold text-muted">Belum ada kegiatan. Tambahkan dulu di menu Jenis biaya.</p>
+          ) : (
+            <div className="noscroll -mx-[18px] mb-3 flex gap-2 overflow-x-auto px-[18px] pb-1 lg:-mx-6 lg:px-6">
+              {pilihan.map((k) => (
+                <button
+                  key={k.kunci}
+                  type="button"
+                  aria-pressed={f.kegiatan === k.kunci}
+                  onClick={() => ubah({ kegiatan: k.kunci })}
+                  className={`flex shrink-0 items-center gap-2 rounded-[16px] bg-kartu py-1.5 pl-1.5 pr-3 ${f.kegiatan === k.kunci ? 'border-2 border-brand shadow-[0_0_0_3px_rgba(59,110,246,.18)]' : 'border-[1.5px] border-[#DCE6F4] dark:border-line'}`}
+                >
+                  <GambarKegiatan emoji={k.emoji} size={30} className="rounded-[10px]" />
+                  <b className="whitespace-nowrap text-[12.5px] font-extrabold">{k.nama}</b>
+                </button>
+              ))}
+            </div>
+          )}
+          {pilihKegiatan && (
+            <div className="mb-3 rounded-[18px] bg-ok-soft px-3.5 py-3 text-ok-deep">
+              <div className="flex items-center gap-2 text-[12px] font-extrabold">
+                <GambarKegiatan emoji={pilihKegiatan.emoji} size={24} className="rounded-[8px]" />Dana {pilihKegiatan.nama}
+              </div>
+              <div className="mt-2 grid grid-cols-3 gap-1.5">
+                {[['Terkumpul', dana?.masuk], ['Sudah terpakai', dana?.terpakai], ['Sisa sekarang', dana?.sisa]].map(([l, v]) => (
+                  <span key={l} className="min-w-0">
+                    <span className="block text-[10.5px] font-extrabold opacity-75">{l}</span>
+                    <b className={`block truncate text-[13px] font-extrabold ${v < 0 ? 'text-danger' : ''}`}>{dana ? rpTanda(v) : '…'}</b>
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <label className={label}>Kategori</label>
+          <div className="mb-3 flex flex-wrap gap-2">
+            {pilihanKategori.map((k) => (
+              <button
+                key={k}
+                onClick={() => ubah({ kategori: k })}
+                className={`flex items-center gap-1.5 rounded-pill border px-3 py-1.5 text-[13px] font-bold ${
+                  f.kategori === k ? (jenis === 'keluar' ? 'border-danger bg-danger-soft text-danger' : 'border-ok bg-ok-soft text-ok-deep') : 'border-line bg-kartu'
+                }`}
+              >
+                <span style={FONT_EMOJI}>{emojiKategori(k, jenis)}</span>{k}
+              </button>
+            ))}
+            <button
+              onClick={() => ubah({ kategori: '__lain' })}
+              className={`rounded-pill border px-3 py-1.5 text-[13px] font-bold ${f.kategori === '__lain' ? 'border-brand bg-brand-soft text-brand' : 'border-dashed border-line bg-kartu'}`}
+            >
+              ✏️ Kategori lain…
+            </button>
+          </div>
+          {f.kategori === '__lain' && (
+            <input className="field-input mb-3" maxLength={40} autoFocus placeholder="Nama kategori, mis. Seragam guru" value={f.lain} onChange={(e) => ubah({ lain: e.target.value })} />
+          )}
+        </>
+      )}
+
+      <div className={`mb-3 grid gap-2.5 ${modeKegiatan ? 'grid-cols-1' : 'grid-cols-2'}`}>
         <div>
           <label className={label}>Tanggal</label>
           <input type="date" className="field-input" value={f.tanggal} min={mulai || undefined} max={tanggalISO()} onChange={(e) => ubah({ tanggal: e.target.value })} />
         </div>
-        <div>
-          <label className={label}>Nominal</label>
-          <InputNominal value={f.nominal} onChange={(v) => ubah({ nominal: v })} placeholder="150.000" />
-        </div>
+        {!modeKegiatan && (
+          <div>
+            <label className={label}>Nominal</label>
+            <InputNominal value={f.nominal} onChange={(v) => ubah({ nominal: v })} placeholder="150.000" />
+          </div>
+        )}
       </div>
       {mulai && (
         <p className="-mt-1.5 mb-3 flex flex-wrap items-center gap-x-1.5 px-0.5 text-[11.5px] font-semibold text-muted">
@@ -667,51 +875,148 @@ function SheetCatatKas({ jenis, tutup, mulai, onUbahMulai, kategoriLain, pencata
         </p>
       ) : null}
 
-      <label className={label}>Keterangan <span className="font-semibold text-muted">(opsional)</span></label>
-      <input className="field-input mb-3" maxLength={300} value={f.keterangan} onChange={(e) => ubah({ keterangan: e.target.value })} placeholder={jenis === 'keluar' ? 'mis. Beli kertas HVS & spidol' : 'mis. Donasi dari alumni'} />
-
-      <label className={label}>Foto nota <span className="font-semibold text-muted">(opsional)</span></label>
-      {f.nota ? (
-        <div className="mb-4 flex items-center gap-3 rounded-2xl border border-line bg-kartu p-2.5">
-          <img src={f.nota} alt="Nota" className="h-16 w-16 rounded-xl object-cover" />
-          <span className="flex-1 text-[12.5px] font-semibold text-muted">Foto nota siap disimpan</span>
-          <button className="px-2 text-[12.5px] font-bold text-danger" onClick={() => ubah({ nota: null })}>Hapus</button>
+      {modeKegiatan ? (
+        <div className="card mb-3 !p-3.5">
+          <div className="mb-1 flex items-start justify-between gap-2">
+            <div>
+              <div className="judul-kartu text-[17px]">Rincian</div>
+              <div className="text-[12px] font-semibold text-muted">Satu baris = satu barang / jasa</div>
+            </div>
+            <span className="mt-1 text-[11.5px] font-extrabold text-muted">{f.rincian.length} baris</span>
+          </div>
+          {f.rincian.map((r, i) => (
+            <div key={r.kunci} className={`py-2.5 ${i ? 'border-t-[1.5px] border-dashed border-line' : ''}`}>
+              <div className="flex items-center gap-2">
+                <span className="w-5 shrink-0 text-center text-[12px] font-extrabold text-muted">{i + 1}</span>
+                <input
+                  className="field-input !h-10 !rounded-[12px] !py-2 !text-[13.5px]"
+                  maxLength={120}
+                  placeholder={i === 0 ? 'mis. Sewa bus 1 unit' : 'Uraian'}
+                  aria-label={`Uraian rincian ${i + 1}`}
+                  value={r.uraian}
+                  onChange={(e) => ubahRincian(r.kunci, { uraian: e.target.value })}
+                />
+                <button
+                  type="button"
+                  aria-label={`Hapus rincian ${i + 1}`}
+                  disabled={f.rincian.length === 1}
+                  className="grid h-9 w-9 shrink-0 place-items-center rounded-[11px] text-muted hover:text-danger disabled:opacity-30"
+                  onClick={() => ubah({ rincian: f.rincian.filter((x) => x.kunci !== r.kunci) })}
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3" /></svg>
+                </button>
+              </div>
+              <div className="ml-7 mt-2 flex items-center gap-2">
+                <label className={`relative min-w-0 flex-1 ${r.kategori ? `permen permen-kecil permen-${warnaKategoriKegiatan(r.kategori)}` : 'border-[1.5px] border-dashed border-line bg-kartu'} flex h-[38px] items-center gap-1.5 rounded-[11px] px-2.5 text-[12.5px] font-extrabold`}>
+                  <span style={FONT_EMOJI} aria-hidden="true">{r.kategori ? emojiKategori(r.kategori, 'keluar') : '🏷️'}</span>
+                  <span className="min-w-0 flex-1 truncate">{r.kategori || 'Kategori'}</span>
+                  <span aria-hidden="true" className="rotate-90 opacity-60">›</span>
+                  <select
+                    className="absolute inset-0 cursor-pointer opacity-0"
+                    aria-label={`Kategori rincian ${i + 1}`}
+                    value={r.kategori}
+                    onChange={(e) => ubahRincian(r.kunci, { kategori: e.target.value })}
+                  >
+                    <option value="">Pilih kategori</option>
+                    {KATEGORI_KEGIATAN.map((k) => <option key={k.nama} value={k.nama}>{k.e} {k.nama}</option>)}
+                  </select>
+                </label>
+                <InputNominal className="w-[148px] shrink-0" value={r.nominal} onChange={(v) => ubahRincian(r.kunci, { nominal: v })} placeholder="0" aria-label={`Nominal rincian ${i + 1}`} />
+              </div>
+            </div>
+          ))}
+          {f.rincian.length < 20 && (
+            <button
+              type="button"
+              className="mt-1 flex h-10 w-full items-center justify-center gap-1.5 rounded-[14px] border-[1.5px] border-dashed border-[#B9CBEF] bg-brand-soft/60 text-[13px] font-extrabold text-brand dark:border-line dark:bg-white/5"
+              onClick={() => ubah({ rincian: [...f.rincian, RINCIAN_KOSONG()] })}
+            >
+              <Ikon.plus size={16} />Tambah rincian
+            </button>
+          )}
+          <div className="mt-3 flex items-center justify-between rounded-[16px] bg-danger-soft px-3.5 py-2.5 text-danger shadow-[inset_0_-3px_0_rgba(239,68,68,.18)]">
+            <span className="text-[12.5px] font-extrabold">Total keluar</span>
+            <b className="font-display text-[22px] font-bold">{rp(total)}</b>
+          </div>
+          {dana && total > 0 && (
+            <p className="mt-2 text-[11.5px] font-bold text-muted">
+              Sisa dana {pilihKegiatan?.nama} setelah ini:{' '}
+              <b className={dana.sisa - total < 0 ? 'text-danger' : 'text-ok-deep'}>{rpTanda(dana.sisa - total)}</b>
+              {dana.sisa - total < 0 && ' (nombok, ditutup kas sekolah)'}
+            </p>
+          )}
         </div>
       ) : (
-        <label className="mb-4 flex cursor-pointer items-center justify-center gap-2 rounded-2xl border border-dashed border-line bg-kartu py-3.5 text-[13.5px] font-bold text-brand">
-          <input type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => { pilihNota(e.target.files?.[0]); e.target.value = '' }} />
-          {olahNota ? 'Memproses foto…' : '📷 Foto / pilih gambar nota'}
-        </label>
+        <>
+          <label className={label}>Keterangan <span className="font-semibold text-muted">(opsional)</span></label>
+          <input className="field-input mb-3" maxLength={300} value={f.keterangan} onChange={(e) => ubah({ keterangan: e.target.value })} placeholder={jenis === 'keluar' ? 'mis. Beli kertas HVS & spidol' : 'mis. Donasi dari alumni'} />
+        </>
       )}
+
+      <div className="mb-1.5 flex items-center justify-between gap-2">
+        <span className="text-[13px] font-bold">Foto nota <span className="font-semibold text-muted">(opsional)</span></span>
+        {modeKegiatan && <span className="text-[11px] font-semibold text-muted">1 foto bisa untuk semua rincian</span>}
+      </div>
+      <div className="mb-4 flex flex-wrap items-center gap-2.5 rounded-2xl border border-line bg-kartu p-2.5">
+        {f.nota.map((n, i) => (
+          <div key={i} className="relative">
+            <img src={n} alt={`Nota ${i + 1}`} className="h-16 w-16 rounded-xl object-cover" />
+            <button
+              type="button"
+              aria-label={`Hapus foto nota ${i + 1}`}
+              className="absolute -right-1.5 -top-1.5 grid h-6 w-6 place-items-center rounded-full bg-danger text-[13px] font-extrabold text-white shadow"
+              onClick={() => ubah({ nota: f.nota.filter((_, j) => j !== i) })}
+            >
+              ×
+            </button>
+          </div>
+        ))}
+        {f.nota.length < MAKS_NOTA && (
+          <label className={`flex cursor-pointer items-center justify-center gap-2 rounded-xl border border-dashed border-line text-[13px] font-bold text-brand ${f.nota.length ? 'h-16 w-16' : 'flex-1 py-3'}`}>
+            <input type="file" accept="image/*" multiple className="hidden" onChange={(e) => { pilihNota(e.target.files); e.target.value = '' }} />
+            {olahNota ? '…' : f.nota.length ? <Ikon.plus size={18} /> : '📷 Foto / pilih gambar nota'}
+          </label>
+        )}
+        {f.nota.length > 0 && <span className="w-full text-[11px] font-semibold text-muted">{f.nota.length}/{MAKS_NOTA} foto · diperkecil otomatis</span>}
+      </div>
 
       {galat && <p className="mb-3 rounded-xl bg-danger-soft px-3.5 py-2.5 text-[12.5px] font-semibold leading-relaxed text-danger">{galat}</p>}
       <button className={`bigbtn disabled:opacity-50 ${jenis === 'keluar' ? '!bg-danger' : '!bg-ok'}`} disabled={sibuk || olahNota || lebih} onClick={simpan}>
-        {sibuk ? 'Menyimpan…' : lebih ? 'Saldo kas tidak cukup' : jenis === 'keluar' ? `Simpan pengeluaran${f.nominal ? ' ' + rp(f.nominal) : ''}` : `Simpan pemasukan${f.nominal ? ' ' + rp(f.nominal) : ''}`}
+        {sibuk ? 'Menyimpan…'
+          : lebih ? 'Saldo kas tidak cukup'
+            : jenis === 'masuk' ? `Simpan pemasukan${total ? ' ' + rp(total) : ''}`
+              : modeKegiatan ? `Simpan ${rincianIsi.length || ''} rincian${total ? ' · ' + rp(total) : ''}`.replace('  ', ' ')
+                : `Simpan pengeluaran${total ? ' ' + rp(total) : ''}`}
       </button>
     </Sheet>
   )
 }
 
-/* ---------- detail + batalkan ---------- */
-function SheetDetailKas({ baris, tutup, bisaBatal, cegahKunci, oleh, demo, toast, onBatal }) {
-  const [nota, setNota] = useState(null)
+/* ---------- detail + label kegiatan + batalkan ---------- */
+function SheetDetailKas({ baris, tutup, bisaCatat, label, onUbahLabel, bisaBatal, cegahKunci, oleh, demo, toast, onBatal }) {
+  const [nota, setNota] = useState([]) // [{ alamat, url }]
   const [muatNota, setMuatNota] = useState(false)
   const [alasan, setAlasan] = useState(null) // null = belum mau membatalkan
   const [sibuk, setSibuk] = useState(false)
   const [galat, setGalat] = useState('')
+  const [atur, setAtur] = useState(null) // { kegiatan, kategori } saat mengubah label
 
   useEffect(() => {
-    setNota(null)
+    setNota([])
     setAlasan(null)
+    setAtur(null)
     setGalat('')
     if (baris?.adaNota) {
       setMuatNota(true)
-      api.notaKas(baris.id).then(setNota).catch(() => setNota(null)).finally(() => setMuatNota(false))
+      api.notaKas(baris.id).then(setNota).catch(() => setNota([])).finally(() => setMuatNota(false))
     }
   }, [baris])
 
   if (!baris) return null
   const batal = !!baris.dibatalkanPada
+  const kunci = kunciLabel(baris)
+  const lab = label.find((x) => x.kunci === kunci)
+  const bisaLabel = bisaCatat && !batal && baris.jenis === 'keluar'
 
   const kirimBatal = async (teks) => {
     setSibuk(true)
@@ -726,34 +1031,82 @@ function SheetDetailKas({ baris, tutup, bisaBatal, cegahKunci, oleh, demo, toast
     }
   }
 
+  const simpanLabel = async () => {
+    if (atur.kegiatan && !atur.kategori) return toast('Pilih kategorinya')
+    setSibuk(true)
+    try {
+      await api.aturKegiatanKas(baris.id, { ...dariKunci(atur.kegiatan), kategori: atur.kategori || null })
+      toast(atur.kegiatan ? 'Label kegiatan disimpan' : 'Label kegiatan dihapus')
+      onUbahLabel()
+    } catch (e) {
+      setGalat(e.message)
+    } finally {
+      setSibuk(false)
+    }
+  }
+
   const Kv = ({ k, v }) => (
     <div className="flex justify-between gap-3 py-1.5 text-[13.5px]">
       <span className="shrink-0 font-semibold text-muted">{k}</span>
       <span className="text-right font-bold">{v}</span>
     </div>
   )
+  const kategoriAtur = atur?.kegiatan ? KATEGORI_KEGIATAN.map((k) => k.nama) : [...new Set([baris.kategori, ...KATEGORI_KELUAR.map((k) => k.nama)])]
 
   return (
     <Sheet buka tutup={() => !sibuk && tutup()} judul={baris.jenis === 'keluar' ? 'Detail pengeluaran' : 'Detail pemasukan'}>
       <div className="card">
         <div className="flex items-center gap-3">
-          <span className={`grid h-12 w-12 place-items-center rounded-2xl text-[24px] ${baris.jenis === 'keluar' ? 'bg-danger-soft' : 'bg-ok-soft'}`} style={FONT_EMOJI}>
-            {emojiKategori(baris.kategori, baris.jenis)}
-          </span>
+          {lab ? (
+            <GambarKegiatan emoji={lab.emoji} size={48} className="rounded-2xl" />
+          ) : (
+            <span className={`grid h-12 w-12 place-items-center rounded-2xl text-[24px] ${baris.jenis === 'keluar' ? 'bg-danger-soft' : 'bg-ok-soft'}`} style={FONT_EMOJI}>
+              {emojiKategori(baris.kategori, baris.jenis)}
+            </span>
+          )}
           <div className="min-w-0">
             <div className={`text-[20px] font-extrabold ${batal ? 'text-muted line-through' : baris.jenis === 'keluar' ? 'text-danger' : 'text-ok-deep'}`}>
               {baris.jenis === 'keluar' ? '−' : '+'}{rp(baris.nominal)}
             </div>
-            <div className="text-[13px] font-bold">{baris.kategori}</div>
+            <div className="text-[13px] font-bold">{baris.keterangan || baris.kategori}</div>
           </div>
         </div>
         <div className="mt-3 border-t border-line pt-2">
+          {baris.jenis === 'keluar' && <Kv k="Untuk" v={lab ? <span className="inline-flex items-center gap-1.5">{lab.nama}<LencanaKegiatan /></span> : kunci ? baris.kegiatan || 'Kegiatan' : 'Operasional sekolah'} />}
+          <Kv k="Kategori" v={<span><span style={FONT_EMOJI}>{emojiKategori(baris.kategori, baris.jenis)}</span> {baris.kategori}</span>} />
           <Kv k="Tanggal" v={tglTampil(baris.tanggal)} />
           <Kv k="Keterangan" v={baris.keterangan || '—'} />
           <Kv k="Dicatat oleh" v={baris.dicatatNama || '—'} />
           {baris.dibuatPada && <Kv k="Waktu dicatat" v={waktuTampil(baris.dibuatPada)} />}
         </div>
       </div>
+
+      {bisaLabel && (atur === null ? (
+        <button
+          className="mt-3 flex w-full items-center justify-center gap-2 rounded-2xl border-[1.5px] border-[#DCE6F4] bg-kartu py-3 text-[13.5px] font-extrabold text-brand dark:border-line"
+          onClick={() => !cegahKunci('kas') && setAtur({ kegiatan: kunci, kategori: kunci ? baris.kategori : '' })}
+        >
+          <Ikon.pensil size={16} />{lab ? 'Ubah label kegiatan' : 'Tandai untuk kegiatan'}
+        </button>
+      ) : (
+        <div className="card mt-3 !p-3.5">
+          <label className="mb-1.5 block text-[13px] font-bold" htmlFor="label-kegiatan">Untuk kegiatan</label>
+          <select id="label-kegiatan" className="field-input mb-3" value={atur.kegiatan} onChange={(e) => setAtur({ kegiatan: e.target.value, kategori: '' })}>
+            <option value="">— Tanpa label (operasional)</option>
+            {label.map((x) => <option key={x.kunci} value={x.kunci}>{x.nama}</option>)}
+          </select>
+          <label className="mb-1.5 block text-[13px] font-bold" htmlFor="label-kategori">Kategori</label>
+          <select id="label-kategori" className="field-input mb-2" value={atur.kategori} onChange={(e) => setAtur((a) => ({ ...a, kategori: e.target.value }))}>
+            <option value="">{atur.kegiatan ? 'Pilih kategori' : `Tetap: ${baris.kategori}`}</option>
+            {kategoriAtur.map((k) => <option key={k} value={k}>{emojiKategori(k, 'keluar')} {k}</option>)}
+          </select>
+          <p className="mb-3 text-[11.5px] font-semibold leading-relaxed text-muted">Label hanya untuk rekap kegiatan. Nominal, tanggal & saldo kas tidak berubah.</p>
+          <div className="grid grid-cols-2 gap-2">
+            <button className="bigbtn-ghost !py-2.5 !text-[13.5px]" disabled={sibuk} onClick={() => setAtur(null)}>Batal</button>
+            <button className="bigbtn !py-2.5 !text-[13.5px] disabled:opacity-60" disabled={sibuk} onClick={simpanLabel}>{sibuk ? 'Menyimpan…' : 'Simpan label'}</button>
+          </div>
+        </div>
+      ))}
 
       {batal && (
         <div className="mt-3 rounded-2xl bg-danger-soft p-3.5 text-[13px] font-semibold text-danger">
@@ -773,18 +1126,23 @@ function SheetDetailKas({ baris, tutup, bisaBatal, cegahKunci, oleh, demo, toast
 
       {baris.adaNota && (
         <>
-          <div className="mb-2 mt-4 text-sm font-extrabold">Foto nota</div>
-          <div className="card grid min-h-[120px] place-items-center p-2" style={{ background: '#fff' }}>
+          <div className="mb-2 mt-4 text-sm font-extrabold">Foto nota{nota.length > 1 ? ` (${nota.length})` : ''}</div>
+          <div className="card grid min-h-[120px] place-items-center gap-2 p-2" style={{ background: '#fff' }}>
             {muatNota ? <span className="text-[13px] text-muted">Memuat foto…</span>
-              : nota ? <a href={nota} target="_blank" rel="noreferrer"><img src={nota} alt="Nota" className="max-h-[360px] rounded-xl object-contain" /></a>
+              : nota.some((n) => n.url) ? nota.filter((n) => n.url).map((n, i) => (
+                <a key={i} href={n.url} target="_blank" rel="noreferrer" aria-label={`Buka foto nota ${i + 1}`}>
+                  <img src={n.url} alt={`Nota ${i + 1}`} className="max-h-[360px] rounded-xl object-contain" />
+                </a>
+              ))
               : <span className="text-[13px] text-muted">Foto tidak bisa dimuat.</span>}
           </div>
+          {nota.some((n) => n.alamat) && <p className="mt-1.5 px-1 text-[11px] font-semibold text-muted">Ketuk foto untuk membuka / mengunduh.</p>}
         </>
       )}
 
       <div className="h-4" />
       {galat && <p className="mb-3 rounded-xl bg-danger-soft px-3.5 py-2.5 text-[12.5px] font-semibold leading-relaxed text-danger">{galat}</p>}
-      {bisaBatal && !batal && (alasan === null ? (
+      {bisaBatal && !batal && atur === null && (alasan === null ? (
         <button
           className="mb-2.5 w-full rounded-2xl bg-danger-soft py-3.5 text-[15px] font-extrabold text-danger"
           onClick={() => !cegahKunci('batal') && setAlasan('')}

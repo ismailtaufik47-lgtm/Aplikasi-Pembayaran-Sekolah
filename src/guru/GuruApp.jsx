@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom'
 import {
   Shell, Toast, Ikon, Muat, Sidebar, MerekSidebar, NavLabel, NavItem, TabEmoji, TombolTema,
-  KakiRumput, LogoSekolah, Sheet,
+  KakiRumput, LogoSekolah, Sheet, Chevron,
 } from '../components/ui.jsx'
 import { useLoncengTagih } from '../lib/lonceng.js'
 import { useData } from '../lib/store.jsx'
@@ -37,6 +37,7 @@ export default function GuruApp() {
   const { siap, galat, peran, pesan, muat, segarkan, pengaturan, boleh, terkunci, cegahKunci } = useData()
   const { sesi, siap: authSiap } = useAuth()
   const [catat, setCatat] = useState(null)   // { siswaId } | null
+  const [pilihTransaksi, setPilihTransaksi] = useState(false) // lembar "Transaksi" (tombol tengah)
   const [formSiswa, setFormSiswa] = useState(null) // { siswaId } | null
   const [layarMasuk, setLayarMasuk] = useState('masuk') // 'masuk' | 'daftar' — sebelum ada sesi
   const nav = useNavigate()
@@ -75,7 +76,18 @@ export default function GuruApp() {
   const menu = menuSekolah(boleh, peran)
   const ada = (id) => menu.some((m) => m.id === id)
   const bisaCatat = boleh('pembayaran')
-  const tab = pilihTab(menu, bisaCatat)
+  const bisaKas = ada('kas') && boleh('kas')
+  const tab = pilihTab(menu, bisaCatat || bisaKas)
+  // Tombol "Transaksi": langsung ke form kalau hanya boleh satu jenis, selain itu tampilkan pilihan.
+  const bukaTransaksi = () => {
+    if (bisaCatat && !bisaKas) return bukaCatat()
+    if (!bisaCatat && bisaKas) return catatKas('keluar')
+    setPilihTransaksi(true)
+  }
+  const catatKas = (jenis) => {
+    if (cegahKunci('kas')) return
+    nav('/guru/kas', { state: { catat: jenis, minta: Date.now() } })
+  }
 
   const halaman = pathname.includes('/tanya-ai') ? 'ai'
     : (menu.find((m) => m.id !== 'beranda' && pathname.startsWith(m.ke)) || {}).id
@@ -95,8 +107,8 @@ export default function GuruApp() {
     <div className="teks-jelas panel-ceria">
     <Shell
       ceria
-      sidebar={<SisiKiri aktif={halaman} nav={nav} menu={menu} buka={() => bukaCatat()} terkunci={terkunci} bisaCatat={bisaCatat} peran={peran} />}
-      tabbar={<TabBar tab={tab} aktif={tabAktif} nav={nav} buka={() => bukaCatat()} terkunci={terkunci} tumpang={!halamanAI} />}
+      sidebar={<SisiKiri aktif={halaman} nav={nav} menu={menu} buka={bukaTransaksi} terkunci={terkunci} bisaCatat={bisaCatat || bisaKas} peran={peran} />}
+      tabbar={<TabBar tab={tab} aktif={tabAktif} nav={nav} buka={bukaTransaksi} terkunci={terkunci} tumpang={!halamanAI} />}
     >
       {halamanAI ? <TanyaAI /> : (
       <AreaGulir pathname={pathname}>
@@ -140,6 +152,17 @@ export default function GuruApp() {
       </AreaGulir>
       )}
       {bisaCatat && <SheetCatat buka={!!catat} awal={catat} tutup={() => setCatat(null)} />}
+      <SheetTransaksi
+        buka={pilihTransaksi}
+        tutup={() => setPilihTransaksi(false)}
+        bisaCatat={bisaCatat}
+        bisaKas={bisaKas}
+        pilih={(jenis) => {
+          setPilihTransaksi(false)
+          if (jenis === 'bayar') bukaCatat()
+          else catatKas(jenis)
+        }}
+      />
       {boleh('siswa') && (
         <SheetSiswa
           buka={!!formSiswa}
@@ -261,7 +284,7 @@ function SisiKiri({ aktif, nav, menu, buka, terkunci, bisaCatat, peran }) {
           }`}
         >
           {terkunci ? <Ikon.jam size={18} /> : <Ikon.plus size={18} />}
-          Catat pembayaran
+          Catat transaksi
         </button>
       )}
 
@@ -283,6 +306,43 @@ function SisiKiri({ aktif, nav, menu, buka, terkunci, bisaCatat, peran }) {
         </div>
       </div>
     </Sidebar>
+  )
+}
+
+/**
+ * Lembar "Transaksi" (tombol tengah HP & tombol di navigasi kiri PC):
+ * pilih mau mencatat pembayaran siswa, pengeluaran, atau pemasukan lain.
+ */
+function SheetTransaksi({ buka, tutup, bisaCatat, bisaKas, pilih }) {
+  const pilihan = [
+    bisaCatat && { id: 'bayar', warna: 'biru', judul: 'Catat pembayaran', sub: 'Orang tua bayar SPP, kegiatan, PMB / daftar ulang',
+      ikon: <><path d="M12 5v14" /><path d="M5 12h14" /></> },
+    bisaKas && { id: 'keluar', warna: 'pink', judul: 'Catat pengeluaran', sub: 'Operasional atau untuk kegiatan (bisa banyak rincian)',
+      ikon: <><path d="M7 17 17 7" /><path d="M9 7h8v8" /></> },
+    bisaKas && { id: 'masuk', warna: 'tosca', judul: 'Pemasukan lain', sub: 'Donasi, dana BOP, sumbangan yayasan…',
+      ikon: <><path d="M17 7 7 17" /><path d="M7 9v8h8" /></> },
+  ].filter(Boolean)
+  return (
+    <Sheet buka={buka} tutup={tutup} judul="Transaksi baru" lead="Mau mencatat apa?">
+      <div className="grid gap-2.5 pb-1">
+        {pilihan.map((p) => (
+          <button
+            key={p.id}
+            onClick={() => pilih(p.id)}
+            className="flex items-center gap-3.5 rounded-[20px] border-[1.5px] border-[#DCE6F4] bg-kartu p-3.5 text-left transition hover:border-brand/50 active:scale-[.99] dark:border-line"
+          >
+            <span className={`permen permen-${p.warna} grid h-12 w-12 shrink-0 place-items-center rounded-[16px]`}>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">{p.ikon}</svg>
+            </span>
+            <span className="min-w-0 flex-1">
+              <b className="block text-[15px] font-extrabold">{p.judul}</b>
+              <span className="block text-[12.5px] font-semibold leading-snug text-muted">{p.sub}</span>
+            </span>
+            <Chevron />
+          </button>
+        ))}
+      </div>
+    </Sheet>
   )
 }
 

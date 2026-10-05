@@ -1090,7 +1090,12 @@ const bentukKas = (k) => ({
   dibatalkanPada: k.dibatalkan_pada || null,
   dibatalkanNama: k.dibatalkan_nama || '',
   alasanBatal: k.alasan_batal || '',
-  adaNota: k.ada_nota ?? !!k.nota,
+  adaNota: k.ada_nota ?? (!!k.nota || !!k.nota_file?.length),
+  biayaId: k.biaya_id || null,
+  paketId: k.paket_id || null,
+  grup: k.grup || null,
+  jmlNota: k.nota_file?.length || (k.nota ? 1 : 0),
+  notaFile: k.nota_file || [],
 })
 
 async function rpcKas(nama, param) {
@@ -1104,6 +1109,9 @@ function pesanKas(error) {
   if (/could not find the function public\.kas_(ringkasan|laporan_bulan|arus|riwayat|saldo_tersedia)/i.test(m)) {
     return 'Pembaruan kas belum aktif di database. Jalankan file 0030_kas_saldo.sql di Supabase SQL Editor.'
   }
+  if (/could not find the function public\.(kas_catat_rincian|kas_atur_kegiatan|kas_pengeluaran_kegiatan|kas_nota_file|kas_pindah_nota)|kas_riwayat\(.*p_saring/i.test(m)) {
+    return 'Pembaruan "pengeluaran kegiatan" belum aktif di database. Jalankan file 0035_pengeluaran_kegiatan.sql di Supabase SQL Editor.'
+  }
   if (/relation .*kas.* does not exist|could not find the (function|table)|schema cache/i.test(m)) {
     return 'Fitur kas belum aktif di database. Jalankan file 0028_kas.sql lalu 0030_kas_saldo.sql di Supabase SQL Editor.'
   }
@@ -1115,6 +1123,12 @@ let kasMemori = null
 const kasDemoAwal = () => (kasMemori ||= mock.kasDemo.map((k) => ({ dibuat_pada: k.tanggal + 'T08:00:00', ...k })))
 const kasDemoAtur = () => ({ saldoAwal: mock.kasPengaturanDemo.saldo_awal, mulai: mock.kasPengaturanDemo.mulai })
 /** `demo.pembayaran` = pembayaran di layar (supaya pembayaran yang dicatat saat demo ikut terhitung). */
+/** Nama kegiatan / paket untuk label (mode demo). */
+function namaLabelDemo(demo, k) {
+  if (k.biayaId) return (demo?.biaya || mock.biaya).find((b) => b.id === k.biayaId)?.nama || null
+  if (k.paketId) return (demo?.paket || []).find((p) => p.id === k.paketId)?.nama || null
+  return null
+}
 function kasDemo(demo) {
   const atur = kasDemoAtur()
   const pembayaran = demo?.pembayaran || bentuk(mock.bentukDemo()).pembayaran
@@ -1175,9 +1189,20 @@ export async function kasArus(sampai, n = 6, demo) {
 }
 
 /** Riwayat transaksi rentang tanggal, per halaman. → { item, lanjut, total } */
-export async function kasRiwayat({ dari, sampai, mulaiDari = 0, batas = 30 }, demo) {
-  if (modeDemo) return kas.riwayatKas(kasDemo(demo).gerakan, { dari, sampai, mulaiDari, batas })
-  const d = await rpcKas('kas_riwayat', { p_dari: dari, p_sampai: sampai, p_mulai_dari: mulaiDari, p_batas: batas })
+export async function kasRiwayat({ dari, sampai, mulaiDari = 0, batas = 30, saring = 'semua' }, demo) {
+  if (modeDemo) {
+    const r = kas.riwayatKas(kasDemo(demo).gerakan, { dari, sampai, mulaiDari, batas, saring })
+    return { ...r, item: r.item.map((x) => (x.sumber === 'kas' ? { ...x, kegiatan: namaLabelDemo(demo, x) } : x)) }
+  }
+  const param = { p_dari: dari, p_sampai: sampai, p_mulai_dari: mulaiDari, p_batas: batas }
+  let d
+  try {
+    d = await rpcKas('kas_riwayat', { ...param, p_saring: saring })
+  } catch (e) {
+    // database belum 0035 → riwayat lama (tanpa saringan & label)
+    if (saring !== 'semua' || !/0035/.test(e.message)) throw e
+    d = await rpcKas('kas_riwayat', param)
+  }
   return {
     item: (d.item || []).map((x) => ({ ...x, nominal: Number(x.nominal) })),
     lanjut: !!d.lanjut,
@@ -1196,12 +1221,130 @@ export async function kasSaldoTersedia(tanggal, demo) {
   return { tersedia: Number(d.tersedia), saldoTanggal: Number(d.saldoTanggal), dibatasiTanggal: d.dibatasiTanggal || null }
 }
 
-/** Foto nota satu transaksi (data URL) atau null. */
+/* ---------- foto nota di Supabase Storage (0035) ---------- */
+const BUCKET_NOTA = 'nota'
+const notaDemo = new Map() // mode demo: alamat → data URL
+let notaDemoSiap = false
+const siapkanNotaDemo = () => {
+  if (notaDemoSiap) return
+  notaDemoSiap = true
+  try {
+    Object.entries(mock.notaDemo()).forEach(([a, d]) => notaDemo.set(a, d))
+  } catch {
+    /* tanpa gambar contoh */
+  }
+}
+
+function dataUrlKeBlob(dataUrl) {
+  const [kepala, isi] = String(dataUrl).split(',')
+  const tipe = (kepala.match(/data:([^;]+)/) || [, 'image/jpeg'])[1]
+  const biner = atob(isi)
+  const buf = new Uint8Array(biner.length)
+  for (let i = 0; i < biner.length; i++) buf[i] = biner.charCodeAt(i)
+  return new Blob([buf], { type: tipe })
+}
+
+function pesanStorage(error) {
+  const m = error?.message || String(error)
+  if (/bucket not found|not found/i.test(m)) return 'Penyimpanan foto nota belum aktif. Jalankan file 0035_pengeluaran_kegiatan.sql di Supabase SQL Editor.'
+  if (/row-level security|unauthorized|403/i.test(m)) return 'Akun ini tidak punya akses menyimpan foto nota.'
+  if (/payload too large|exceeded|413/i.test(m)) return 'Foto nota terlalu besar.'
+  return 'Gagal mengunggah foto nota: ' + m
+}
+
+/** Unggah satu foto nota (data URL hasil siapkanNota) → alamatnya di Storage. */
+export async function unggahNota(dataUrl, sekolahId) {
+  if (modeDemo) {
+    const alamat = `demo/${crypto.randomUUID()}.jpg`
+    notaDemo.set(alamat, dataUrl)
+    return alamat
+  }
+  const png = String(dataUrl).startsWith('data:image/png')
+  const alamat = `${sekolahId}/${crypto.randomUUID()}.${png ? 'png' : 'jpg'}`
+  const { error } = await supabase.storage.from(BUCKET_NOTA).upload(alamat, dataUrlKeBlob(dataUrl), {
+    contentType: png ? 'image/png' : 'image/jpeg', upsert: false,
+  })
+  if (error) throw new Error(pesanStorage(error))
+  return alamat
+}
+
+/** Hapus foto yang sudah terunggah tapi transaksinya gagal disimpan. */
+async function hapusNotaTakTerpakai(alamat) {
+  if (!alamat.length) return
+  if (modeDemo) return alamat.forEach((a) => notaDemo.delete(a))
+  try {
+    await supabase.storage.from(BUCKET_NOTA).remove(alamat)
+  } catch {
+    /* sisa file tidak mengganggu */
+  }
+}
+
+/** Link sementara (1 jam) untuk menampilkan foto nota. */
+export async function urlNota(alamat) {
+  if (modeDemo) { siapkanNotaDemo(); return notaDemo.get(alamat) || null }
+  const { data, error } = await supabase.storage.from(BUCKET_NOTA).createSignedUrl(alamat, 3600)
+  if (error) throw new Error(pesanStorage(error))
+  return data?.signedUrl || null
+}
+
+/** Isi file foto nota (untuk ZIP). */
+export async function blobNota(alamat) {
+  if (modeDemo) {
+    siapkanNotaDemo()
+    const d = notaDemo.get(alamat)
+    return d ? dataUrlKeBlob(d) : null
+  }
+  const { data, error } = await supabase.storage.from(BUCKET_NOTA).download(alamat)
+  if (error) throw new Error(pesanStorage(error))
+  return data
+}
+
+/** Foto nota satu transaksi → [{ alamat, url }] (foto format lama: alamat null, url = data URL). */
 export async function notaKas(id) {
-  if (modeDemo) return kasDemoAwal().find((k) => k.id === id)?.nota || null
-  const { data, error } = await supabase.from('kas').select('nota').eq('id', id).maybeSingle()
-  if (error) throw new Error(pesanKas(error))
-  return data?.nota || null
+  if (modeDemo) {
+    siapkanNotaDemo()
+    const k = kasDemoAwal().find((x) => x.id === id)
+    if (k?.nota_file?.length) return k.nota_file.map((a) => ({ alamat: a, url: notaDemo.get(a) || null }))
+    return k?.nota ? [{ alamat: null, url: k.nota }] : []
+  }
+  const { data, error } = await supabase.rpc('kas_nota_file', { p_id: id })
+  if (error) {
+    // database belum 0035
+    const lama = await supabase.from('kas').select('nota').eq('id', id).maybeSingle()
+    if (lama.error) throw new Error(pesanKas(lama.error))
+    return lama.data?.nota ? [{ alamat: null, url: lama.data.nota }] : []
+  }
+  const file = data?.file || []
+  if (file.length) return Promise.all(file.map(async (a) => ({ alamat: a, url: await urlNota(a).catch(() => null) })))
+  return data?.lama ? [{ alamat: null, url: data.lama }] : []
+}
+
+/**
+ * Pindahkan foto nota format lama (teks di database) ke Storage, sedikit
+ * demi sedikit, di latar belakang saat petugas kas membuka halaman Kas.
+ * Mengembalikan jumlah yang dipindahkan. Galat diabaikan (dicoba lagi lain kali).
+ */
+export async function pindahkanNotaLama(sekolahId, maks = 20) {
+  if (modeDemo || !sekolahId) return 0
+  let n = 0
+  try {
+    while (n < maks) {
+      const { data, error } = await supabase.from('kas').select('id, nota').not('nota', 'is', null).is('nota_file', null).limit(3)
+      if (error || !data?.length) break
+      for (const k of data) {
+        const alamat = await unggahNota(k.nota, sekolahId)
+        const { error: e2 } = await supabase.rpc('kas_pindah_nota', { p_id: k.id, p_path: alamat })
+        if (e2) {
+          await hapusNotaTakTerpakai([alamat])
+          return n
+        }
+        n++
+      }
+    }
+  } catch {
+    /* coba lagi lain kali */
+  }
+  return n
 }
 
 const rpDemo = (n) => (n < 0 ? '-' : '') + 'Rp ' + Math.abs(n).toLocaleString('id-ID')
@@ -1227,6 +1370,79 @@ export async function catatKas({ jenis, tanggal, kategori, nominal, keterangan, 
     p_keterangan: keterangan || null, p_nota: nota || null,
   })
   return bentukKas({ id, jenis, tanggal, kategori, nominal, keterangan, nota, dicatat_nama: pencatat, dibuat_pada: new Date().toISOString() })
+}
+
+/**
+ * Catat satu atau beberapa rincian sekaligus (0035).
+ *   rincian : [{ uraian, kategori, nominal }]  — pemasukan lain: tepat 1
+ *   biayaId / paketId : label kegiatan (opsional, hanya pengeluaran)
+ *   nota    : [data URL] maks 3 — diunggah ke Storage dulu
+ */
+export async function catatKasRincian({ jenis, tanggal, rincian, biayaId = null, paketId = null, nota = [], sekolahId, pencatat }, demo) {
+  const total = rincian.reduce((t, r) => t + Number(r.nominal), 0)
+  if (modeDemo) {
+    const { atur, gerakan } = kasDemo(demo)
+    if (tanggal < atur.mulai) throw new Error(`Tanggal ${kas.tglKas(tanggal, true)} sebelum tanggal mulai kas (${kas.tglKas(atur.mulai, true)}). Transaksi sebelum tanggal itu sudah termasuk saldo awal — kalau memang perlu dicatat, ubah dulu tanggal mulai saldo awal.`)
+    if (jenis === 'keluar') {
+      const r = kas.saldoTerendah(gerakan, atur.saldoAwal, tanggal)
+      if (total > r.saldo) {
+        throw new Error(r.tanggal === tanggal
+          ? `Saldo kas tidak cukup. Saldo per ${kas.tglKas(tanggal, true)} hanya ${rpDemo(r.saldo)}, total pengeluaran ${rpDemo(total)}.`
+          : `Saldo kas tidak cukup. Pengeluaran tanggal ${kas.tglKas(tanggal, true)} paling banyak ${rpDemo(Math.max(0, r.saldo))} supaya saldo tidak minus pada ${kas.tglKas(r.tanggal, true)}.`)
+      }
+    }
+    const alamat = await Promise.all(nota.map((d) => unggahNota(d, sekolahId)))
+    const grup = rincian.length > 1 || biayaId || paketId || alamat.length ? 'g' + Date.now() : null
+    const baru = rincian.map((r, i) => ({
+      id: 'k' + Date.now() + '-' + i, jenis, tanggal, kategori: r.kategori, nominal: Number(r.nominal), keterangan: r.uraian || '',
+      nota_file: alamat.length ? alamat : null, biaya_id: biayaId, paket_id: paketId, grup,
+      dicatat_nama: pencatat || 'Demo', dibuat_pada: new Date(Date.now() + i).toISOString(),
+    }))
+    kasDemoAwal().push(...baru)
+    return { grup, tanggal, total }
+  }
+  const alamat = []
+  try {
+    for (const d of nota) alamat.push(await unggahNota(d, sekolahId))
+    const grup = await rpcKas('kas_catat_rincian', {
+      p_jenis: jenis, p_tanggal: tanggal,
+      p_rincian: rincian.map((r) => ({ uraian: (r.uraian || '').trim(), kategori: r.kategori, nominal: Number(r.nominal) })),
+      p_biaya: biayaId, p_paket: paketId, p_nota: alamat.length ? alamat : null,
+    })
+    return { grup, tanggal, total }
+  } catch (e) {
+    await hapusNotaTakTerpakai(alamat)
+    throw e
+  }
+}
+
+/** Beri / ganti / hapus label kegiatan pengeluaran yang sudah tercatat. */
+export async function aturKegiatanKas(id, { biayaId = null, paketId = null, kategori = null }) {
+  if (modeDemo) {
+    const k = kasDemoAwal().find((x) => x.id === id)
+    if (!k || k.dibatalkan_pada) throw new Error('Transaksi tidak ditemukan.')
+    if (k.jenis !== 'keluar') throw new Error('Label kegiatan hanya untuk pengeluaran.')
+    Object.assign(k, { biaya_id: biayaId, paket_id: paketId, ...(kategori ? { kategori } : {}) })
+    return true
+  }
+  await rpcKas('kas_atur_kegiatan', { p_id: id, p_biaya: biayaId, p_paket: paketId, p_kategori: kategori })
+  return true
+}
+
+/** Semua pengeluaran SAH berlabel kegiatan → Laporan › Kegiatan. */
+export async function kasPengeluaranKegiatan() {
+  if (modeDemo) {
+    return kasDemoAwal()
+      .filter((k) => !k.dibatalkan_pada && k.jenis === 'keluar' && (k.biaya_id || k.paket_id))
+      .map((k) => ({
+        id: k.id, tanggal: k.tanggal, kategori: k.kategori, nominal: Number(k.nominal), uraian: k.keterangan || '',
+        biayaId: k.biaya_id || null, paketId: k.paket_id || null, grup: k.grup || null,
+        notaFile: k.nota_file || [], notaLama: !!k.nota, dicatatNama: k.dicatat_nama || '', dibuatPada: k.dibuat_pada || null,
+      }))
+      .sort((a, b) => a.tanggal.localeCompare(b.tanggal))
+  }
+  const d = await rpcKas('kas_pengeluaran_kegiatan')
+  return (d || []).map((k) => ({ ...k, nominal: Number(k.nominal), uraian: k.uraian || '', notaFile: k.notaFile || [] }))
 }
 
 export async function batalkanKas(id, alasan, oleh, demo) {

@@ -1,10 +1,11 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import Avatar from '../components/Avatar.jsx'
-import { Ikon, Sheet } from '../components/ui.jsx'
+import { Chevron, Chip, Ikon, KolomCari, Sheet } from '../components/ui.jsx'
+import { GambarKegiatan } from '../components/Gambar.jsx'
 import InputNominal from '../components/InputNominal.jsx'
 import { useData } from '../lib/store.jsx'
 import { emojiKegiatan } from '../lib/emojiKegiatan.js'
-import { BULAN, bulanBerjalan, dibayarKegiatan, dibayarSpp, rp, tanggalISO, tanggalPanjang } from '../lib/format.js'
+import { BULAN, bulanBerjalan, bulanTertunggak, dibayarKegiatan, dibayarSpp, rp, tanggalISO, tanggalPanjang } from '../lib/format.js'
 import { alokasiCicilan, dibayarPaket, keteranganPaket, tahapPaket, urutPaket } from '../lib/paket.js'
 
 /**
@@ -22,6 +23,7 @@ export default function SheetCatat({ buka, awal, tutup }) {
   const [metode, setMetode] = useState('Tunai')
   const [tanggal, setTanggal] = useState(tanggalISO())
   const [sukses, setSukses] = useState(null)
+  const [pilihSiswa, setPilihSiswa] = useState(false) // lembar pilih siswa
 
   /** Sisa tagihan untuk kombinasi siswa+jenis+periode saat ini — dipakai
    *  sebagai nominal default, supaya cicilan yang sudah berjalan tidak
@@ -45,8 +47,11 @@ export default function SheetCatat({ buka, awal, tutup }) {
 
   useEffect(() => {
     if (!buka) return
-    const idAwal = awal?.siswaId || siswa[0]?.id
+    // Tanpa siswa terpilih (dari tombol Transaksi) → langsung buka pilihan siswa,
+    // supaya tidak salah mencatat ke siswa pertama di daftar.
+    const idAwal = awal?.siswaId || null
     setSiswaId(idAwal)
+    setPilihSiswa(!idAwal && siswa.length > 0)
     const jAwal = ['spp', 'kegiatan', 'pmb', 'du'].includes(awal?.jenis) ? awal.jenis : 'spp'
     const iAwal = awal?.indeks ?? indeksAwal(idAwal, jAwal)
     setJenis(jAwal)
@@ -90,6 +95,10 @@ export default function SheetCatat({ buka, awal, tutup }) {
 
   const simpan = async () => {
     if (cegahKunci('bayar')) return
+    if (!s) {
+      setPilihSiswa(true)
+      return toast('Pilih siswa dulu')
+    }
     const n = Number(nominal) || 0
     if (modePaket && !pk) return toast(`${s?.nama || 'Siswa ini'} tidak ditagih ${jenis === 'pmb' ? 'PMB' : 'daftar ulang'}`)
     if (n <= 0) return toast('Isi nominal dulu')
@@ -143,20 +152,31 @@ export default function SheetCatat({ buka, awal, tutup }) {
   }
 
   return (
-    <Sheet buka={buka} tutup={tutup} judul="Catat pembayaran" lead="Pilih siswa dan jenis biayanya.">
+    <>
+    <Sheet buka={buka && !pilihSiswa} tutup={tutup} judul="Catat pembayaran" lead="Pilih siswa dan jenis biayanya.">
       <label className="mb-1.5 block text-[13px] font-bold">Siswa</label>
-      <div className="mb-3.5 flex items-center gap-3 rounded-[14px] border border-line bg-kartu px-3 py-2">
-        {s && <Avatar nama={s.nama} jenis={s.jenis} avatar={s.avatar} foto={s.foto} size={38} />}
-        <select
-          className="flex-1 bg-transparent py-1.5 font-semibold outline-none"
-          value={siswaId}
-          onChange={(e) => gantiSiswa(e.target.value)}
-        >
-          {siswa.map((x) => (
-            <option key={x.id} value={x.id}>{x.nama} — Kelas {x.kelas}</option>
-          ))}
-        </select>
-      </div>
+      <button
+        type="button"
+        onClick={() => setPilihSiswa(true)}
+        className={`mb-3.5 flex w-full items-center gap-3 rounded-[16px] border-[1.5px] bg-kartu px-3 py-2.5 text-left transition hover:border-brand/50 ${s ? 'border-[#DCE6F4] dark:border-line' : 'border-dashed border-brand/60'}`}
+      >
+        {s ? (
+          <>
+            <Avatar nama={s.nama} jenis={s.jenis} avatar={s.avatar} foto={s.foto} size={40} />
+            <span className="min-w-0 flex-1">
+              <b className="block truncate text-[14.5px] font-extrabold">{s.nama}</b>
+              <span className="block truncate text-[12px] font-semibold text-muted">Kelas {s.kelas}{s.nis ? ` · NIS ${s.nis}` : ''}</span>
+            </span>
+            <span className="shrink-0 text-[12.5px] font-extrabold text-brand">Ganti</span>
+          </>
+        ) : (
+          <>
+            <span className="permen permen-kecil permen-biru grid h-10 w-10 shrink-0 place-items-center rounded-[13px]"><Ikon.cari size={19} /></span>
+            <span className="min-w-0 flex-1 text-[14px] font-extrabold text-brand">Pilih siswa…</span>
+            <Chevron />
+          </>
+        )}
+      </button>
 
       <label className="mb-1.5 block text-[13px] font-bold">Jenis biaya</label>
       <div className={`mb-3.5 grid gap-2 ${paket.length ? 'grid-cols-4' : 'grid-cols-2'}`}>
@@ -193,11 +213,58 @@ export default function SheetCatat({ buka, awal, tutup }) {
       ) : (
         <>
           <label className="mb-1.5 block text-[13px] font-bold">{jenis === 'spp' ? 'Bulan' : 'Kegiatan'}</label>
-          <select className="field-input mb-3.5" value={indeks} onChange={(e) => gantiIndeks(Number(e.target.value))}>
-            {jenis === 'spp'
-              ? BULAN.map((b, i) => <option key={b} value={i}>{b}</option>)
-              : biaya.map((b, i) => <option key={b.id} value={i}>{emojiKegiatan(b)} {b.nama}</option>)}
-          </select>
+          {jenis === 'spp' ? (
+            <div className="mb-3.5 grid grid-cols-4 gap-1.5" role="group" aria-label="Pilih bulan">
+              {BULAN.map((b, i) => {
+                const d = s ? dibayarSpp(s, i) : 0
+                const lunas = d >= pengaturan.sppNominal
+                const on = Number(indeks) === i
+                return (
+                  <button
+                    key={b}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => gantiIndeks(i)}
+                    className={`relative rounded-[12px] px-1 py-2 text-[12.5px] font-extrabold ${
+                      on ? 'permen permen-kecil permen-biru'
+                        : lunas ? 'bg-ok-soft text-ok-deep'
+                          : d > 0 ? 'bg-warn-soft text-warn-deep'
+                            : i < kini ? 'border-[1.5px] border-danger/35 bg-kartu text-danger'
+                              : 'border-[1.5px] border-[#DCE6F4] bg-kartu text-ink dark:border-line'
+                    }`}
+                  >
+                    {b.slice(0, 3)}
+                    <span className="block text-[9.5px] font-bold opacity-80">{lunas ? 'lunas' : d > 0 ? 'sebagian' : i === kini ? 'bulan ini' : i < kini ? 'belum' : '·'}</span>
+                  </button>
+                )
+              })}
+            </div>
+          ) : biaya.length === 0 ? (
+            <p className="mb-3.5 rounded-2xl bg-canvas px-3.5 py-3 text-[12.5px] font-semibold text-muted">Belum ada biaya kegiatan. Tambahkan di menu Jenis biaya.</p>
+          ) : (
+            <div className="mb-3.5 grid gap-1.5" role="group" aria-label="Pilih kegiatan">
+              {biaya.map((b, i) => {
+                const d = s ? dibayarKegiatan(s, i) : 0
+                const on = Number(indeks) === i
+                return (
+                  <button
+                    key={b.id}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => gantiIndeks(i)}
+                    className={`flex items-center gap-2.5 rounded-[14px] px-2.5 py-2 text-left ${on ? 'border-2 border-brand bg-brand-soft/60 dark:bg-white/5' : 'border-[1.5px] border-[#DCE6F4] bg-kartu dark:border-line'}`}
+                  >
+                    <GambarKegiatan emoji={emojiKegiatan(b)} size={32} className="rounded-[10px]" />
+                    <span className="min-w-0 flex-1">
+                      <b className="block truncate text-[13.5px] font-extrabold">{b.nama}</b>
+                      <span className="block text-[11.5px] font-semibold text-muted">{rp(b.nominal)}</span>
+                    </span>
+                    {d >= b.nominal ? <Chip warna="green">Lunas</Chip> : d > 0 ? <Chip warna="amber">Kurang {rp(b.nominal - d)}</Chip> : null}
+                  </button>
+                )
+              })}
+            </div>
+          )}
         </>
       )}
 
@@ -269,6 +336,83 @@ export default function SheetCatat({ buka, awal, tutup }) {
       {tanggal === tanggalISO() && <div className="mb-4" />}
 
       <button className="bigbtn disabled:opacity-60" onClick={simpan} disabled={modePaket && !pk}>Simpan pembayaran</button>
+    </Sheet>
+    <SheetPilihSiswa
+      buka={buka && pilihSiswa}
+      siswa={siswa}
+      terpilih={siswaId}
+      sppNominal={pengaturan.sppNominal}
+      pilih={(id) => { gantiSiswa(id); setPilihSiswa(false) }}
+      tutup={() => (siswaId ? setPilihSiswa(false) : tutup())}
+    />
+    </>
+  )
+}
+
+/**
+ * Pilih siswa: cari nama / NIS, saring kelas, avatar + kelas + tanda nunggak.
+ * Pengganti daftar pilihan bawaan browser yang memenuhi layar HP.
+ */
+function SheetPilihSiswa({ buka, siswa, terpilih, sppNominal, pilih, tutup }) {
+  const [cari, setCari] = useState('')
+  const [kelas, setKelas] = useState('')
+  useEffect(() => {
+    if (buka) { setCari(''); setKelas('') }
+  }, [buka])
+  const daftarKelas = useMemo(() => [...new Set(siswa.map((x) => x.kelas))].sort(), [siswa])
+  const q = cari.trim().toLowerCase()
+  const hasil = siswa
+    .filter((x) => (!kelas || x.kelas === kelas) && (!q || x.nama.toLowerCase().includes(q) || String(x.nis || '').toLowerCase().includes(q)))
+    .sort((a, b) => a.nama.localeCompare(b.nama, 'id'))
+  return (
+    <Sheet buka={buka} tutup={tutup} judul="Pilih siswa" lead={`${siswa.length} siswa aktif`}>
+      <div className="sticky -top-2 z-[5] -mx-[18px] bg-canvas px-[18px] pb-2.5 pt-0.5 lg:-mx-6 lg:px-6">
+        <KolomCari nilai={cari} ubah={setCari} placeholder="Cari nama atau NIS…" />
+        {daftarKelas.length > 1 && (
+          <div className="noscroll -mx-[18px] mt-2.5 flex gap-1.5 overflow-x-auto px-[18px] lg:-mx-6 lg:px-6" role="group" aria-label="Saring kelas">
+            {['', ...daftarKelas].map((k) => (
+              <button
+                key={k || 'semua'}
+                type="button"
+                aria-pressed={kelas === k}
+                onClick={() => setKelas(k)}
+                className={`shrink-0 rounded-pill px-3 py-1.5 text-[12.5px] font-extrabold ${kelas === k ? 'permen permen-kecil permen-biru' : 'border-[1.5px] border-[#DCE6F4] bg-kartu text-ink dark:border-line'}`}
+              >
+                {k ? `Kelas ${k}` : 'Semua'}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+      <div className="min-h-[52vh] lg:min-h-[380px]">
+      {hasil.length === 0 ? (
+        <p className="py-8 text-center text-[13.5px] font-semibold text-muted">{q ? `Tidak ada siswa bernama “${cari}”.` : 'Tidak ada siswa di kelas ini.'}</p>
+      ) : (
+        <div className="card !px-2 !py-1">
+          {hasil.map((x, i) => {
+            const nunggak = bulanTertunggak(x, sppNominal)
+            const on = x.id === terpilih
+            return (
+              <button
+                key={x.id}
+                type="button"
+                onClick={() => pilih(x.id)}
+                aria-pressed={on}
+                className={`flex w-full items-center gap-3 rounded-[14px] px-2 py-2.5 text-left ${on ? 'bg-brand-soft/70 dark:bg-white/5' : 'hover:bg-isi'} ${i ? 'border-t-[1.5px] border-dashed border-line' : ''}`}
+              >
+                <Avatar nama={x.nama} jenis={x.jenis} avatar={x.avatar} foto={x.foto} size={40} />
+                <span className="min-w-0 flex-1">
+                  <b className="block truncate text-[14px] font-extrabold">{x.nama}</b>
+                  <span className="block truncate text-[12px] font-semibold text-muted">Kelas {x.kelas}{x.nis ? ` · NIS ${x.nis}` : ''}</span>
+                </span>
+                {nunggak > 0 && <Chip warna="red">Nunggak {nunggak} bln</Chip>}
+                {on && <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand text-white"><Ikon.cek size={14} /></span>}
+              </button>
+            )
+          })}
+        </div>
+      )}
+      </div>
     </Sheet>
   )
 }

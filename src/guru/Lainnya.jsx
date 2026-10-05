@@ -17,7 +17,7 @@ export default function Lainnya() {
   const nav = useNavigate()
 
   const menu = menuSekolah(boleh, peran)
-  const diTab = new Set(pilihTab(menu, boleh('pembayaran')).map((t) => t.id))
+  const diTab = new Set(pilihTab(menu, boleh('pembayaran') || (menu.some((m) => m.id === 'kas') && boleh('kas'))).map((t) => t.id))
   const daftar = menu.filter((m) => !diTab.has(m.id))
 
   const utama = daftar.filter((m) => m.grup === 'menu')

@@ -1,7 +1,8 @@
 /**
- * Menu Laporan — dua tab:
+ * Menu Laporan — tiga tab:
  *   • Pembayaran — siapa sudah bayar / menunggak (SPP & biaya kegiatan)
  *   • Keuangan   — kas sekolah: saldo, pemasukan, pengeluaran (LaporanKeuangan.jsx)
+ *   • Kegiatan   — uang masuk vs terpakai per kegiatan (LaporanKegiatan.jsx, 0035)
  * Kepala sekolah langsung dibuka di tab Keuangan, guru/TU di Pembayaran.
  */
 import { useMemo, useState } from 'react'
@@ -19,12 +20,18 @@ import {
   SERI, STATUS, TabLaporan, TombolAksi,
 } from './GrafikLaporan.jsx'
 import LaporanKeuangan from './LaporanKeuangan.jsx'
+import LaporanKegiatan from './LaporanKegiatan.jsx'
 
 export default function Laporan() {
   const { peran, boleh } = useData()
   const [q, setQ] = useSearchParams()
   // Tab mengikuti hak akses (lap_pembayaran / lap_keuangan).
-  const ada = [boleh('lap_pembayaran', 'lihat') && 'pembayaran', boleh('lap_keuangan', 'lihat') && 'keuangan'].filter(Boolean)
+  // Tab Kegiatan memuat pengeluaran kas → hak yang sama dengan tab Keuangan.
+  const ada = [
+    boleh('lap_pembayaran', 'lihat') && 'pembayaran',
+    boleh('lap_keuangan', 'lihat') && 'keuangan',
+    boleh('lap_keuangan', 'lihat') && 'kegiatan',
+  ].filter(Boolean)
   const minta = q.get('tab') || (peran === 'kepala' ? 'keuangan' : 'pembayaran')
   const tab = ada.includes(minta) ? minta : ada[0]
   const pilih = (t) => setQ({ tab: t }, { replace: true })
@@ -32,7 +39,7 @@ export default function Laporan() {
     <>
       <KepalaHalaman judul="Laporan" gambar="grafik" sub="Laporan pembayaran siswa & keuangan sekolah" />
       <TabLaporan tab={tab} pilih={pilih} ada={ada} />
-      {tab === 'keuangan' ? <LaporanKeuangan /> : <LaporanPembayaran />}
+      {tab === 'keuangan' ? <LaporanKeuangan /> : tab === 'kegiatan' ? <LaporanKegiatan /> : <LaporanPembayaran />}
     </>
   )
 }

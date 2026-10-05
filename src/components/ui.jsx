@@ -389,7 +389,7 @@ export const BtnKecil = ({ utama, children, className = '', ...p }) => (
 
 
 export const Scroll = ({ children, className = '' }) => (
-  <div className={`noscroll flex-1 overflow-y-auto overscroll-contain px-[18px] ${className}`}>{children}</div>
+  <div className={`noscroll flex-1 overflow-y-auto overflow-x-hidden overscroll-contain px-[18px] ${className}`}>{children}</div>
 )
 
 /* ---------- potongan kecil ---------- */
@@ -498,7 +498,7 @@ export function Sheet({ buka, tutup, judul, lead, children }) {
       <div
         role="dialog"
         aria-modal="true"
-        className="noscroll max-h-[90%] w-full animate-up overflow-y-auto rounded-t-[26px] bg-canvas px-[18px] pb-6 pt-2 lg:max-h-[86vh] lg:max-w-[460px] lg:animate-fade lg:rounded-[24px] lg:px-6 lg:pt-4"
+        className="noscroll max-h-[90%] w-full animate-up overflow-y-auto overflow-x-hidden rounded-t-[26px] bg-canvas px-[18px] pb-6 pt-2 lg:max-h-[86vh] lg:max-w-[460px] lg:animate-fade lg:rounded-[24px] lg:px-6 lg:pt-4"
       >
         <div className="sticky top-0 z-10 -mb-2 flex h-0 justify-end">
           <button

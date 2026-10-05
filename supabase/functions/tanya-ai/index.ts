@@ -3,7 +3,7 @@
  * digital untuk kepala sekolah & Admin/TU. (Nama fungsinya tetap "tanya-ai"
  * supaya tidak perlu mengubah pengaturan Supabase.)
  *
- * SAKU bisa membaca: pembayaran SPP & kegiatan (status_kegiatan & status_spp butuh 0034) dan buku kas
+ * SAKU bisa membaca: pembayaran SPP & kegiatan (status_kegiatan & status_spp butuh 0034, dana_kegiatan butuh 0035) dan buku kas
  * sekolah (tools "kas" & "kas_per_bulan", butuh 0031_saku.sql). Data kas
  * hanya terbaca kalau akun itu punya hak akses kas / laporan keuangan.
  *
@@ -151,6 +151,17 @@ const TOOLS = [
     },
   },
   {
+    name: 'dana_kegiatan',
+    description:
+      'DANA PER KEGIATAN: uang masuk dari orang tua vs PENGELUARAN kas yang diberi label kegiatan itu (sewa bus, konsumsi, dll), ' +
+      'sisa / nombok, pengeluaran per kategori, dan rinciannya. Pakai untuk "pengeluaran manasik berapa", "sisa dana outing", ' +
+      '"kegiatan mana yang nombok", "uang PMB terpakai untuk apa". Butuh akses kas.',
+    input_schema: {
+      type: 'object',
+      properties: { kegiatan: { type: 'string', description: 'Nama atau sebagian nama kegiatan / paket. Kosongkan untuk semua.' } },
+    },
+  },
+  {
     name: 'kas_per_bulan',
     description:
       'Pemasukan, pengeluaran, selisih, dan saldo akhir kas PER BULAN untuk beberapa bulan terakhir. ' +
@@ -215,6 +226,7 @@ const RPC: Record<string, (a: Args) => [string, Record<string, unknown>]> = {
   transaksi: (a) => ['ai_transaksi', { p_dari: a.dari || null, p_sampai: a.sampai || null }],
   kas: (a) => ['ai_kas', { p_dari: a.dari || null, p_sampai: a.sampai || null }],
   kas_per_bulan: (a) => ['ai_kas_bulanan', { p_n: a.jumlah_bulan ?? 6 }],
+  dana_kegiatan: (a) => ['ai_dana_kegiatan', { p_kegiatan: a.kegiatan || null }],
 }
 
 /* ===================== instruksi untuk AI ===================== */
@@ -245,6 +257,7 @@ ATURAN WAJIB:
 4. Buku kas:
    - Saldo kas = saldo awal + pembayaran orang tua (SPP & kegiatan) sejak tanggal mulai kas + pemasukan lain − pengeluaran. Transaksi yang dibatalkan tidak dihitung.
    - Pertanyaan tentang saldo, pemasukan, pengeluaran, uang keluar/masuk, atau "ringkasan keuangan" → pakai tool "kas" (atau "kas_per_bulan" untuk tren). Sebutkan rincian sumber pemasukan (SPP, kegiatan, pemasukan lain) bila relevan.
+   - Pertanyaan pengeluaran / sisa dana SATU KEGIATAN (manasik, outing, PMB, …) → pakai tool "dana_kegiatan". Sisa minus = nombok, ditutup dari kas sekolah.
    - ${kas.akses ? 'Akun ini BOLEH melihat kas.' : 'Akun ini TIDAK punya akses melihat kas: jangan bacakan angka kas; jelaskan dengan sopan bahwa akses kas bisa dibuka oleh admin aplikasi.'}
    - ${kas.akses && !kas.saldo_awal_diisi ? 'Saldo awal kas BELUM diisi — saldo dihitung dari nol; sarankan mengisi saldo awal di menu Kas sekolah.' : 'Kalau hasil tool menyertakan catatan buku kas, sampaikan catatan itu.'}
 5. PMB & daftar ulang: ringkasannya ada di KONTEKS (pmb_dan_daftar_ulang): nominal per siswa, rincian biaya, jadwal cicilan, jumlah siswa ditagih, terkumpul, kekurangan, dan daftar siswa yang belum lunas. Jawab pertanyaan PMB/daftar ulang dari situ. Uang PMB/daftar ulang yang masuk per tanggal ada di tool transaksi/rekap (kolom pmb_dan_daftar_ulang).
