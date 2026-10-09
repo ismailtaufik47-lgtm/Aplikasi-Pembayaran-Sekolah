@@ -9,17 +9,22 @@
  */
 import { useEffect, useState } from 'react'
 import { Ikon, Kosong, Sheet, Track } from '../components/ui.jsx'
+import InputTanggal from '../components/InputTanggal.jsx'
 import InputNominal from '../components/InputNominal.jsx'
 import FormBatal from './FormBatal.jsx'
 import { useData } from '../lib/store.jsx'
-import { BULAN, bulanBerjalan, dibayarKegiatan, dibayarSpp, persenBayar, rp, statusSpp, tanggalISO } from '../lib/format.js'
+import { BULAN, bulanBerjalan, dibayarKegiatan, dibayarSpp, ketBebas, namaBulanTa, persenBayar, rp, statusSpp, tahunAjaranBerjalan, tanggalISO, targetSpp, taPendek } from '../lib/format.js'
 import { alokasiCicilan, dibayarPaket, keteranganPaket, statusPaket, tahapPaket, tglPendek } from '../lib/paket.js'
 
 /**
  * jenis 'spp' (indeks = bulan), 'kegiatan' (indeks = urutan biaya), atau
  * 'paket' (PMB / daftar ulang; indeks = id paket — tampil jadwal cicilan & rincian).
+ * ta (SPP saja): tahun ajaran yang sudah lewat untuk tunggakan tahun lalu; kosong = berjalan.
+ * biayaLaluId (kegiatan saja, 0042): kegiatan tahun ajaran lalu — indeks diabaikan.
  */
-export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, readOnly = false }) {
+/* transaksiLuar (0044): pembayaran siswa ini yang dibaca dari server (Kartu siswa › tahun lalu) —
+ * transaksi tahun lama yang sudah lunas tidak ikut dimuat saat aplikasi dibuka. onBerubah: dipanggil sesudah membatalkan. */
+export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, ta = null, biayaLaluId = null, readOnly = false, transaksiLuar = null, onBerubah }) {
   const { siswa, biaya, paket, pengaturan, pembayaran, catatPembayaran, batalkanPembayaran, toast, boleh, cegahKunci } = useData()
   const bisaCatat = !readOnly && boleh('pembayaran')
   const bisaBatal = boleh('batal')
@@ -39,28 +44,40 @@ export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, read
     setTanggal(tanggalISO())
     setHapusId(null)
     setSukses(null)
-  }, [buka, siswaId, jenis, indeks])
+  }, [buka, siswaId, jenis, indeks, ta, biayaLaluId])
 
   const s = siswa.find((x) => x.id === siswaId)
-  if (!buka || !s || jenis == null || indeks == null) return null
+  const kl = jenis === 'kegiatan' && biayaLaluId ? (s?.kegiatanLalu || []).find((k) => k.biayaId === biayaLaluId) : null
+  if (!buka || !s || jenis == null || (indeks == null && !kl)) return null
 
   const pk = jenis === 'paket' ? paket.find((p) => p.id === indeks) : null
   if (jenis === 'paket' && !pk) return null
-  const judul = jenis === 'spp' ? BULAN[indeks] : pk ? pk.nama : biaya[indeks]?.nama || ''
-  const target = jenis === 'spp' ? pengaturan.sppNominal : pk ? pk.total : biaya[indeks]?.nominal || 0
-  const dibayar = jenis === 'spp' ? dibayarSpp(s, indeks) : pk ? dibayarPaket(s, pk.id) : dibayarKegiatan(s, indeks)
+  const lalu = jenis === 'spp' && !!ta && ta !== tahunAjaranBerjalan()
+  const judul = jenis === 'spp' ? (lalu ? namaBulanTa(ta, indeks) : BULAN[indeks]) : pk ? pk.nama : kl ? `${kl.nama} ${taPendek(kl.ta)}` : biaya[indeks]?.nama || ''
+  const target = jenis === 'spp' ? targetSpp(s, indeks, pengaturan.sppNominal, lalu ? ta : undefined) : pk ? pk.total : kl ? kl.nominal : biaya[indeks]?.nominal || 0
+  const dibayar = jenis === 'spp' ? dibayarSpp(s, indeks, lalu ? ta : null) : pk ? dibayarPaket(s, pk.id) : kl ? kl.dibayar : dibayarKegiatan(s, indeks)
+  // bulan sebelum masuk / sesudah keluar, atau kegiatan yang tidak ditagihkan ke siswa ini (0042)
+  const bebas = !(target > 0) && !pk && (jenis === 'spp' || (jenis === 'kegiatan' && !kl && s.kegiatanWajib?.[indeks] === false))
+  const ketTidak = jenis === 'spp' ? ketBebas(s, indeks) : 'Tidak ikut kegiatan ini'
   const sisa = Math.max(0, target - dibayar)
   const lunas = dibayar >= target
-  const status = jenis === 'spp'
-    ? statusSpp(dibayar, target, indeks, bulanBerjalan(), pengaturan.tanggalJatuhTempo)
+  const status = bebas ? 'menunggu' : jenis === 'spp'
+    ? (lalu ? (lunas ? 'lunas' : 'nunggak') : statusSpp(dibayar, target, indeks, bulanBerjalan(), pengaturan.tanggalJatuhTempo))
     : pk ? { lunas: 'lunas', terlambat: 'nunggak', mencicil: 'sebagian', belum: 'belum-bayar' }[statusPaket(pk, dibayar)]
-    : (lunas ? 'lunas' : dibayar > 0 ? 'sebagian' : 'belum-bayar')
+    : kl ? (lunas ? 'lunas' : 'nunggak') : (lunas ? 'lunas' : dibayar > 0 ? 'sebagian' : 'belum-bayar')
   const warnaStatus = { lunas: '#22C55E', sebagian: '#F5A524', nunggak: '#EF4444', 'belum-bayar': '#F5A524', menunggu: '#C9D0DC' }[status]
   const tahap = pk ? tahapPaket(pk, dibayar) : []
   const alokasi = pk && mode === 'bayar' ? alokasiCicilan(pk, dibayar, nominal) : []
-  const transaksi = pembayaran.filter((p) => p.siswaId === siswaId && p.jenis === jenis && p.indeks === indeks)
+  const cocok = (p) => p.siswaId === siswaId && p.jenis === jenis
+    && (kl ? p.biayaId === kl.biayaId : p.indeks === indeks)
+    && (jenis !== 'spp' || (p.tahunAjaran || tahunAjaranBerjalan()) === (lalu ? ta : tahunAjaranBerjalan()))
+  const diHp = pembayaran.filter(cocok)
+  const transaksi = transaksiLuar
+    ? [...diHp, ...transaksiLuar.filter((p) => cocok(p) && !diHp.some((x) => x.id === p.id))].sort((a, b) => (a.tanggal < b.tanggal ? 1 : -1))
+    : diHp
   const nominalAngka = Number(nominal) || 0
   const lebihBayar = nominalAngka > sisa && sisa > 0
+  const sudahLunas = target > 0 && sisa <= 0
 
   const bukaFormBayar = () => {
     if (cegahKunci('bayar')) return
@@ -75,7 +92,7 @@ export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, read
     if (n <= 0) return toast('Isi nominal dulu')
     setSibuk(true)
     try {
-      await catatPembayaran({ siswaId, jenis, indeks, nominal: n, metode, tanggal })
+      await catatPembayaran({ siswaId, jenis, indeks, nominal: n, metode, tanggal, tahunAjaran: lalu ? ta : null, biayaLaluId: kl?.biayaId || null })
       setSukses({ nominal: n, lunasSetelah: n >= sisa })
       setMode('sukses')
     } catch {
@@ -93,7 +110,8 @@ export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, read
   const batalkanTransaksi = async (id, alasan) => {
     setSibukBatal(true)
     try {
-      await batalkanPembayaran(id, alasan)
+      await batalkanPembayaran(id, alasan, transaksi.find((t) => t.id === id))
+      onBerubah?.()
       setHapusId(null)
       toast('Pembayaran dibatalkan')
     } catch {
@@ -108,7 +126,7 @@ export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, read
       buka={buka}
       tutup={tutup}
       judul={mode === 'bayar' ? 'Catat pembayaran' : mode === 'sukses' ? undefined : jenis === 'spp' ? 'SPP ' + judul : judul}
-      lead={mode === 'bayar' ? `${s.nama} · sisa ${rp(sisa)}` : mode === 'sukses' ? undefined : s.nama}
+      lead={mode === 'bayar' ? `${jenis === 'spp' ? 'SPP ' + judul : judul} · ${s.nama} · sisa ${rp(sisa)}` : mode === 'sukses' ? undefined : s.nama + (lalu ? ` · tunggakan tahun ajaran ${ta}` : kl ? ` · tunggakan tahun ajaran ${kl.ta}` : '')}
     >
       {mode === 'sukses' ? (
         <div className="pb-1 pt-3.5 text-center">
@@ -130,6 +148,18 @@ export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, read
             )}
           </p>
           <button className="bigbtn" onClick={tutup}>Selesai</button>
+        </div>
+      ) : mode === 'lihat' && bebas && transaksi.length === 0 ? (
+        <div className="mb-2 flex items-start gap-3 rounded-2xl bg-canvas p-4">
+          <span className="tile h-[38px] w-[38px] shrink-0 rounded-[12px] bg-brand-soft text-brand"><Ikon.info size={19} /></span>
+          <div className="text-[13.5px] font-semibold leading-snug">
+            <b className="block font-extrabold">{ketTidak}</b>
+            <span className="text-muted">
+              {jenis === 'spp'
+                ? `SPP ${judul} tidak ditagihkan ke ${s.panggilan || s.nama}. Masa terdaftar bisa diubah di Kartu siswa › Riwayat kelas.`
+                : `Kegiatan ini di luar masa terdaftar ${s.panggilan || s.nama}, jadi tidak ditagihkan.`}
+            </span>
+          </div>
         </div>
       ) : mode === 'lihat' ? (
         <>
@@ -252,13 +282,15 @@ export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, read
               ))}
             </div>
           )}
-          {lebihBayar ? (
-            <p className="mb-4 flex items-start gap-2 rounded-xl bg-warn-soft px-3 py-2.5 text-xs font-semibold text-warn-deep">
+          {sudahLunas ? (
+            <p className="mb-4 flex items-start gap-2 rounded-xl bg-ok-soft px-3 py-2.5 text-[12.5px] font-bold text-ok-deep">
+              <Ikon.cek size={16} /><span>Tagihan ini sudah lunas — tidak bisa dicatat lagi.</span>
+            </p>
+          ) : lebihBayar ? (
+            <p className="mb-4 flex flex-wrap items-center gap-2 rounded-xl bg-danger-soft px-3 py-2.5 text-xs font-semibold text-danger">
               <Ikon.peringatan size={15} />
-              <span>
-                Nominal ini {rp(nominalAngka - sisa)} lebih besar dari sisa tagihan ({rp(sisa)}).
-                Tetap bisa disimpan sebagai kelebihan bayar — periksa lagi sebelum lanjut.
-              </span>
+              <span className="min-w-0 flex-1">Melebihi sisa tagihan. Maksimal {rp(sisa)}.</span>
+              <button type="button" className="rounded-pill bg-kartu px-2.5 py-1 font-extrabold text-danger" onClick={() => setNominal(sisa)}>Isi {rp(sisa)}</button>
             </p>
           ) : (
             <p className="mb-4 text-xs font-semibold text-muted">
@@ -274,13 +306,7 @@ export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, read
           </div>
 
           <label className="mb-1.5 block text-[13px] font-bold">Tanggal pembayaran</label>
-          <input
-            type="date"
-            className="field-input mb-1.5"
-            value={tanggal}
-            max={tanggalISO()}
-            onChange={(e) => setTanggal(e.target.value)}
-          />
+          <div className="mb-1.5"><InputTanggal value={tanggal} max={tanggalISO()} onChange={setTanggal} aria-label="Tanggal pembayaran" /></div>
           {tanggal !== tanggalISO() ? (
             <p className="mb-4 text-xs font-semibold text-muted">
               Dicatat mundur — tanggal transaksi disimpan sesuai tanggal ini, bukan hari ini.
@@ -289,8 +315,8 @@ export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, read
             <div className="mb-4" />
           )}
 
-          <button className="bigbtn disabled:opacity-60" onClick={simpanBayar} disabled={sibuk}>
-            {sibuk ? 'Menyimpan…' : lebihBayar ? 'Simpan meski lebih besar dari sisa' : 'Simpan pembayaran'}
+          <button className="bigbtn disabled:opacity-50" onClick={simpanBayar} disabled={sibuk || sudahLunas || lebihBayar}>
+            {sibuk ? 'Menyimpan…' : sudahLunas ? '✓ Sudah lunas' : lebihBayar ? `Maksimal ${rp(sisa)}` : 'Simpan pembayaran'}
           </button>
           <div className="h-2.5" />
           <button className="bigbtn-ghost" onClick={() => setMode('lihat')}>Batal</button>

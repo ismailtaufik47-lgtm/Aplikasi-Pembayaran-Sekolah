@@ -365,3 +365,29 @@ button.permen-kecil:active:not(:disabled) { box-shadow: inset 0 -1px 0 var(--p-b
 .dark .kartu-paket-du { background: rgba(170, 140, 255, .18); color: #D8CAFF; box-shadow: inset 0 -5px 0 rgba(170, 140, 255, .3); }
 .kotak-lunas { background: #DDF7EC; color: #0C5A47; box-shadow: inset 0 -3px 0 #B5EBD3; }
 .dark .kotak-lunas { background: rgba(90, 220, 190, .14); color: #A9F0DE; box-shadow: none; }
+
+/* ---------- dasbor kepala sekolah (v25) ---------- */
+@keyframes jarum-meter { from { transform: rotate(-90deg); } to { transform: rotate(var(--sudut, 0deg)); } }
+.jarum-meter { transform-box: view-box; transform-origin: 150px 150px; transform: rotate(var(--sudut, 0deg)); animation: jarum-meter 1.5s cubic-bezier(.3, 1.35, .5, 1) both; }
+@keyframes uang-jatuh { 0% { transform: translateY(-96px); opacity: 0; } 55% { opacity: 1; } 100% { transform: none; opacity: 1; } }
+.uang-jatuh { animation: uang-jatuh .6s cubic-bezier(.3, 1.25, .5, 1) both; }
+@keyframes batang-tumbuh { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+.batang-tumbuh { transform-origin: bottom; animation: batang-tumbuh .9s cubic-bezier(.2, .9, .3, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .jarum-meter, .uang-jatuh, .batang-tumbuh { animation: none; }
+}
+/* kartu timbul (kesan 3D lembut) */
+.panel-ceria .card.kartu-timbul, .kartu-timbul { box-shadow: 0 6px 0 #D5E1F5, 0 18px 34px rgba(30, 64, 140, .12); border-radius: 26px; }
+.dark .panel-ceria .card.kartu-timbul, .dark .kartu-timbul { box-shadow: 0 6px 0 rgb(0 0 0 / .32), 0 18px 34px rgb(0 0 0 / .3); }
+button.kartu-timbul { transition: transform .15s ease; }
+button.kartu-timbul:active { transform: translateY(2px); }
+@media (hover: hover) { button.kartu-timbul:hover { transform: translateY(-2px); } }
+
+/* popup Pasang aplikasi: ikon Kasceria "mendarat" di layar utama */
+@keyframes pasang-muncul {
+  0% { transform: scale(.4) translateY(10px); opacity: 0; }
+  60% { transform: scale(1.08) translateY(-2px); opacity: 1; }
+  100% { transform: scale(1) translateY(0); }
+}
+.pasang-ikon { animation: pasang-muncul .55s cubic-bezier(.3,1.4,.5,1) .25s both; }
+@media (prefers-reduced-motion: reduce) { .pasang-ikon { animation: none; } }

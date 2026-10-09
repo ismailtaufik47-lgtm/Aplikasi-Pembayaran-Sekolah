@@ -15,26 +15,51 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Avatar from '../components/Avatar.jsx'
 import { BtnKecil, Chip, Ikon, IkonWhatsapp, IkonWhatsappPolos, KepalaHalaman, KolomCari, Kosong, Sheet } from '../components/ui.jsx'
+import InputTanggal from '../components/InputTanggal.jsx'
 import { GambarKegiatan } from '../components/Gambar.jsx'
 import { BintangWajah, Matahari } from '../components/IlustrasiMasuk.jsx'
 import SheetPeriode from './SheetPeriode.jsx'
 import { useData } from '../lib/store.jsx'
 import { emojiKegiatan } from '../lib/emojiKegiatan.js'
-import { BULAN, bulanBerjalan, dibayarKegiatan, dibayarSpp, labelJatuhTempoPeriode, persenBayar, rp, statusSpp } from '../lib/format.js'
+import { STATUS_TAGIHAN, URUTAN_STATUS, kegiatanLewat } from '../lib/statusSiswa.js'
+import UbinStatus from '../components/UbinStatus.jsx'
+import { BULAN, bulanBerjalan, dibayarKegiatan, dibayarSpp, kegiatanLaluBelum, kegiatanWajib, labelJatuhTempoPeriode, persenBayar, rp, statusSpp, taPendek, targetSpp, tunggakanLalu } from '../lib/format.js'
 import {
-  BADGE_PAKET, EMOJI_JENIS, dibayarPaket, keteranganPaket, kurangSekarangPaket, statusPaket, tahapPaket, tglPendek, urutPaket,
+  EMOJI_JENIS, dibayarPaket, keteranganPaket, kurangSekarangPaket, statusPaket, tahapPaket, tglPendek, urutPaket,
 } from '../lib/paket.js'
 import SheetPaket from './SheetPaket.jsx'
+import TunggakanNonaktif from './TunggakanNonaktif.jsx'
 
 const JENIS_PAKET = ['pmb', 'du']
-const STATUS_DARI_PAKET = { lunas: 'lunas', terlambat: 'nunggak', mencicil: 'sebagian', belum: 'belum' }
+/*
+ * EMPAT status yang sama untuk SEMUA jenis tagihan (SPP, kegiatan, PMB,
+ * daftar ulang) — dipakai di kolom Status, ubin ringkasan, dan filter:
+ *   lunas    : sudah dibayar penuh
+ *   mencicil : sudah dibayar sebagian, belum lewat jatuh tempo
+ *   belum    : belum dibayar sama sekali, belum lewat jatuh tempo
+ *   nunggak  : sudah lewat jatuh tempo dan belum lunas (dicicil atau belum)
+ * Kegiatan jatuh tempo pada TANGGAL KEGIATANNYA (kalau diisi) — sama
+ * dengan menu Siswa (lib/statusSiswa.js).
+ */
+const STATUS_DARI_PAKET = { lunas: 'lunas', terlambat: 'nunggak', mencicil: 'mencicil', belum: 'belum' }
 
-/** Status kegiatan sederhana: lunas / sebagian / belum (tidak ada konsep jatuh tempo). */
-function statusKegiatanItem(dibayar, target) {
+/** SPP: statusSpp() → 4 status di atas. Bulan yang SUDAH LEWAT dan baru dicicil = nunggak. */
+function statusSppItem(st, indeksBulan, kini) {
+  if (st === 'lunas' || st === 'nunggak') return st
+  if (st === 'sebagian') return indeksBulan < kini ? 'nunggak' : 'mencicil'
+  return 'belum' // belum-bayar / menunggu (bulan berjalan)
+}
+
+/** Kegiatan: lunas / nunggak (tanggal kegiatan sudah lewat) / mencicil / belum. */
+function statusKegiatanItem(dibayar, target, lewat) {
   if (dibayar >= target) return 'lunas'
-  if (dibayar > 0) return 'sebagian'
+  if (lewat) return 'nunggak'
+  if (dibayar > 0) return 'mencicil'
   return 'belum'
 }
+
+/** Pilihan status untuk dropdown filter — urutan & label sama dengan ubin. */
+const STATUS_PILIHAN = URUTAN_STATUS.map((k) => ({ value: k, label: STATUS_TAGIHAN[k].label }))
 
 /**
  * Susun pesan WA pengingat tagihan — hangat, jelas, sertakan cara bayar
@@ -73,16 +98,15 @@ function pesanTagihan(t, pengaturan) {
 
 const BADGE = {
   lunas: { teks: 'Lunas', warna: 'green' },
-  sebagian: { teks: 'Sebagian', warna: 'amber' },
-  belum: { teks: 'Belum bayar', warna: 'amber' },
-  'belum-bayar': { teks: 'Belum bayar', warna: 'amber' },
+  mencicil: { teks: 'Mencicil', warna: 'amber' },
+  belum: { teks: 'Belum bayar', warna: 'grey' },
   nunggak: { teks: 'Nunggak', warna: 'red' },
 }
 
 /**
  * Label status satu baris tagihan SPP, dibuat sejelas mungkin untuk guru:
  *  - 'Lunas'          : sudah dibayar penuh
- *  - 'Sebagian'       : dicicil separuh
+ *  - 'Mencicil'       : dibayar sebagian (bulan berjalan)
  *  - 'Belum bayar'    : bulan tagihan itu sendiri, sudah lewat tanggal
  *                       tagih tapi bulannya belum berakhir
  *  - 'Nunggak N bulan': bulan tagihan itu SUDAH BERLALU (i < kini) dan
@@ -93,15 +117,15 @@ const BADGE = {
  *                       SPP Juli → 2 bulan. Sama dengan hitungan Beranda.
  */
 function labelStatusSpp(status, indeksBulan, kini) {
-  if (status === 'lunas') return { teks: 'Lunas', warna: 'green' }
-  if (status === 'sebagian') return { teks: 'Sebagian', warna: 'amber' }
+  if (status === 'lunas') return BADGE.lunas
+  if (status === 'mencicil') return BADGE.mencicil
   if (status === 'nunggak') {
     // bulan tagihan ini s/d bulan terakhir yang sudah lewat (bulan berjalan tidak dihitung)
     const nBulan = Math.max(1, kini - indeksBulan)
     return { teks: `Nunggak ${nBulan} bulan`, warna: 'red' }
   }
   // belum-bayar / menunggu
-  return { teks: 'Belum bayar', warna: 'amber' }
+  return BADGE.belum
 }
 
 
@@ -112,7 +136,7 @@ export default function Tagihan() {
   const kini = bulanBerjalan()
 
   const [cari, setCari] = useState('')
-  const [filter, setFilter] = useState('semua') // semua | belum | jatuh-tempo
+  const [filter, setFilter] = useState(() => new URLSearchParams(window.location.search).get('status') || 'semua') // semua | belum-lunas | nunggak | mencicil | belum | lunas
   const [filterKelas, setFilterKelas] = useState('') // '' = semua kelas, atau nama kelas
   // semua | spp | kegiatan | pmb | du — ?jenis=pmb dari tautan Jenis biaya
   const [jenisFilter, setJenisFilter] = useState(() => new URLSearchParams(window.location.search).get('jenis') || 'semua')
@@ -130,10 +154,43 @@ export default function Tagihan() {
     const daftar = []
     let urut = 0
     siswa.forEach((s) => {
+      // SPP tahun ajaran yang sudah lewat & belum lunas (0041) — selalu Nunggak
+      tunggakanLalu(s, pengaturan.sppNominal).forEach((x) => {
+        urut++
+        daftar.push({
+          id: `${s.id}-spp-${x.ta}-${x.indeks}`,
+          no: `TK-INV-${String(urut).padStart(4, '0')}`,
+          siswaId: s.id, nama: s.nama, kelas: s.kelas, jenis: 'spp', indeks: x.indeks, ta: x.ta,
+          hp: s.hp, wali: s.wali, avatar: s.avatar, jenisKelamin: s.jenis, foto: s.foto,
+          labelJenis: x.label,
+          jatuhTempo: `Tahun ajaran ${x.ta}`,
+          target: x.dibayar + x.kurang, dibayar: x.dibayar, sisa: x.kurang,
+          status: 'nunggak',
+          badge: BADGE.nunggak,
+        })
+      })
+      // kegiatan tahun ajaran lalu yang belum lunas (0042) — selalu Nunggak
+      kegiatanLaluBelum(s).forEach((k) => {
+        urut++
+        daftar.push({
+          id: `${s.id}-keg-${k.biayaId}`,
+          no: `TK-INV-${String(urut).padStart(4, '0')}`,
+          siswaId: s.id, nama: s.nama, kelas: s.kelas, jenis: 'kegiatan', indeks: -1, biayaLaluId: k.biayaId, ta: k.ta,
+          hp: s.hp, wali: s.wali, avatar: s.avatar, jenisKelamin: s.jenis, foto: s.foto,
+          labelJenis: `${k.nama} ${taPendek(k.ta)}`,
+          emoji: emojiKegiatan(k),
+          jatuhTempo: `Tahun ajaran ${k.ta}`,
+          target: k.nominal, dibayar: k.dibayar, sisa: k.kurang,
+          status: 'nunggak',
+          badge: BADGE.nunggak,
+        })
+      })
       for (let i = 0; i <= kini; i++) {
+        const t = targetSpp(s, i, pengaturan.sppNominal)
+        if (!(t > 0)) continue // belum masuk / sudah keluar (0042)
         urut++
         const dibayar = dibayarSpp(s, i)
-        const status = statusSpp(dibayar, pengaturan.sppNominal, i, kini, pengaturan.tanggalJatuhTempo)
+        const status = statusSppItem(statusSpp(dibayar, t, i, kini, pengaturan.tanggalJatuhTempo), i, kini)
         daftar.push({
           id: `${s.id}-spp-${i}`,
           no: `TK-INV-${String(urut).padStart(4, '0')}`,
@@ -141,7 +198,7 @@ export default function Tagihan() {
           hp: s.hp, wali: s.wali, avatar: s.avatar, jenisKelamin: s.jenis, foto: s.foto,
           labelJenis: `SPP ${BULAN[i]}`,
           jatuhTempo: labelJatuhTempoPeriode(pengaturan.tanggalJatuhTempo, i),
-          target: pengaturan.sppNominal, dibayar, sisa: Math.max(0, pengaturan.sppNominal - dibayar),
+          target: t, dibayar, sisa: Math.max(0, t - dibayar),
           status,
           badge: labelStatusSpp(status, i, kini),
         })
@@ -165,10 +222,11 @@ export default function Tagihan() {
           tagihSekarang: kurangSekarangPaket(p, dibayar),
           ket: keteranganPaket(p, dibayar),
           status: STATUS_DARI_PAKET[st],
-          badge: BADGE_PAKET[st],
+          badge: BADGE[STATUS_DARI_PAKET[st]],
         })
       })
       biaya.forEach((b, i) => {
+        if (!kegiatanWajib(s, i) && !dibayarKegiatan(s, i)) return // tidak ditagihkan ke siswa ini (0042)
         urut++
         const dibayar = dibayarKegiatan(s, i)
         daftar.push({
@@ -178,10 +236,10 @@ export default function Tagihan() {
           hp: s.hp, wali: s.wali, avatar: s.avatar, jenisKelamin: s.jenis, foto: s.foto,
           labelJenis: b.nama,
           emoji: emojiKegiatan(b),
-          jatuhTempo: null,
+          jatuhTempo: b.tanggal ? tglPendek(b.tanggal, true) : null,
           target: b.nominal, dibayar, sisa: Math.max(0, b.nominal - dibayar),
-          status: statusKegiatanItem(dibayar, b.nominal),
-          badge: BADGE[statusKegiatanItem(dibayar, b.nominal)],
+          status: statusKegiatanItem(dibayar, b.nominal, kegiatanLewat(b)),
+          badge: BADGE[statusKegiatanItem(dibayar, b.nominal, kegiatanLewat(b))],
         })
       })
     })
@@ -197,19 +255,14 @@ export default function Tagihan() {
 
   const ringkasan = useMemo(() => {
     const baris = semuaTagihan.filter(cocokJenis)
-    const r = { total: baris.length, lunas: 0, belum: 0, sebagian: 0 }
-    baris.forEach((t) => {
-      if (t.status === 'lunas') r.lunas++
-      else if (t.status === 'sebagian') r.sebagian++
-      else r.belum++
-    })
+    const r = { total: baris.length, lunas: 0, mencicil: 0, belum: 0, nunggak: 0 }
+    baris.forEach((t) => { r[t.status]++ })
     return r
   }, [semuaTagihan, jenisFilter, paketAktif])
 
   const hasil = semuaTagihan.filter((t) => {
     if (!cocokJenis(t)) return false
-    if (filter === 'belum' && t.status === 'lunas') return false
-    if (filter === 'jatuh-tempo' && t.status !== 'nunggak') return false
+    if (filter === 'belum-lunas' ? t.status === 'lunas' : filter !== 'semua' && t.status !== filter) return false
     if (filterKelas && t.kelas !== filterKelas) return false
     const q = cari.toLowerCase()
     if (q && !(t.nama.toLowerCase().includes(q) || t.no.toLowerCase().includes(q) || t.labelJenis.toLowerCase().includes(q))) return false
@@ -289,12 +342,8 @@ export default function Tagihan() {
       )}
 
       {/* ---------- ringkasan (ubin permen) ---------- */}
-      {!paketAktif && <div className="grid grid-cols-4 gap-2 lg:max-w-[640px] lg:gap-3">
-        <AngkaPermen warna="biru" nilai={ringkasan.total} label="Semua" />
-        <AngkaPermen warna="tosca" nilai={ringkasan.lunas} label="Lunas" />
-        <AngkaPermen warna="pink" nilai={ringkasan.belum} label="Belum" />
-        <AngkaPermen warna="kuning" nilai={ringkasan.sebagian} label="Sebagian" />
-      </div>}
+      {/* ketuk ubin = saring status itu; ketuk lagi = tampilkan semua */}
+      {!paketAktif && <UbinStatus hitung={ringkasan} aktif={filter} pilih={setFilter} />}
 
       {/* ---------- pencarian ---------- */}
       <KolomCari nilai={cari} ubah={setCari} placeholder="Cari nama siswa, nama tagihan, atau nomor…" className="mt-3.5 lg:max-w-md" />
@@ -307,9 +356,9 @@ export default function Tagihan() {
             label="Status"
             value={filter}
             options={[
-              { value: 'semua', label: 'Semua' },
-              { value: 'belum', label: 'Belum Lunas' },
-              { value: 'jatuh-tempo', label: 'Nunggak' },
+              { value: 'semua', label: 'Semua status' },
+              { value: 'belum-lunas', label: 'Belum lunas (semua)' },
+              ...STATUS_PILIHAN,
             ]}
             onChange={setFilter}
           />
@@ -372,7 +421,7 @@ export default function Tagihan() {
               </thead>
               <tbody>
                 {hasil.slice(0, 150).map((t) => (
-                  <BarisDesktop key={t.id} t={t} nav={nav} kirimWa={kirimWa} bisaCatat={bisaCatat} onCatat={() => setPeriode({ siswaId: t.siswaId, jenis: t.paketId ? 'paket' : t.jenis, indeks: t.indeks })} />
+                  <BarisDesktop key={t.id} t={t} nav={nav} kirimWa={kirimWa} bisaCatat={bisaCatat} onCatat={() => setPeriode({ siswaId: t.siswaId, jenis: t.paketId ? 'paket' : t.jenis, indeks: t.indeks, ta: t.ta || null, biayaLaluId: t.biayaLaluId || null })} />
                 ))}
               </tbody>
             </table>
@@ -380,7 +429,7 @@ export default function Tagihan() {
             {/* mobile: kartu */}
             <div className="px-3.5 lg:hidden">
               {hasil.slice(0, 150).map((t) => (
-                <BarisMobile key={t.id} t={t} nav={nav} kirimWa={kirimWa} bisaCatat={bisaCatat} onCatat={() => setPeriode({ siswaId: t.siswaId, jenis: t.paketId ? 'paket' : t.jenis, indeks: t.indeks })} />
+                <BarisMobile key={t.id} t={t} nav={nav} kirimWa={kirimWa} bisaCatat={bisaCatat} onCatat={() => setPeriode({ siswaId: t.siswaId, jenis: t.paketId ? 'paket' : t.jenis, indeks: t.indeks, ta: t.ta || null, biayaLaluId: t.biayaLaluId || null })} />
               ))}
             </div>
             {hasil.length > 150 && (
@@ -391,6 +440,8 @@ export default function Tagihan() {
           </>
         )}
       </div>
+
+      <TunggakanNonaktif />
 
       <div className="spanduk-kuning mt-5 flex items-center justify-center gap-3 rounded-[20px] px-4 py-3">
         <Matahari className="h-9 w-9 shrink-0" />
@@ -406,6 +457,8 @@ export default function Tagihan() {
         siswaId={periode?.siswaId}
         jenis={periode?.jenis}
         indeks={periode?.indeks}
+        ta={periode?.ta || null}
+        biayaLaluId={periode?.biayaLaluId || null}
       />
       <SheetTagihanMassal buka={massal} tutup={() => setMassal(false)} tagihan={semuaTagihan} kirimWa={kirimWa} />
       <SheetBuatTagihan
@@ -596,7 +649,7 @@ function SheetBuatTagihan({ buka, tutup, jumlahSiswa, selesai, keJenisBiaya }) {
         {n > 0 ? <>{rp(n)} × {jumlahSiswa} siswa = <b className="text-ink">{rp(n * jumlahSiswa)}</b></> : null}
       </div>
       <label className="mb-1.5 block text-[13px] font-bold">Tanggal kegiatan <span className="font-semibold text-muted">(boleh dikosongkan)</span></label>
-      <input type="date" className="field-input mb-4" value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
+      <div className="mb-4"><InputTanggal value={tanggal} onChange={setTanggal} bisaKosong placeholder="Belum ditentukan" aria-label="Tanggal kegiatan" /></div>
       <button className="bigbtn disabled:opacity-60" onClick={simpan} disabled={sibuk}>
         {sibuk ? 'Membuat…' : `Buat tagihan untuk ${jumlahSiswa} siswa`}
       </button>
@@ -665,8 +718,8 @@ function RingkasPaket({ p, pilihan, pilih, siswa, bisaAtur, atur, filter, aturFi
       </div>
       <div className="mt-2.5 grid grid-cols-3 gap-2 lg:mt-0 lg:grid-cols-1 lg:grid-rows-3">
         {[
-          ['jatuh-tempo', 'Terlambat', hitung.terlambat, 'pink'],
-          ['belum', 'Belum lunas', hitung.terlambat + hitung.mencicil + hitung.belum, 'kuning'],
+          ['nunggak', 'Nunggak', hitung.terlambat, 'pink'],
+          ['belum-lunas', 'Belum lunas', hitung.terlambat + hitung.mencicil + hitung.belum, 'kuning'],
           ['semua', 'Semua', ditagih.length, 'tosca'],
         ].map(([v, l, n, w]) => (
           <button key={v} type="button" onClick={() => aturFilter(v)} aria-pressed={filter === v}
@@ -679,14 +732,6 @@ function RingkasPaket({ p, pilihan, pilih, siswa, bisaAtur, atur, filter, aturFi
     </section>
   )
 }
-
-/** Ubin angka ringkasan (permen): angka besar + label. */
-const AngkaPermen = ({ warna, nilai, label }) => (
-  <div className={`permen permen-${warna} flex flex-col items-center justify-center rounded-[18px] px-1 pb-3 pt-2.5 text-center`}>
-    <span className="font-display text-[24px] font-bold leading-none">{nilai}</span>
-    <span className="mt-1 text-[12px] font-extrabold">{label}</span>
-  </div>
-)
 
 /**
  * Tombol filter bergaya dropdown — klik untuk buka daftar pilihan ke

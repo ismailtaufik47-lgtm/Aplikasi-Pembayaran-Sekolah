@@ -10,6 +10,7 @@ import { useData } from '../lib/store.jsx'
 import { useAuth } from '../lib/auth.jsx'
 import { AvatarStaf } from '../components/Avatar.jsx'
 import { labelPeran, menuSekolah, pilihTab } from '../lib/akses.js'
+import { KartuPasang } from '../components/PasangAplikasi.jsx'
 
 export default function Lainnya() {
   const { peran, petugas, avatarSaya, modeDemo, boleh } = useData()
@@ -67,6 +68,8 @@ export default function Lainnya() {
           </span>
           <Panah />
         </button>
+
+        <KartuPasang className="mb-3.5" />
 
         <KartuTema className="mb-3.5" />
 

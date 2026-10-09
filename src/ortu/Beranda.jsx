@@ -9,8 +9,7 @@ import { emojiKegiatan } from '../lib/emojiKegiatan.js'
 import { EMOJI_JENIS, LABEL_JENIS, dibayarPaket, kurangSekarangPaket, paketSiswa } from '../lib/paket.js'
 import {
   BULAN, bulanBerjalan, jarakKegiatan, kegiatanBelum, labelJatuhTempoPeriode, perluDitagihSekarang, rp,
-  sppPerluSekarang, sppTertunggakRupiah, bulanTertunggak, statusSpp, tanggalKegiatan, teksJatuhTempo,
-} from '../lib/format.js'
+  sppPerluSekarang, sppTertunggakRupiah, bulanTertunggak, statusSpp, tanggalKegiatan, teksJatuhTempo, kegiatanLaluBelum, kegiatanWajib, targetSpp, totalKegiatanLalu, sudahNonaktif, labelKelasSiswa, taPendek } from '../lib/format.js'
 
 /**
  * Beranda portal orang tua (desain "ceria").
@@ -27,12 +26,14 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
   const kini = bulanBerjalan()
   const a = aktif
   const spp = pengaturan.sppNominal
+  // 0044: anak yang sudah lulus / keluar — portal tetap terbuka (lihat saja) sampai tunggakannya lunas
+  const nonaktif = sudahNonaktif(a)
 
   // Headline kartu sengaja BUKAN total 12 bulan — hanya tunggakan bulan
   // lalu, bulan ini kalau sudah lewat jatuh tempo, dan kegiatan terbuka.
   const sppPerlu = sppPerluSekarang(a, spp, pengaturan.tanggalJatuhTempo, kini)
-  const kegPerlu = kegiatanBelum(a, biaya)
-  const nKegBelum = biaya.filter((b, i) => (a.kegiatan[i] || 0) < b.nominal).length
+  const kegPerlu = kegiatanBelum(a, biaya) + totalKegiatanLalu(a)
+  const nKegBelum = biaya.filter((b, i) => kegiatanWajib(a, i) && (a.kegiatan[i] || 0) < b.nominal).length + kegiatanLaluBelum(a).length
   // PMB / daftar ulang: hanya tahap yang sudah jatuh tempo (tanpa jadwal → seluruh sisanya)
   const paketPerlu = paketSiswa(paket, a.id).map((p) => ({ p, n: kurangSekarangPaket(p, dibayarPaket(a, p.id)) })).filter((x) => x.n > 0)
   const pkPerlu = paketPerlu.reduce((t, x) => t + x.n, 0)
@@ -55,7 +56,7 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
     : `${nKegBelum} kegiatan belum lunas`
   const teksSpp = kalimatSpp(a, pengaturan, kini)
   const adaPerlu = !!teksSpp || perluDitagihSekarang(a, spp, pengaturan.tanggalJatuhTempo, kini)
-  const iBerikut = a.spp.findIndex((v, i) => i >= kini && (v || 0) < spp)
+  const iBerikut = a.spp.findIndex((v, i) => i >= kini && targetSpp(a, i, spp) > 0 && (v || 0) < targetSpp(a, i, spp))
   const riwayatAnak = pembayaran.filter((p) => p.siswaId === a.id)
 
   // Kegiatan terdekat yang belum lewat (punya tanggal).
@@ -64,7 +65,7 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
     .filter((x) => x.j && !x.j.selesai)
     .sort((x, y) => x.j.selisih - y.j.selisih)[0]
 
-  const status = (i) => statusSpp(a.spp[i] || 0, spp, i, kini, pengaturan.tanggalJatuhTempo)
+  const status = (i) => statusSpp(a.spp[i] || 0, targetSpp(a, i, spp), i, kini, pengaturan.tanggalJatuhTempo)
   const bulanRingkas = kini > 0 ? [kini - 1, kini] : [0, 1]
   const tunggakan = sppTertunggakRupiah(a, spp, kini)
   const nTunggak = bulanTertunggak(a, spp, kini)
@@ -76,7 +77,7 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
         <Avatar nama={a.nama} jenis={a.jenis} avatar={a.avatar} foto={a.foto} size={60} className="ring-4 ring-white/90" />
         <span className="min-w-0">
           <b className="line-clamp-2 block font-display text-[21px] font-semibold leading-[1.15]">{a.nama}</b>
-          <span className="mt-0.5 block text-[12.5px] font-bold opacity-95">Kelas {a.kelas} · NIS {a.nis}</span>
+          <span className="mt-0.5 block text-[12.5px] font-bold opacity-95">{labelKelasSiswa(a)} · NIS {a.nis}</span>
         </span>
       </div>
       <div className="relative mt-3.5 rounded-[18px] bg-kartu px-3.5 py-3 text-ink">
@@ -86,7 +87,8 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
             <span className="min-w-0">
               <b className="judul-halaman block font-display text-[21px] font-bold leading-tight">Semua tagihan lunas</b>
               <span className="block text-[12px] font-bold leading-snug text-muted">
-                {iBerikut >= 0
+                {nonaktif ? 'Tidak ada lagi tagihan untuk ananda. Terima kasih!'
+                  : iBerikut >= 0
                   ? `Berikutnya: SPP ${BULAN[iBerikut]} ${rp(spp - (a.spp[iBerikut] || 0))} · jatuh tempo ${labelJatuhTempoPeriode(pengaturan.tanggalJatuhTempo, iBerikut)}`
                   : 'SPP satu tahun ajaran ini sudah lunas semua. Terima kasih!'}
               </span>
@@ -122,7 +124,19 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
     </div>
   )
 
-  const peringatan = !lunasSemua && (
+  const infoNonaktif = nonaktif && (
+    <div className="kotak-lunas flex w-full items-start gap-3 rounded-[20px] px-3.5 py-3 text-left">
+      <span className="permen permen-kecil permen-biru grid h-10 w-10 shrink-0 place-items-center rounded-[13px] text-[19px]" aria-hidden="true">🎓</span>
+      <span className="min-w-0 flex-1 text-[12px] font-bold leading-snug">
+        <b className="block text-[13.5px] font-extrabold">
+          {a.status === 'alumni' ? `Ananda sudah lulus${a.tahunLulus ? ` (tahun ajaran ${taPendek(a.tahunLulus)})` : ''}` : 'Ananda sudah tidak bersekolah di sini'}
+        </b>
+        Masih ada tagihan yang belum lunas. Portal ini tetap bisa dibuka sampai semuanya selesai — setelah itu tidak tampil lagi.
+      </span>
+    </div>
+  )
+
+  const peringatan = !lunasSemua && !nonaktif && (
     <button
       onClick={() => nav(akar + '/tagihan')}
       className={`flex w-full items-center gap-3 rounded-[20px] px-3.5 py-3 text-left ${adaPerlu ? 'spanduk-kuning' : 'kotak-lunas'}`}
@@ -153,7 +167,7 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
     </button>
   )
 
-  const kegiatanDekat = terdekat && (
+  const kegiatanDekat = terdekat && !nonaktif && (
     <div className="card">
       <KepalaKartu judul="Kegiatan terdekat" tautan="Semua" onTautan={() => nav(akar + '/kegiatan')} />
       <button className="flex w-full items-center gap-3 text-left" onClick={() => bukaKegiatan(terdekat.b.id)}>
@@ -174,7 +188,7 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
     <div>
       <h2 className="judul-kartu mb-2.5 px-0.5 text-[19px]">Ringkasan pembayaran</h2>
       <div className="grid grid-cols-2 gap-2.5">
-        {bulanRingkas.map((i, n) => (
+        {!nonaktif && bulanRingkas.map((i, n) => (
           <KotakRingkas
             key={i}
             warna={n === 0 ? 'pink' : 'kuning'}
@@ -237,6 +251,7 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
           {kartuAnak}
           {menuCepat}
           {peringatanPaket}
+          {infoNonaktif}
           {peringatan}
           {kegiatanDekat}
         </div>
@@ -333,7 +348,7 @@ export function PilihAnak({ anak, aktif, pilih, className = '' }) {
             <Avatar nama={k.nama} jenis={k.jenis} avatar={k.avatar} foto={k.foto} size={32} />
             <span>
               <b className="block text-[13px] font-extrabold leading-tight">{k.panggilan}</b>
-              <span className="block text-[11px] font-bold opacity-80">Kelas {k.kelas}</span>
+              <span className="block text-[11px] font-bold opacity-80">{labelKelasSiswa(k)}</span>
             </span>
           </button>
         )
@@ -370,10 +385,11 @@ function KotakRingkas({ warna, ikon, judul, sub, children, onClick }) {
 function StatusMini({ status }) {
   const s = {
     lunas: ['Lunas', 'green'],
-    sebagian: ['Sebagian', 'amber'],
+    sebagian: ['Mencicil', 'amber'],
     nunggak: ['Terlambat', 'red'],
     'belum-bayar': ['Belum bayar', 'amber'],
     menunggu: ['Belum jatuh tempo', 'grey'],
+    bebas: ['Tidak ditagih', 'grey'],
   }[status]
   return <Chip warna={s[1]}>{s[0]}</Chip>
 }
@@ -382,8 +398,8 @@ function StatusMini({ status }) {
 export function JudulAnak({ anak, judul, sub }) {
   return (
     <header className="relative mb-4 mt-1 lg:mb-6 lg:mt-3">
-      <LangitKepala />
-      <div className="relative z-[1] flex items-center gap-3 lg:gap-4">
+      <LangitKepala pas />
+      <div className="relative z-[1] flex min-h-[72px] items-center gap-3 pr-[118px] lg:min-h-0 lg:gap-4 lg:pr-[270px]">
         <Avatar nama={anak.nama} jenis={anak.jenis} avatar={anak.avatar} foto={anak.foto} size={48} className="ring-[3px] ring-white lg:!h-[60px] lg:!w-[60px]" />
         <div className="min-w-0">
           <h1 className="judul-halaman font-display text-[25px] font-bold leading-[1.1] tracking-[-.3px] lg:text-[32px]">{judul}</h1>

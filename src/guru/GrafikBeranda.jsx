@@ -10,7 +10,7 @@
  * Warna seri sama dengan menu Laporan (sudah dicek aman buta warna).
  */
 import { useMemo, useState } from 'react'
-import { BULAN, bulanBerjalan, rp, statusRingkasSiswa } from '../lib/format.js'
+import { BULAN, bulanBerjalan, rp, statusRingkasSiswa, targetSpp, tahunAjaranBerjalan } from '../lib/format.js'
 import { NAMA_BULAN } from '../lib/kas.js'
 import { BarisLegenda, Donut, PilihRentang, SERI, STATUS, rpRingkas } from './GrafikLaporan.jsx'
 import { KepalaKartu, Tautan, rpTanda } from './KartuBeranda.jsx'
@@ -167,21 +167,21 @@ export function StatusPembayaran({ siswa, pengaturan, onBuka }) {
    * bulan berjalan yang sudah lewat jatuh tempo), dan kalau iya, apakah
    * sudah ada cicilan sebagian. Sama dengan daftar siswa & laporan.
    */
-  const { lunas, sebagian, belum, terkumpul } = useMemo(() => {
-    let lunas = 0, sebagian = 0, belum = 0, terkumpul = 0
+  const { lunas, sebagian, belum, terkumpul, target } = useMemo(() => {
+    let lunas = 0, sebagian = 0, belum = 0, terkumpul = 0, target = 0
     siswa.forEach((s) => {
       const status = statusRingkasSiswa(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)
       if (status === 'lunas') lunas++
       else if (status === 'sebagian') sebagian++
       else belum++
-      terkumpul += Math.min(s.spp[kini] || 0, pengaturan.sppNominal)
+      terkumpul += Math.min(s.spp[kini] || 0, targetSpp(s, kini, pengaturan.sppNominal))
+      target += targetSpp(s, kini, pengaturan.sppNominal)
     })
-    return { lunas, sebagian, belum, terkumpul }
+    return { lunas, sebagian, belum, terkumpul, target }
   }, [siswa, pengaturan, kini])
 
   const total = siswa.length
   const persen = (x) => (total ? Math.round((x / total) * 100) : 0)
-  const target = total * pengaturan.sppNominal
   const persenTerkumpul = target ? Math.round((terkumpul / target) * 100) : 0
   const tahun = new Date().getFullYear()
 
@@ -198,7 +198,7 @@ export function StatusPembayaran({ siswa, pengaturan, onBuka }) {
           tebal={18}
           segmen={[
             { label: 'Lunas', nilai: lunas, warna: STATUS.lunas },
-            { label: 'Sebagian', nilai: sebagian, warna: STATUS.sebagian },
+            { label: 'Mencicil', nilai: sebagian, warna: STATUS.sebagian },
             { label: 'Belum bayar', nilai: belum, warna: STATUS.belum },
           ]}
         >
@@ -209,7 +209,7 @@ export function StatusPembayaran({ siswa, pengaturan, onBuka }) {
         </Donut>
         <div className="min-w-0 flex-1 space-y-2.5">
           <BarisLegenda warna={STATUS.lunas} label="Lunas" nilai={lunas} persen={persen(lunas)} />
-          <BarisLegenda warna={STATUS.sebagian} label="Sebagian" nilai={sebagian} persen={persen(sebagian)} />
+          <BarisLegenda warna={STATUS.sebagian} label="Mencicil" nilai={sebagian} persen={persen(sebagian)} />
           <BarisLegenda warna={STATUS.belum} label="Belum bayar" nilai={belum} persen={persen(belum)} />
         </div>
       </div>
@@ -242,13 +242,14 @@ export function GrafikPembayaran({ pembayaran, siswa, pengaturan }) {
     // Jumlahkan pemasukan SPP per periode (0..11 = Juli..Juni).
     const masukPer = Array(12).fill(0)
     pembayaran.forEach((p) => {
-      if (p.jenis === 'spp' && p.indeks >= 0 && p.indeks < 12) masukPer[p.indeks] += p.nominal
+      // SPP tahun ajaran berjalan saja (tunggakan tahun lalu yang dilunasi tidak ikut grafik bulan ini)
+      if (p.jenis === 'spp' && p.indeks >= 0 && p.indeks < 12 && (!p.tahunAjaran || p.tahunAjaran === tahunAjaranBerjalan())) masukPer[p.indeks] += p.nominal
     })
-    const target = siswa.length * pengaturan.sppNominal // target penuh 1 bulan
+    const targetBulan = (i) => siswa.reduce((t, s) => t + targetSpp(s, i, pengaturan.sppNominal), 0) // target penuh 1 bulan
     const mulai = rentang === 12 ? 0 : Math.max(0, kini - 5)
     const akhir = rentang === 12 ? 11 : kini
     const keluar = []
-    for (let i = mulai; i <= akhir; i++) keluar.push({ label: BULAN[i].slice(0, 3), masuk: masukPer[i], target })
+    for (let i = mulai; i <= akhir; i++) keluar.push({ label: BULAN[i].slice(0, 3), masuk: masukPer[i], target: targetBulan(i) })
     return keluar
   }, [pembayaran, siswa, pengaturan, rentang, kini])
 

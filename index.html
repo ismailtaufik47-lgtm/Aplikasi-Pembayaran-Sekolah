@@ -28,6 +28,32 @@
     <meta name="description" content="Kasceria: catat SPP, biaya kegiatan, dan buku kas TK dalam satu aplikasi." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <!-- PWA: dua aplikasi terpisah dari satu situs —
+         /guru  → "Kasceria" (kepala sekolah & TU)
+         /ortu  → "Kasceria Wali Murid" (portal orang tua)
+         Di iPhone, portal orang tua sengaja TANPA manifest: iPhone lalu memakai
+         alamat yang sedang dibuka (lengkap dengan token wali) sebagai alamat
+         aplikasinya, karena aplikasi di layar utama iPhone tidak berbagi
+         penyimpanan dengan Safari. -->
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <script>
+      (function () {
+        var p = location.pathname
+        var wali = p === '/ortu' || p.indexOf('/ortu/') === 0
+        var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
+        var judul = document.createElement('meta')
+        judul.name = 'apple-mobile-web-app-title'
+        judul.content = wali ? 'Tagihan TK' : 'Kasceria'
+        document.head.appendChild(judul)
+        if (p.indexOf('/admin') === 0 || p.indexOf('/verifikasi') === 0 || (wali && ios)) return
+        var m = document.createElement('link')
+        m.rel = 'manifest'
+        m.href = wali ? '/manifest-wali.webmanifest' : '/manifest.webmanifest'
+        document.head.appendChild(m)
+      })()
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" />

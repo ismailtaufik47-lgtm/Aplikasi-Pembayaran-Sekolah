@@ -34,6 +34,7 @@ const bisaDiunduh = (data = []) =>
     if (d.alat === 'status_siswa') return h.siswa?.length > 0
     if (d.alat === 'transaksi') return h.jumlah_transaksi > 0
     if (d.alat === 'daftar_tunggakan') return h.jumlah_siswa > 0
+    if (d.alat === 'tunggakan_tahun_lalu') return h.jumlah_siswa > 0
     if (d.alat === 'status_kegiatan') return h.kegiatan?.length > 0
     if (d.alat === 'status_spp') return h.jumlah_siswa > 0
     return ['perbandingan_kelas', 'rekap_bulan', 'kas', 'kas_per_bulan'].includes(d.alat)
@@ -54,6 +55,7 @@ function daftarSaran(bolehKas) {
     ...(bolehKas ? [{ e: '📊', label: 'Ringkasan keuangan minggu ini', tanya: 'Buatkan ringkasan keuangan minggu ini' }] : []),
     { e: '📅', label: `Rekap SPP ${BULAN[kini]}`, tanya: `Buatkan rekap pembayaran bulan ${BULAN[kini]}` },
     { e: '🏫', label: 'Kelas mana paling banyak nunggak?', tanya: 'Kelas mana yang tunggakannya paling banyak?' },
+    { e: '🎓', label: 'Tunggakan tahun lalu & alumni', tanya: 'Siapa saja yang masih punya tunggakan tahun ajaran lalu, termasuk yang sudah lulus atau keluar?' },
     { e: '💵', label: 'Siapa yang bayar hari ini?', tanya: 'Siapa saja yang bayar hari ini?' },
     { e: '🔎', label: 'Cek status satu siswa…', isi: 'Bagaimana status pembayaran ' },
   ]

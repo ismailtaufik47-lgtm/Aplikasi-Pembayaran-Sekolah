@@ -1,0 +1,18 @@
+{
+  "id": "/ortu/",
+  "name": "Kasceria Wali Murid",
+  "short_name": "Tagihan TK",
+  "description": "Cek tagihan, riwayat bayar, dan kuitansi anak di TK.",
+  "lang": "id",
+  "start_url": "/ortu/",
+  "scope": "/ortu/",
+  "display": "standalone",
+  "background_color": "#F5F6FA",
+  "theme_color": "#3B6EF6",
+  "categories": ["education", "finance"],
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

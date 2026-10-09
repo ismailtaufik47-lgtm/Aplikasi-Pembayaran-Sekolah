@@ -24,6 +24,7 @@ export function gayaStatus(status) {
   const map = {
     lunas: [WARNA.okSoft, WARNA.ok],
     sebagian: [WARNA.warnSoft, WARNA.warn],
+    mencicil: [WARNA.warnSoft, WARNA.warn],
     nunggak: [WARNA.dangerSoft, WARNA.danger],
     'belum-bayar': [WARNA.warnSoft, WARNA.warn],
     belum: [WARNA.dangerSoft, WARNA.danger],
@@ -34,7 +35,7 @@ export function gayaStatus(status) {
 }
 
 export const LABEL_STATUS = {
-  lunas: 'Lunas', sebagian: 'Sebagian', nunggak: 'Nunggak',
+  lunas: 'Lunas', sebagian: 'Mencicil', mencicil: 'Mencicil', nunggak: 'Nunggak',
   'belum-bayar': 'Belum bayar', belum: 'Menunggak', menunggu: 'Menunggu',
 }
 

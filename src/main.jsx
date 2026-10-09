@@ -9,6 +9,8 @@ import { DataProvider } from './lib/store.jsx'
 import { AuthProvider } from './lib/auth.jsx'
 import './index.css'
 import './lib/tema.js' // pasang mode terang/gelap sedini mungkin
+import './lib/pasang.js' // PWA: tangkap tawaran "pasang aplikasi" sedini mungkin + daftarkan service worker
+import { PasangOtomatis } from './components/PasangAplikasi.jsx'
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -30,6 +32,8 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <Route path="/verifikasi/:kode" element={<Verifikasi />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
+          {/* popup "Pasang Kasceria" — hanya di /guru & /ortu, sekali per kunjungan */}
+          <PasangOtomatis />
         </BrowserRouter>
       </DataProvider>
     </AuthProvider>

@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { useNavigate, useLocation, useParams } from 'react-router-dom'
+import { Navigate, useNavigate, useLocation, useParams } from 'react-router-dom'
 import { Shell, Toast, Muat, TombolTema, KakiRumput, LogoSekolah } from '../components/ui.jsx'
 import { AvatarStaf } from '../components/Avatar.jsx'
-import { bulanBerjalan, kegiatanBelum, rp, sppPerluSekarang, waSekolah } from '../lib/format.js'
+import { labelKelasSiswa, bulanBerjalan, kegiatanBelum, rp, sppPerluSekarang, waSekolah, totalKegiatanLalu } from '../lib/format.js'
 import { useData } from '../lib/store.jsx'
 import { dibayarPaket, kurangSekarangPaket, paketSiswa } from '../lib/paket.js'
+import { modeDemo } from '../lib/supabase.js'
 import Beranda from './Beranda.jsx'
 import Tagihan from './Tagihan.jsx'
 import Riwayat from './Riwayat.jsx'
@@ -40,6 +41,26 @@ const hapusNis = (token) => {
   }
 }
 
+/* ---------- token tautan terakhir (untuk aplikasi terpasang) ----------
+ * Aplikasi "Tagihan TK" yang dipasang di Android/laptop selalu dibuka di /ortu/
+ * (tanpa token). Token tautan yang terakhir berhasil dibuka di perangkat ini
+ * disimpan supaya /ortu/ langsung diarahkan ke portal anaknya. */
+const KUNCI_TOKEN = 'kasceria-wali-token'
+const bacaToken = () => {
+  try {
+    return localStorage.getItem(KUNCI_TOKEN) || ''
+  } catch {
+    return ''
+  }
+}
+const simpanToken = (token) => {
+  try {
+    localStorage.setItem(KUNCI_TOKEN, token)
+  } catch {
+    /* mode privat */
+  }
+}
+
 /**
  * Portal orang tua — hanya melihat, tidak bisa mengubah data.
  * Di produksi, anak yang tampil ditentukan token pada URL (/ortu/:token)
@@ -50,6 +71,7 @@ export default function OrtuApp() {
   // /ortu/tagihan (mode demo) juga cocok dengan rute /ortu/:token/* → nama halaman bukan token.
   const { token: t } = useParams()
   const token = HALAMAN.includes(t) ? undefined : t
+  const tokenLama = !token && !modeDemo ? bacaToken() : ''
   const nav = useNavigate()
   const { pathname } = useLocation()
   const [nis, setNis] = useState(() => bacaNis(token))
@@ -62,13 +84,14 @@ export default function OrtuApp() {
   const [kegiatan, setKegiatan] = useState(null) // id biaya kegiatan yang infonya sedang dibuka
 
   useEffect(() => {
-    if (nis) muat({ mode: 'ortu', token, nis })
-  }, [token, nis, muat])
+    if (nis && !tokenLama) muat({ mode: 'ortu', token, nis })
+  }, [token, nis, muat, tokenLama])
 
   // NIS benar → simpan (kalau diminta diingat). NIS ditolak → lupakan.
   useEffect(() => {
     if (siap && nis && !gerbang && diketik) simpanNis(token, nis, ingat)
     if (gerbang) hapusNis(token)
+    if (siap && nis && !gerbang && token && !modeDemo) simpanToken(token)
   }, [siap, gerbang, nis, diketik, ingat, token])
 
   // Pindah halaman (mis. tombol "Lihat rincian") → selalu mulai dari paling atas.
@@ -88,6 +111,8 @@ export default function OrtuApp() {
     setNis('')
     setDiketik(false)
   }
+
+  if (tokenLama) return <Navigate to={`/ortu/${tokenLama}`} replace />
 
   // ---------- gerbang NIS ----------
   const memeriksa = !!nis && !siap && !galat
@@ -254,10 +279,10 @@ function TombolWa({ anak }) {
   // anak.hp adalah nomor HP orang tua itu sendiri.
   const nomor = waSekolah(pengaturan)
   if (!anak || !nomor) return null
-  const perluSekarang = sppPerluSekarang(anak, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, bulanBerjalan()) + kegiatanBelum(anak, biaya)
+  const perluSekarang = sppPerluSekarang(anak, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, bulanBerjalan()) + kegiatanBelum(anak, biaya) + totalKegiatanLalu(anak)
     + paketSiswa(paket, anak.id).reduce((t, p) => t + kurangSekarangPaket(p, dibayarPaket(anak, p.id)), 0)
   const teks = encodeURIComponent(
-    `Assalamu'alaikum${anak.guru ? ' ' + anak.guru : ''}, saya orang tua ${anak.nama} (Kelas ${anak.kelas}). ` +
+    `Assalamu'alaikum${anak.guru ? ' ' + anak.guru : ''}, saya orang tua ${anak.nama} (${labelKelasSiswa(anak)}). ` +
       `Saya ingin konfirmasi pembayaran. Tagihan aktif yang tercatat di portal ` +
       `${rp(perluSekarang)}.`
   )

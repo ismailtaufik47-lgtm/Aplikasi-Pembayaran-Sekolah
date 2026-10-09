@@ -13,7 +13,7 @@ import { useData } from '../lib/store.jsx'
 import { FONT_EMOJI, emojiKegiatan } from '../lib/emojiKegiatan.js'
 import { EMOJI_JENIS, dibayarPaket } from '../lib/paket.js'
 import {
-  BULAN, bulanBerjalan, dibayarSpp, perluDitagihSekarang, rp, sppPerluSekarang, statusRingkasSiswa,
+  BULAN, bulanBerjalan, dibayarSpp, perluDitagihSekarang, rentangTa, rp, sppPerluSekarang, statusRingkasSiswa, tanggalKunci,
 } from '../lib/format.js'
 import {
   Banner, BarisLegenda, Donut, GrafikBatang, KartuJudul, KartuKpi, KepalaLaporan, Pilihan, PilihRentang,
@@ -21,6 +21,7 @@ import {
 } from './GrafikLaporan.jsx'
 import LaporanKeuangan from './LaporanKeuangan.jsx'
 import LaporanKegiatan from './LaporanKegiatan.jsx'
+import LaporanTahunan from './LaporanTahunan.jsx'
 
 export default function Laporan() {
   const { peran, boleh } = useData()
@@ -31,6 +32,8 @@ export default function Laporan() {
     boleh('lap_pembayaran', 'lihat') && 'pembayaran',
     boleh('lap_keuangan', 'lihat') && 'keuangan',
     boleh('lap_keuangan', 'lihat') && 'kegiatan',
+    // rekap per tahun ajaran (0043): bagian kas hanya tampil untuk yang boleh lihat keuangan
+    (boleh('lap_pembayaran', 'lihat') || boleh('lap_keuangan', 'lihat')) && 'tahunan',
   ].filter(Boolean)
   const minta = q.get('tab') || (peran === 'kepala' ? 'keuangan' : 'pembayaran')
   const tab = ada.includes(minta) ? minta : ada[0]
@@ -39,7 +42,7 @@ export default function Laporan() {
     <>
       <KepalaHalaman judul="Laporan" gambar="grafik" sub="Laporan pembayaran siswa & keuangan sekolah" />
       <TabLaporan tab={tab} pilih={pilih} ada={ada} />
-      {tab === 'keuangan' ? <LaporanKeuangan /> : tab === 'kegiatan' ? <LaporanKegiatan /> : <LaporanPembayaran />}
+      {tab === 'keuangan' ? <LaporanKeuangan /> : tab === 'kegiatan' ? <LaporanKegiatan /> : tab === 'tahunan' ? <LaporanTahunan /> : <LaporanPembayaran />}
     </>
   )
 }
@@ -55,6 +58,8 @@ function LaporanPembayaran() {
   const [thAwal, thAkhir] = pengaturan.tahunAjaran.split('/')
   const namaPeriode = (i) => `${BULAN[i]} ${i > 5 ? thAkhir : thAwal}`
 
+  // laporan tahun ajaran berjalan: pembayaran sejak 1 Juli (pembayaran lama yang ikut dimuat karena tunggakan tidak ikut)
+  const bayarTahunIni = () => pembayaran.filter((p) => tanggalKunci(p.tanggal) >= rentangTa(pengaturan.tahunAjaran).dari)
   // exceljs & jspdf berat — dimuat saat tombol diklik saja.
   const ekspor = async (jenis) => {
     if (unduh) return
@@ -62,10 +67,10 @@ function LaporanPembayaran() {
     try {
       if (jenis === 'pdf') {
         const { unduhPdf } = await import('../lib/exportPdf.js')
-        unduhPdf({ siswa, biaya, pembayaran, pengaturan })
+        unduhPdf({ siswa, biaya, pembayaran: bayarTahunIni(), pengaturan })
       } else {
         const { unduhExcel } = await import('../lib/exportExcel.js')
-        await unduhExcel({ siswa, biaya, pembayaran, pengaturan })
+        await unduhExcel({ siswa, biaya, pembayaran: bayarTahunIni(), pengaturan })
       }
       toast(`Laporan ${jenis === 'pdf' ? 'PDF' : 'Excel'} berhasil diunduh`)
     } catch (e) {
@@ -193,7 +198,7 @@ function LaporanPembayaran() {
           <div className="flex items-center gap-4">
             <Donut segmen={[
               { label: 'Lunas', nilai: r.lunas, warna: STATUS.lunas },
-              { label: 'Sebagian', nilai: r.sebagian, warna: STATUS.sebagian },
+              { label: 'Mencicil', nilai: r.sebagian, warna: STATUS.sebagian },
               { label: 'Belum bayar', nilai: r.belum, warna: STATUS.belum },
             ]}>
               <div>
@@ -203,7 +208,7 @@ function LaporanPembayaran() {
             </Donut>
             <div className="min-w-0 flex-1 space-y-2">
               <BarisLegenda warna={STATUS.lunas} label="Lunas" nilai={`${r.lunas} siswa`} />
-              <BarisLegenda warna={STATUS.sebagian} label="Sebagian" nilai={`${r.sebagian} siswa`} />
+              <BarisLegenda warna={STATUS.sebagian} label="Mencicil" nilai={`${r.sebagian} siswa`} />
               <BarisLegenda warna={STATUS.belum} label="Belum bayar" nilai={`${r.belum} siswa`} />
             </div>
           </div>
@@ -239,7 +244,7 @@ function LaporanPembayaran() {
           <div className="flex items-center gap-4">
             <Donut segmen={[
               { label: 'Lunas', nilai: status.lunas, warna: STATUS.lunas },
-              { label: 'Sebagian', nilai: status.sebagian, warna: STATUS.sebagian },
+              { label: 'Mencicil', nilai: status.sebagian, warna: STATUS.sebagian },
               { label: 'Belum bayar', nilai: status.belum, warna: STATUS.belum },
             ]} ukuran={104} tebal={14}>
               <div>
@@ -249,7 +254,7 @@ function LaporanPembayaran() {
             </Donut>
             <div className="min-w-0 flex-1 space-y-2">
               <BarisLegenda warna={STATUS.lunas} label="Lunas" nilai={status.lunas} persen={persen(status.lunas, siswa.length)} />
-              <BarisLegenda warna={STATUS.sebagian} label="Sebagian" nilai={status.sebagian} persen={persen(status.sebagian, siswa.length)} />
+              <BarisLegenda warna={STATUS.sebagian} label="Mencicil" nilai={status.sebagian} persen={persen(status.sebagian, siswa.length)} />
               <BarisLegenda warna={STATUS.belum} label="Belum bayar" nilai={status.belum} persen={persen(status.belum, siswa.length)} />
             </div>
           </div>

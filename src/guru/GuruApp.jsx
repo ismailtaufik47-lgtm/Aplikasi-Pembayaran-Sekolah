@@ -12,6 +12,8 @@ import Masuk from '../components/Masuk.jsx'
 import DaftarPeran from '../components/DaftarPeran.jsx'
 import Onboarding from './Onboarding.jsx'
 import Beranda from './Beranda.jsx'
+import BerandaKepsek from './BerandaKepsek.jsx'
+import AturIndikator from './AturIndikator.jsx'
 import DaftarSiswa from './DaftarSiswa.jsx'
 import DetailSiswa from './DetailSiswa.jsx'
 import Tagihan from './Tagihan.jsx'
@@ -119,7 +121,15 @@ export default function GuruApp() {
             {!halamanDetail && <BilahAtasHp nav={nav} bolehTagihan={ada('tagihan')} />}
             <SpandukLangganan pengaturan={pengaturan} />
             <Routes>
-              <Route index element={<Beranda onCatat={(siswaId) => bukaCatat(siswaId)} onTambahSiswa={boleh('siswa') ? bukaTambahSiswa : undefined} />} />
+              <Route
+                index
+                element={
+                  // Kepala sekolah → dasbor kesehatan keuangan (butuh akses lihat kas / laporan keuangan)
+                  peran === 'kepala' && (boleh('kas', 'lihat') || boleh('lap_keuangan', 'lihat'))
+                    ? <BerandaKepsek onCatat={bisaCatat ? (siswaId) => bukaCatat(siswaId) : undefined} />
+                    : <Beranda onCatat={(siswaId) => bukaCatat(siswaId)} onTambahSiswa={boleh('siswa') ? bukaTambahSiswa : undefined} />
+                }
+              />
               <Route path="lainnya" element={<Lainnya />} />
               <Route path="profil-akun" element={<ProfilAkun />} />
 
@@ -142,6 +152,7 @@ export default function GuruApp() {
               {ada('kode-aktivasi') && <Route path="kode-aktivasi" element={<KodeAktivasi />} />}
               {ada('akun-staf') && <Route path="akun-staf" element={<AkunStaf />} />}
               {ada('profil-sekolah') && <Route path="profil-sekolah" element={<ProfilSekolah />} />}
+              {ada('atur-indikator') && <Route path="atur-indikator" element={<AturIndikator />} />}
               {ada('langganan') && <Route path="langganan" element={<Langganan />} />}
 
               <Route path="*" element={<Navigate to="/guru" replace />} />

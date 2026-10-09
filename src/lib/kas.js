@@ -244,6 +244,34 @@ export function riwayatKas(gerakan, { dari, sampai, mulaiDari = 0, batas = 30, s
   }
 }
 
+/**
+ * Daftar transaksi kas SAH satu jenis (menu Transaksi › Pengeluaran / Pemasukan lain) —
+ * bentuknya sama dengan kas_daftar() di database (0040).
+ *   rows: baris kas bentuk aplikasi (lihat bentukKas di api.js), mulai: tanggal mulai saldo awal
+ */
+export function daftarKas(rows, { jenis, dari, sampai, mulaiDari = 0, batas = 30, saring = 'semua', nota = 'semua', cari = '' }, mulai, namaKegiatan = () => null) {
+  const q = String(cari || '').trim().toLowerCase()
+  const dasar = rows
+    .filter((k) => k.jenis === jenis && !k.dibatalkanPada && k.tanggal >= dari && k.tanggal <= sampai)
+    .filter((k) => saring === 'semua' || (saring === 'kegiatan') === !!(k.biayaId || k.paketId))
+    .map((k) => ({ ...k, kegiatan: namaKegiatan(k) }))
+    .filter((k) => !q || [k.keterangan, k.kategori, k.kegiatan].some((t) => String(t || '').toLowerCase().includes(q)))
+  const tampil = dasar
+    .filter((k) => nota === 'semua' || (nota === 'ada') === !!k.adaNota)
+    .sort((a, b) => (a.tanggal !== b.tanggal ? (a.tanggal < b.tanggal ? 1 : -1) : String(b.dibuatPada).localeCompare(String(a.dibuatPada))))
+  return {
+    item: tampil.slice(mulaiDari, mulaiDari + batas).map((k) => ({
+      sumber: 'kas', id: k.id, tanggal: k.tanggal, jenis: k.jenis, kategori: k.kategori, nominal: k.nominal,
+      keterangan: k.keterangan || '', dicatatNama: k.dicatatNama, dibuatPada: k.dibuatPada || '', dibatalkanPada: null,
+      adaNota: !!k.adaNota, sebelumMulai: !!(mulai && k.tanggal < mulai), jumlah: 1,
+      biayaId: k.biayaId || null, paketId: k.paketId || null, grup: k.grup || null, kegiatan: k.kegiatan, jmlNota: k.jmlNota || 0,
+    })),
+    lanjut: tampil.length > mulaiDari + batas,
+    jumlahTampil: tampil.length,
+    ringkas: { jumlah: dasar.length, total: jumlah(dasar), adaNota: dasar.filter((k) => k.adaNota).length },
+  }
+}
+
 /** Daftar bulan yang bisa dipilih: dari `bulanPertama` ("YYYY-MM") sampai bulan ini. */
 export function daftarBulan(bulanPertama) {
   const kini = kunciBulan(tanggalISO())
@@ -345,7 +373,8 @@ export function rekapKegiatan({ biaya = [], paket = [], siswa = [], pengeluaran 
   const dariBiaya = biaya.map((b, i) => isi(
     { kunci: 'b:' + b.id, id: b.id, jenis: 'kegiatan', nama: b.nama, emoji: emojiKegiatan ? emojiKegiatan(b) : null, biaya: b,
       nominal: Number(b.nominal) || 0, tanggal: b.tanggal || null, urut: i },
-    siswa, (s) => Number(s.kegiatan?.[i]) || 0,
+    // hanya siswa yang ditagih kegiatan ini (0042: masuk / keluar di tengah tahun tidak ikut)
+    siswa.filter((s) => !s.kegiatanWajib || s.kegiatanWajib[i] !== false || (Number(s.kegiatan?.[i]) || 0) > 0), (s) => Number(s.kegiatan?.[i]) || 0,
   ))
   const dariPaket = paket.map((p, i) => isi(
     { kunci: 'p:' + p.id, id: p.id, jenis: p.jenis, nama: p.nama, emoji: emojiPaket[p.jenis] || null, paket: p,

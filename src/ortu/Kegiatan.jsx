@@ -2,7 +2,7 @@ import { Chevron, Ikon, KosongCeria } from '../components/ui.jsx'
 import { GambarKegiatan } from '../components/Gambar.jsx'
 import { useData } from '../lib/store.jsx'
 import { emojiKegiatan } from '../lib/emojiKegiatan.js'
-import { jarakKegiatan, rp, tanggalKegiatan } from '../lib/format.js'
+import { jarakKegiatan, rp, tanggalKegiatan, kegiatanWajib } from '../lib/format.js'
 import { JudulAnak } from './Beranda.jsx'
 
 const IkonLokasi = ({ size = 13 }) => (
@@ -13,8 +13,9 @@ const IkonLokasi = ({ size = 13 }) => (
 )
 
 /** Status bayar satu kegiatan untuk anak ini: teks + warna. */
-const statusBayar = ({ b, dibayar, lunas }) =>
-  lunas ? { teks: `Lunas · ${rp(b.nominal)}`, kelas: 'text-ok-deep' }
+const statusBayar = ({ b, dibayar, lunas, ikut = true }) =>
+  !ikut && !dibayar ? { teks: 'Tidak ditagihkan ke ananda', kelas: 'text-muted' }
+  : lunas ? { teks: `Lunas · ${rp(b.nominal)}`, kelas: 'text-ok-deep' }
   : dibayar > 0 ? { teks: `Dibayar sebagian · kurang ${rp(b.nominal - dibayar)}`, kelas: 'text-warn-deep' }
   : { teks: `Belum dibayar · ${rp(b.nominal)}`, kelas: 'text-warn-deep' }
 
@@ -32,7 +33,7 @@ export default function Kegiatan({ aktif, bukaKegiatan }) {
 
   const semua = biaya.map((b, i) => {
     const dibayar = a.kegiatan[i] || 0
-    return { b, j: jarakKegiatan(b), dibayar, lunas: dibayar >= b.nominal }
+    return { b, j: jarakKegiatan(b), dibayar, lunas: dibayar >= b.nominal, ikut: kegiatanWajib(a, i) }
   })
   const akanDatang = semua.filter((x) => x.j && !x.j.selesai).sort((x, y) => x.j.selisih - y.j.selisih)
   const tanpaTanggal = semua.filter((x) => !x.j)

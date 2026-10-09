@@ -136,6 +136,7 @@ export function sudahLewatJatuhTempo(tanggalJatuhTempo, hariIni = new Date()) {
  *  - 'menunggu'    : bulan berjalan yang belum jatuh tempo, atau bulan mendatang.
  */
 export function statusSpp(dibayar, target, i, kini, tanggalJatuhTempo, hariIni = new Date()) {
+  if (!(target > 0)) return dibayar > 0 ? 'lunas' : 'bebas' // bulan siswa belum masuk / sudah keluar (0042)
   if (dibayar >= target) return 'lunas'
   if (dibayar > 0) return 'sebagian'
   if (i < kini) return 'nunggak'
@@ -143,7 +144,95 @@ export function statusSpp(dibayar, target, i, kini, tanggalJatuhTempo, hariIni =
   return 'menunggu'
 }
 
-export const dibayarSpp = (s, i) => s.spp[i] || 0
+/* ---------- keanggotaan per tahun ajaran (0042) ---------- */
+
+/**
+ * Target SPP siswa untuk bulan ke-i tahun ajaran berjalan — tarif kelasnya,
+ * atau 0 kalau bulan itu siswa belum masuk / sudah keluar. Data lama tanpa
+ * keanggotaan → nominal standar.
+ */
+export const targetSpp = (s, i, nominal = 0, ta) => {
+  if (ta && s?.sppTargetLalu?.[ta]) return s.sppTargetLalu[ta][i] || 0
+  return s?.sppTarget ? s.sppTarget[i] || 0 : nominal
+}
+/** Tarif SPP per bulan siswa ini (kelasnya) di tahun ajaran berjalan. */
+export const tarifSiswa = (s, nominal = 0) => (s?.tarifSpp ?? nominal)
+/** Jumlah bulan yang ditagih tahun ini (12 kecuali masuk di tengah tahun / keluar). */
+export const bulanDitagih = (s, nominal = 0) => Array.from({ length: 12 }, (_, i) => targetSpp(s, i, nominal)).filter((t) => t > 0).length
+/** Total SPP setahun siswa ini. */
+export const targetSppTahun = (s, nominal = 0) => Array.from({ length: 12 }, (_, i) => targetSpp(s, i, nominal)).reduce((t, v) => t + v, 0)
+/** Alasan bulan tidak ditagih: 'Belum masuk' | 'Sudah keluar' | 'Tidak ditagih'. */
+export function ketBebas(s, i) {
+  const k = s?.terdaftar
+  if (!k) return s?.daftarDepan ? 'Mulai tahun depan' : 'Tidak ditagih'
+  if (i < k.mulai) return 'Belum masuk'
+  if (k.selesai != null && i > k.selesai) return k.akhir === 'pindah' ? 'Sudah pindah' : 'Sudah keluar'
+  return 'Tidak ditagih'
+}
+/** Kegiatan ke-i (urutan daftar biaya tahun berjalan) ditagihkan ke siswa ini? */
+export const kegiatanWajib = (s, i) => !s?.kegiatanWajib || s.kegiatanWajib[i] !== false
+/** Total biaya kegiatan yang ditagihkan ke siswa ini. */
+export const totalKegiatanSiswa = (s, biaya) => biaya.reduce((t, b, i) => t + (kegiatanWajib(s, i) ? b.nominal : 0), 0)
+
+export const dibayarSpp = (s, i, ta) => (ta && s.sppLalu?.[ta] ? s.sppLalu[ta][i] || 0 : s.spp[i] || 0)
+
+/* ---------- SPP tahun ajaran yang sudah lewat (0041) ---------- */
+
+/** '2025/2026' → '2025/26' */
+export const taPendek = (ta) => String(ta || '').replace(/^(\d{4})\/\d{2}(\d{2})$/, '$1/$2')
+/** Tahun kalender bulan ke-i (Juli = 0) dalam tahun ajaran `ta`: ('2025/2026', 10) → 2026 */
+export const tahunBulan = (ta, i) => Number(String(ta).slice(0, 4)) + (i >= 6 ? 1 : 0)
+/** ('2025/2026', 10) → 'Mei 2026' */
+export const namaBulanTa = (ta, i) => `${BULAN[i]} ${tahunBulan(ta, i)}`
+
+/**
+ * Tunggakan SPP dari tahun ajaran yang SUDAH LEWAT, per bulan:
+ * [{ ta, indeks, dibayar, kurang, label }].
+ * Yang ditagih: mulai bulan PERTAMA yang pernah dibayar di tahun ajaran itu
+ * sampai Juni — siswa yang baru masuk di tengah tahun tidak dianggap
+ * nunggak untuk bulan sebelum ia masuk.
+ */
+export function tunggakanLalu(s, sppNominal) {
+  const out = []
+  // 0042: masa terdaftar & tarif per tahun ajaran dari keanggotaan siswa
+  if (s?.sppTargetLalu) {
+    Object.keys(s.sppTargetLalu).sort().forEach((ta) => {
+      const tg = s.sppTargetLalu[ta]
+      const b = s.sppLalu?.[ta] || []
+      for (let i = 0; i < 12; i++) {
+        const d = b[i] || 0
+        if (tg[i] > 0 && d < tg[i]) out.push({ ta, indeks: i, dibayar: d, kurang: tg[i] - d, label: `SPP ${namaBulanTa(ta, i)}` })
+      }
+    })
+    return out
+  }
+  if (!(sppNominal > 0) || !s?.sppLalu) return out
+  Object.keys(s.sppLalu).sort().forEach((ta) => {
+    const b = s.sppLalu[ta] || []
+    const awal = b.findIndex((v) => (v || 0) > 0)
+    if (awal < 0) return
+    for (let i = awal; i < 12; i++) {
+      const d = b[i] || 0
+      if (d < sppNominal) out.push({ ta, indeks: i, dibayar: d, kurang: sppNominal - d, label: `SPP ${namaBulanTa(ta, i)}` })
+    }
+  })
+  return out
+}
+/** Kegiatan tahun ajaran LALU yang ditagihkan ke siswa ini & belum lunas: [{ ta, biayaId, nama, nominal, dibayar, kurang }] */
+export const kegiatanLaluBelum = (s) => (s?.kegiatanLalu || []).filter((k) => k.dibayar < k.nominal).map((k) => ({ ...k, kurang: k.nominal - k.dibayar }))
+export const totalKegiatanLalu = (s) => kegiatanLaluBelum(s).reduce((t, k) => t + k.kurang, 0)
+export const totalTunggakanLalu = (s, sppNominal) => tunggakanLalu(s, sppNominal).reduce((t, x) => t + x.kurang, 0)
+/** Kelompok per tahun ajaran: [{ ta, items, total }] */
+export function tunggakanLaluPerTa(s, sppNominal) {
+  const peta = new Map()
+  tunggakanLalu(s, sppNominal).forEach((x) => {
+    if (!peta.has(x.ta)) peta.set(x.ta, { ta: x.ta, items: [], total: 0 })
+    const g = peta.get(x.ta)
+    g.items.push(x)
+    g.total += x.kurang
+  })
+  return [...peta.values()]
+}
 export const dibayarKegiatan = (s, i) => s.kegiatan[i] || 0
 
 /** Persentase untuk progress bar, dibatasi 0–100 walau kelebihan bayar. */
@@ -152,7 +241,7 @@ export const persenBayar = (dibayar, target) =>
 
 /** Jumlah bulan SPP yang sudah LUNAS PENUH (bukan sekadar tersentuh). */
 export const lunasSpp = (s, sppNominal) =>
-  s.spp.filter((v) => (v || 0) >= sppNominal).length
+  s.spp.filter((v, i) => targetSpp(s, i, sppNominal) > 0 && (v || 0) >= targetSpp(s, i, sppNominal)).length
 
 export const totalKegiatan = (biaya) => biaya.reduce((t, b) => t + b.nominal, 0)
 
@@ -161,7 +250,7 @@ export const kegiatanTerbayar = (s) => s.kegiatan.reduce((t, v) => t + (v || 0),
 
 /** Total rupiah kegiatan yang masih kurang. */
 export const kegiatanBelum = (s, biaya) =>
-  biaya.reduce((t, b, i) => t + Math.max(0, b.nominal - (s.kegiatan[i] || 0)), 0)
+  biaya.reduce((t, b, i) => t + (kegiatanWajib(s, i) ? Math.max(0, b.nominal - (s.kegiatan[i] || 0)) : 0), 0)
 
 /** Total rupiah yang sudah masuk dari siswa ini — SPP + kegiatan, termasuk cicilan. */
 export const totalDibayar = (s) =>
@@ -174,15 +263,15 @@ export const totalDibayar = (s) =>
  * ikut terhitung di sini (lihat statusSpp / sppPerluSekarang).
  */
 export function bulanTertunggak(s, sppNominal, kini = bulanBerjalan()) {
-  let n = 0
-  for (let i = 0; i < kini; i++) if ((s.spp[i] || 0) < sppNominal) n++
+  let n = tunggakanLalu(s, sppNominal).length // + bulan tahun ajaran lalu yang belum lunas
+  for (let i = 0; i < kini; i++) if ((s.spp[i] || 0) < targetSpp(s, i, sppNominal)) n++
   return n
 }
 
 /** Rupiah kekurangan dari bulan-bulan yang SUDAH BERLALU saja (tunggakan murni). */
 export function sppTertunggakRupiah(s, sppNominal, kini = bulanBerjalan()) {
-  let t = 0
-  for (let i = 0; i < kini; i++) t += Math.max(0, sppNominal - (s.spp[i] || 0))
+  let t = totalTunggakanLalu(s, sppNominal) // + tunggakan tahun ajaran lalu
+  for (let i = 0; i < kini; i++) t += Math.max(0, targetSpp(s, i, sppNominal) - (s.spp[i] || 0))
   return t
 }
 
@@ -196,7 +285,7 @@ export function sppTertunggakRupiah(s, sppNominal, kini = bulanBerjalan()) {
 export function sppPerluSekarang(s, sppNominal, tanggalJatuhTempo, kini = bulanBerjalan(), hariIni = new Date()) {
   let t = sppTertunggakRupiah(s, sppNominal, kini)
   if (sudahLewatJatuhTempo(tanggalJatuhTempo, hariIni)) {
-    t += Math.max(0, sppNominal - (s.spp[kini] || 0))
+    t += Math.max(0, targetSpp(s, kini, sppNominal) - (s.spp[kini] || 0))
   }
   return t
 }
@@ -207,7 +296,7 @@ export function sppPerluSekarang(s, sppNominal, tanggalJatuhTempo, kini = bulanB
  */
 export function perluDitagihSekarang(s, sppNominal, tanggalJatuhTempo, kini = bulanBerjalan(), hariIni = new Date()) {
   if (bulanTertunggak(s, sppNominal, kini) > 0) return true
-  return sudahLewatJatuhTempo(tanggalJatuhTempo, hariIni) && (s.spp[kini] || 0) < sppNominal
+  return sudahLewatJatuhTempo(tanggalJatuhTempo, hariIni) && (s.spp[kini] || 0) < targetSpp(s, kini, sppNominal)
 }
 
 /**
@@ -218,7 +307,7 @@ export function perluDitagihSekarang(s, sppNominal, tanggalJatuhTempo, kini = bu
 export function labelTunggakan(s, sppNominal, tanggalJatuhTempo, kini = bulanBerjalan(), hariIni = new Date()) {
   const n = bulanTertunggak(s, sppNominal, kini)
   if (n > 0) return { teks: `${n} bulan`, warna: n > 1 ? 'red' : 'amber' }
-  if (sudahLewatJatuhTempo(tanggalJatuhTempo, hariIni) && (s.spp[kini] || 0) < sppNominal) {
+  if (sudahLewatJatuhTempo(tanggalJatuhTempo, hariIni) && (s.spp[kini] || 0) < targetSpp(s, kini, sppNominal)) {
     return { teks: 'Belum bayar', warna: 'amber' }
   }
   return null
@@ -236,13 +325,13 @@ export function statusRingkasSiswa(s, sppNominal, tanggalJatuhTempo, kini = bula
   if (!perluDitagihSekarang(s, sppNominal, tanggalJatuhTempo, kini, hariIni)) return 'lunas'
   for (let i = 0; i <= kini; i++) {
     const bayar = s.spp[i] || 0
-    if (bayar > 0 && bayar < sppNominal) return 'sebagian'
+    if (bayar > 0 && bayar < targetSpp(s, i, sppNominal)) return 'sebagian'
   }
   return 'belum'
 }
 
 export function sisaTagihan(s, biaya, sppNominal) {
-  const sisaSppTotal = s.spp.reduce((t, v) => t + Math.max(0, sppNominal - (v || 0)), 0)
+  const sisaSppTotal = s.spp.reduce((t, v, i) => t + Math.max(0, targetSpp(s, i, sppNominal) - (v || 0)), 0)
   return sisaSppTotal + kegiatanBelum(s, biaya)
 }
 /**
@@ -320,3 +409,33 @@ export function jarakKegiatan(b, hariIni = new Date()) {
 /** true kalau sekolah sudah mengisi minimal satu info kegiatan. */
 export const adaInfoKegiatan = (b) =>
   !!(b && (b.tanggal || b.waktu || b.lokasi || b.deskripsi || b.perlengkapan))
+
+/* ---------- siswa lulus / keluar & tahun ajaran (0044) ---------- */
+
+/** Siswa sudah lulus / keluar (hanya tampil selama masih menunggak). */
+export const sudahNonaktif = (s) => !!s?.status && s.status !== 'aktif'
+/** "Alumni 25/26" · "Sudah keluar" · "Kelas B" */
+export const labelKelasSiswa = (s) =>
+  s?.status === 'alumni' ? `Alumni${s.tahunLulus ? ' ' + taPendek(s.tahunLulus) : ''}`
+  : s?.status === 'keluar' ? 'Sudah keluar'
+  : `Kelas ${s?.kelas || '—'}`
+
+/** 1 Juli awal & 30 Juni akhir satu tahun ajaran ('YYYY-MM-DD'). */
+export const rentangTa = (ta) => {
+  const y = Number(String(ta).slice(0, 4))
+  return { dari: `${y}-07-01`, sampai: `${y + 1}-06-30` }
+}
+
+/**
+ * Semua tahun ajaran yang pernah ada datanya (terbaru dulu, tidak lewat tahun berjalan):
+ * dari tarif SPP per tahun, keanggotaan siswa, dan kegiatan tahun lain.
+ */
+export function daftarTaSekolah({ pengaturan, siswa = [], biayaLain = [] }) {
+  const kini = tahunAjaranBerjalan()
+  const y = Number(kini.slice(0, 4))
+  const ada = new Set([kini, `${y - 1}/${y}`])
+  Object.keys(pengaturan?.tarifSpp || {}).forEach((t) => ada.add(t))
+  siswa.forEach((s) => (s.keanggotaan || []).forEach((k) => ada.add(k.ta)))
+  biayaLain.forEach((b) => b.tahunAjaran && ada.add(b.tahunAjaran))
+  return [...ada].filter((t) => /^\d{4}\/\d{4}$/.test(t) && t <= kini).sort().reverse()
+}

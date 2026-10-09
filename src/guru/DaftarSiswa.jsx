@@ -1,29 +1,23 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Avatar from '../components/Avatar.jsx'
-import { BtnKecil, Chevron, Chip, Ikon, KepalaHalaman, KolomCari, Kosong, KosongCeria, Pil, Sheet, Track } from '../components/ui.jsx'
+import { BtnKecil, Chevron, Chip, Ikon, KepalaHalaman, KolomCari, Kosong, KosongCeria, Pil, Sheet } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import SheetImportSiswa from './SheetImportSiswa.jsx'
 import SheetKenaikanKelas from './SheetKenaikanKelas.jsx'
 import * as api from '../lib/api.js'
+import { paketSiswa } from '../lib/paket.js'
 import { pesanKunci } from '../lib/langganan.js'
-import {
-  bulanBerjalan,
-  kegiatanBelum,
-  labelTunggakan,
-  lunasSpp,
-  perluDitagihSekarang,
-  rp,
-  sppPerluSekarang,
-  statusRingkasSiswa,
-  totalKegiatan,
-} from '../lib/format.js'
+import { bulanBerjalan, rp, taPendek, tahunAjaranBerjalan, targetSppTahun, totalKegiatanSiswa } from '../lib/format.js'
+import { geserTa } from '../lib/bentukData.js'
+import { STATUS_TAGIHAN, statusSiswa } from '../lib/statusSiswa.js'
+import UbinStatus from '../components/UbinStatus.jsx'
 
-const STATUS_LABEL = { lunas: 'Lunas', sebagian: 'Sebagian', belum: 'Menunggak' }
-const STATUS_WARNA = { lunas: 'green', sebagian: 'amber', belum: 'red' }
+/** Warna teks alasan di bawah chip status. */
+const WARNA_ALASAN = { nunggak: 'text-danger', mencicil: 'text-warn-deep', belum: 'text-[#3A4256] dark:text-[#B8C3DC]', lunas: 'text-ok-deep' }
 
 export default function DaftarSiswa({ onTambah, onUbah, terkunci = false }) {
-  const { siswa, biaya, pengaturan, hapusSiswa, segarkan, toast, boleh } = useData()
+  const { siswa, biaya, paket = [], pengaturan, hapusSiswa, segarkan, toast, boleh } = useData()
   const readOnly = !boleh('siswa')
   const nav = useNavigate()
   const [showImport, setShowImport] = useState(false)
@@ -39,7 +33,8 @@ export default function DaftarSiswa({ onTambah, onUbah, terkunci = false }) {
   const [alumni, setAlumni] = useState([])
   const [memuatAlumni, setMemuatAlumni] = useState(false)
   const [cari, setCari] = useState('')
-  const [filter, setFilter] = useState('')
+  const [filter, setFilter] = useState('') // kelas
+  const [filterStatus, setFilterStatus] = useState('semua') // semua | nunggak | mencicil | belum | lunas
   const [menuAksi, setMenuAksi] = useState(null) // siswa yang lagi dibuka menu "..."-nya
   const [konfirmHapus, setKonfirmHapus] = useState(false)
   const kini = bulanBerjalan()
@@ -62,27 +57,31 @@ export default function DaftarSiswa({ onTambah, onUbah, terkunci = false }) {
   }
 
   const kelas = useMemo(() => [...new Set(siswa.map((s) => s.kelas))].sort(), [siswa])
+
+  // Status tiap siswa — aturan yang sama dengan menu Tagihan (lib/statusSiswa.js)
+  const statusPer = useMemo(() => {
+    const ctx = { biaya, paket, sppNominal: pengaturan.sppNominal, kini }
+    return new Map(siswa.map((s) => [s.id, statusSiswa(s, ctx)]))
+  }, [siswa, biaya, paket, pengaturan.sppNominal, kini])
+  const st = (s) => statusPer.get(s.id) || { status: 'lunas', tunggakan: 0, alasan: '' }
+
   const hasil = siswa.filter((s) => {
     const q = cari.toLowerCase()
     if (q && !(s.nama.toLowerCase().includes(q) || s.nis.includes(q))) return false
-    if (filter === '#n') return perluDitagihSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)
     if (filter && s.kelas !== filter) return false
+    if (filterStatus !== 'semua' && st(s).status !== filterStatus) return false
     return true
   })
 
-  /** Ringkasan untuk header tabel — dari SELURUH siswa, tidak ikut terpengaruh pencarian/filter. */
+  /** Ringkasan (ubin & header tabel) — dari siswa kelas terpilih, tidak terpengaruh pencarian. */
   const ringkasan = useMemo(() => {
-    let lunas = 0, sebagian = 0, belum = 0
-    siswa.forEach((s) => {
-      const st = statusRingkasSiswa(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)
-      if (st === 'lunas') lunas++
-      else if (st === 'sebagian') sebagian++
-      else belum++
-    })
-    return { lunas, sebagian, belum }
-  }, [siswa, pengaturan, kini])
+    const r = { nunggak: 0, mencicil: 0, belum: 0, lunas: 0 }
+    siswa.forEach((s) => { if (!filter || s.kelas === filter) r[statusPer.get(s.id)?.status || 'lunas']++ })
+    return r
+  }, [siswa, statusPer, filter])
 
-  const tagihanTotal = 12 * pengaturan.sppNominal + totalKegiatan(biaya)
+  // total setahun per siswa: bulan saat terdaftar × tarif kelasnya + kegiatan yang ditagihkan (0042)
+  const tagihanTotal = (s) => targetSppTahun(s, pengaturan.sppNominal) + totalKegiatanSiswa(s, biaya)
 
   const bukaMenu = (s) => { setMenuAksi(s); setKonfirmHapus(false) }
   const tutupMenu = () => { setMenuAksi(null); setKonfirmHapus(false) }
@@ -172,20 +171,25 @@ export default function DaftarSiswa({ onTambah, onUbah, terkunci = false }) {
         </button>
       </div>
 
+      {tabAktif === 'aktif' && !readOnly && <PengingatKenaikan siswa={siswa} info={pengaturan.infoTa} buka={() => setShowKenaikanKelas(true)} />}
+
+      {tabAktif === 'aktif' && siswa.length > 0 && (
+        <>
+          <UbinStatus hitung={ringkasan} aktif={filterStatus} pilih={setFilterStatus} />
+          <p className="mb-3 mt-2 flex items-start gap-1.5 px-0.5 text-[12px] font-semibold leading-snug text-muted">
+            <Ikon.info size={15} className="mt-px shrink-0" />
+            <span>Status = tagihan siswa yang paling mendesak (SPP, kegiatan, PMB/daftar ulang) — sama dengan menu Tagihan.</span>
+          </p>
+        </>
+      )}
+
       {tabAktif === 'aktif' && (
       <div className="noscroll -mx-[18px] mb-2 flex gap-2 overflow-x-auto px-[18px] pb-1 lg:mx-0 lg:px-0">
-        <Pil on={filter === ''} onClick={() => setFilter('')}>Semua</Pil>
+        <Pil on={filter === ''} onClick={() => setFilter('')}>Semua kelas</Pil>
         {kelas.map((k) => (
           <Pil key={k} on={filter === k} onClick={() => setFilter(k)}>Kelas {k}</Pil>
         ))}
-        <Pil on={filter === '#n'} warna="pink" onClick={() => setFilter('#n')}>Menunggak</Pil>
       </div>
-      )}
-
-      {tabAktif === 'aktif' && siswa.length > 0 && (
-        <p className="mb-2.5 px-0.5 text-[12.5px] font-bold text-muted lg:hidden">
-          {siswa.length} siswa aktif · {ringkasan.lunas} Lunas · {ringkasan.belum} Menunggak · {ringkasan.sebagian} Sebagian
-        </p>
       )}
 
       {tabAktif === 'aktif' && (
@@ -196,25 +200,25 @@ export default function DaftarSiswa({ onTambah, onUbah, terkunci = false }) {
           siswa.length === 0 ? (
             <KosongSiswa readOnly={readOnly} onTambah={onTambah} onImport={bukaImport} />
           ) : (
-            <Kosong>Tidak ada siswa yang cocok dengan pencarian.</Kosong>
+            <Kosong>Tidak ada siswa yang cocok dengan pencarian / saringan.</Kosong>
           )
         ) : (
           hasil.map((s) => {
-            const label = labelTunggakan(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)
-            const lunas = lunasSpp(s, pengaturan.sppNominal)
+            const x = st(s)
             return (
-              <button key={s.id} className="row w-full text-left" onClick={() => nav(`/guru/siswa/${s.id}`)}>
+              <button key={s.id} className="row w-full items-start text-left" onClick={() => nav(`/guru/siswa/${s.id}`)}>
                 <Avatar nama={s.nama} jenis={s.jenis} avatar={s.avatar} foto={s.foto} />
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-[14.5px] font-bold">{s.nama}</span>
-                  <span className="block truncate text-[12.5px] text-muted">
-                    Kelas {s.kelas} · {s.wali || 'Data orang tua belum diisi'} · NIS {s.nis}
+                  <span className="flex items-center justify-between gap-2">
+                    <span className="min-w-0 truncate text-[14.5px] font-bold">{s.nama}</span>
+                    <Chip warna={STATUS_TAGIHAN[x.status].chip}>{STATUS_TAGIHAN[x.status].label}</Chip>
                   </span>
-                  <span className="mt-1.5 block">
-                    <Track persen={(lunas / 12) * 100} warna={label ? '#F5A524' : '#22C55E'} tinggi={5} />
+                  <span className="block truncate text-[12.5px] text-muted">Kelas {s.kelas} · NIS {s.nis}{s.daftarDepan ? ` · mulai ${taPendek(s.daftarDepan.ta)}` : ''}</span>
+                  <span className="mt-1 flex items-baseline justify-between gap-2 text-[12.5px] font-bold">
+                    <span className={`min-w-0 break-words ${WARNA_ALASAN[x.status]}`}>{x.alasan}</span>
+                    {x.tunggakan > 0 && <span className="shrink-0 text-danger">{rp(x.tunggakan)}</span>}
                   </span>
                 </span>
-                <Chip warna={label ? label.warna : 'green'}>{label ? label.teks : 'Lancar'}</Chip>
                 <Chevron />
               </button>
             )
@@ -226,14 +230,14 @@ export default function DaftarSiswa({ onTambah, onUbah, terkunci = false }) {
       <div className="card hidden overflow-hidden !p-0 lg:block">
         {siswa.length > 0 && (
           <div className="border-b border-line px-5 py-3 text-[13px] font-bold text-muted">
-            {siswa.length} siswa terdaftar · {ringkasan.lunas} Lunas · {ringkasan.belum} Menunggak · {ringkasan.sebagian} Sebagian
+            {hasil.length} siswa ditampilkan · {ringkasan.nunggak} Nunggak · {ringkasan.mencicil} Mencicil · {ringkasan.belum} Belum bayar · {ringkasan.lunas} Lunas
           </div>
         )}
         {hasil.length === 0 ? (
           <div className="p-5">
             {siswa.length === 0
               ? <KosongSiswa readOnly={readOnly} onTambah={onTambah} onImport={bukaImport} />
-              : <Kosong>Tidak ada siswa yang cocok dengan pencarian.</Kosong>}
+              : <Kosong>Tidak ada siswa yang cocok dengan pencarian / saringan.</Kosong>}
           </div>
         ) : (
           <table className="w-full border-collapse text-left text-sm">
@@ -250,10 +254,14 @@ export default function DaftarSiswa({ onTambah, onUbah, terkunci = false }) {
             </thead>
             <tbody>
               {hasil.map((s) => {
-                const status = statusRingkasSiswa(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)
-                const tunggakan = sppPerluSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini) + kegiatanBelum(s, biaya)
+                // Tunggakan = tagihan yang SUDAH LEWAT jatuh tempo (SPP bulan lalu,
+                // kegiatan yang tanggalnya lewat, tahap PMB/DU yang lewat)
+                const x = st(s)
+                const tunggakan = x.tunggakan
+                const pkSiswa = paketSiswa(paket, s.id)
+                const totalSiswa = tagihanTotal(s) + pkSiswa.reduce((t, p) => t + p.total, 0)
                 return (
-                  <tr key={s.id} className="border-b border-line last:border-b-0 hover:bg-[#FAFBFF]">
+                  <tr key={s.id} className={`border-b border-line last:border-b-0 hover:bg-[#FAFBFF] dark:hover:bg-white/5 ${x.status === 'nunggak' ? 'shadow-[inset_4px_0_0_#EF4444]' : ''}`}>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-3">
                         <Avatar nama={s.nama} jenis={s.jenis} avatar={s.avatar} foto={s.foto} size={38} />
@@ -263,12 +271,16 @@ export default function DaftarSiswa({ onTambah, onUbah, terkunci = false }) {
                         </div>
                       </div>
                     </td>
-                    <td className="px-3 py-3 text-muted">{s.kelas}</td>
+                    <td className="px-3 py-3 text-muted">
+                      {s.kelas}
+                      {s.daftarDepan && <span className="ml-1.5 whitespace-nowrap rounded-pill bg-brand-soft px-2 py-0.5 text-[11px] font-extrabold text-brand">mulai {taPendek(s.daftarDepan.ta)}</span>}
+                    </td>
                     <td className="px-3 py-3 text-muted">{s.nis}</td>
-                    <td className="px-3 py-3 font-semibold text-ink">{rp(tagihanTotal)}</td>
+                    <td className="px-3 py-3 font-semibold text-ink">{rp(totalSiswa)}</td>
                     <td className={`px-3 py-3 font-semibold ${tunggakan > 0 ? 'text-danger' : 'text-muted'}`}>{rp(tunggakan)}</td>
-                    <td className="px-3 py-3">
-                      <Chip warna={STATUS_WARNA[status]}>{STATUS_LABEL[status]}</Chip>
+                    <td className="max-w-[260px] px-3 py-3">
+                      <Chip warna={STATUS_TAGIHAN[x.status].chip}>{STATUS_TAGIHAN[x.status].label}</Chip>
+                      <div className="mt-1 text-[12px] font-semibold leading-snug text-muted">{x.alasan}</div>
                     </td>
                     <td className="px-5 py-3">
                       <div className="flex items-center gap-3.5">
@@ -384,3 +396,31 @@ const KosongSiswa = ({ readOnly, onTambah, onImport }) => (
     {readOnly ? 'Belum ada siswa terdaftar di sekolah ini.' : 'Tambahkan siswa satu per satu, atau langsung import dari file Excel data sekolah.'}
   </KosongCeria>
 )
+
+/**
+ * Pengingat kenaikan kelas (0042):
+ *   April–Juni  : tahun ajaran depan belum disiapkan
+ *   Juli–Maret  : tahun ini dibuka otomatis (siswa dibawa ke kelas yang sama) & wizard belum dijalankan
+ */
+function PengingatKenaikan({ siswa, info, buka }) {
+  if (!info || !siswa.length) return null
+  const ta = tahunAjaranBerjalan()
+  const bln = bulanBerjalan()
+  const siapkan = bln >= 9 && !info.kenaikanDepanSudah
+  const telat = bln < 9 && info.kenaikanSudah === false && siswa.some((s) => (s.keanggotaan || []).some((k) => k.ta === geserTa(ta, -1)))
+  if (!siapkan && !telat) return null
+  return (
+    <div className="mb-3.5 flex flex-wrap items-center gap-3 rounded-[20px] bg-warn-soft px-4 py-3 lg:max-w-3xl">
+      <span className="text-[26px] leading-none" aria-hidden="true">🎓</span>
+      <p className="min-w-0 flex-1 text-[13px] font-semibold leading-snug text-warn-deep">
+        <b className="block font-extrabold">{siapkan ? `Tahun ajaran ${geserTa(ta, 1)} mulai 1 Juli` : `Kenaikan kelas ${ta} belum diproses`}</b>
+        {siapkan
+          ? 'Siapkan kenaikan kelas & kelulusan sekarang — kelas siswa berubah otomatis saat tahun ajaran baru dimulai.'
+          : 'Siswa sementara dibawa ke kelas yang sama seperti tahun lalu. Proses kenaikan supaya kelas & tarif SPP-nya benar.'}
+      </p>
+      <button type="button" onClick={buka} className="shrink-0 rounded-pill bg-warn px-3.5 py-2 text-[12.5px] font-extrabold text-white shadow-[inset_0_-3px_0_rgba(0,0,0,.12)]">
+        {siapkan ? 'Siapkan' : 'Proses sekarang'}
+      </button>
+    </div>
+  )
+}

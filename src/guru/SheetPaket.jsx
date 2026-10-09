@@ -13,6 +13,7 @@ import { useEffect, useMemo, useState } from 'react'
 import Avatar from '../components/Avatar.jsx'
 import { GambarKegiatan } from '../components/Gambar.jsx'
 import { Ikon, KolomCari, Sheet } from '../components/ui.jsx'
+import InputTanggal from '../components/InputTanggal.jsx'
 import InputNominal from '../components/InputNominal.jsx'
 import { useData } from '../lib/store.jsx'
 import { rp, tahunAjaranBerjalan } from '../lib/format.js'
@@ -307,7 +308,7 @@ export default function SheetPaket({ buka, tutup, paketId = null, jenisAwal = 'p
               {tahap.map((t, i) => (
                 <div key={i} className="flex items-center gap-2 border-b-[1.5px] border-dashed border-line py-2 last:border-b-0">
                   <span className="permen permen-kecil permen-biru grid h-9 w-7 shrink-0 place-items-center rounded-[10px] font-display text-[14px] font-bold">{i + 1}</span>
-                  <input type="date" className="field-input min-w-0 flex-1 !px-2 !py-2.5 !text-[12.5px]" value={t.jatuhTempo} onChange={(e) => ubahTahap(i, { jatuhTempo: e.target.value })} aria-label={`Jatuh tempo tahap ${i + 1}`} />
+                  <div className="min-w-0 flex-1"><InputTanggal kecil value={t.jatuhTempo} onChange={(v) => ubahTahap(i, { jatuhTempo: v })} placeholder="Jatuh tempo" aria-label={`Jatuh tempo tahap ${i + 1}`} className="!gap-1 !px-2.5 !py-2.5 !text-[12.5px]" /></div>
                   <InputNominal className="w-[112px] shrink-0 [&_input]:!py-2.5 [&_input]:!pr-2 [&_input]:!text-[13px]" value={t.nominal} onChange={(v) => ubahTahap(i, { nominal: v })} placeholder="0" aria-label={`Nominal tahap ${i + 1}`} />
                   <button type="button" onClick={() => hapusTahap(i)} className="grid h-9 w-7 shrink-0 place-items-center text-muted hover:text-danger" aria-label={`Hapus tahap ${i + 1}`}>
                     <Ikon.plus size={18} className="rotate-45" />

@@ -3,7 +3,7 @@ import { Chevron, Chip, Ikon, Kosong, Segment, Track } from '../components/ui.js
 import { GambarKegiatan } from '../components/Gambar.jsx'
 import { useData } from '../lib/store.jsx'
 import { emojiKegiatan } from '../lib/emojiKegiatan.js'
-import { BULAN, bulanBerjalan, dibayarKegiatan, labelJatuhTempoPeriode, dibayarSpp, persenBayar, rp, statusSpp, tanggalKegiatan } from '../lib/format.js'
+import { labelKelasSiswa, sudahNonaktif, BULAN, bulanBerjalan, dibayarKegiatan, kegiatanLaluBelum, kegiatanWajib, ketBebas, labelJatuhTempoPeriode, dibayarSpp, namaBulanTa, persenBayar, rp, statusSpp, tanggalKegiatan, targetSpp, tunggakanLaluPerTa } from '../lib/format.js'
 import { IkonBank, JudulAnak } from './Beranda.jsx'
 import { EMOJI_JENIS, LABEL_PANJANG, dibayarPaket, keteranganPaket, kurangSekarangPaket, paketSiswa, statusPaket, tahapPaket, tglPendek, urutPaket } from '../lib/paket.js'
 
@@ -14,6 +14,7 @@ const GAYA = {
   nunggak: { permen: 'permen-pink', teks: 'text-danger', bar: '#EF4444' },
   'belum-bayar': { permen: 'permen-kuning', teks: 'text-warn-deep', bar: '#F5A524' },
   menunggu: { permen: 'permen-abu', teks: 'text-muted', bar: '#C9D0DC' },
+  bebas: { permen: 'permen-abu', teks: 'text-muted', bar: '#C9D0DC' },
 }
 
 export default function Tagihan({ aktif, bukaCaraBayar, bukaKegiatan }) {
@@ -27,10 +28,15 @@ export default function Tagihan({ aktif, bukaCaraBayar, bukaKegiatan }) {
   const a = aktif
   const paketAnak = paketSiswa(paket, a.id).sort(urutPaket)
   const tab = seg === 'paket' && !paketAnak.length ? 'spp' : seg
+  const lalu = tunggakanLaluPerTa(a, pengaturan.sppNominal)
+  const kegLalu = kegiatanLaluBelum(a)
+  const kegAnak = biaya.map((b, i) => ({ b, i })).filter(({ i }) => kegiatanWajib(a, i) || dibayarKegiatan(a, i) > 0)
+  // 0044: sudah lulus / keluar sebelum tahun ini → hanya tunggakan lama yang ditampilkan
+  const tanpaTahunIni = sudahNonaktif(a) && !a.terdaftar
 
   return (
     <>
-      <JudulAnak anak={a} judul="Rincian tagihan" sub={`${a.nama} · Kelas ${a.kelas} · ${pengaturan.tahunAjaran}`} />
+      <JudulAnak anak={a} judul="Rincian tagihan" sub={`${a.nama} · ${labelKelasSiswa(a)}${tanpaTahunIni ? '' : ` · ${pengaturan.tahunAjaran}`}`} />
 
       <div className="lg:max-w-[420px]">
         <Segment
@@ -44,15 +50,72 @@ export default function Tagihan({ aktif, bukaCaraBayar, bukaKegiatan }) {
         />
       </div>
       {tab === 'paket' && paketAnak.map((p) => <PaketAnak key={p.id} p={p} dibayar={dibayarPaket(a, p.id)} />)}
-      {tab === 'keg' && biaya.length > 0 && (
+      {tab === 'keg' && kegAnak.length > 0 && (
         <p className="sub-halaman -mt-1 mb-2.5 px-1 text-[12.5px] font-bold">Ketuk kegiatan untuk melihat jadwal & keterangan lengkapnya.</p>
       )}
 
-      <div className={`card !py-1.5 lg:grid lg:grid-cols-2 lg:gap-x-8 lg:!px-6 ${tab === 'paket' ? '!hidden' : ''}`}>
+      {/* SPP tahun ajaran lalu yang belum lunas (0041) */}
+      {tab === 'spp' && lalu.map((g) => (
+        <div key={g.ta} className="mb-3">
+          <div className="mb-1.5 flex items-baseline justify-between gap-2 px-1">
+            <b className="text-[14px] font-extrabold text-danger">Tunggakan tahun ajaran {g.ta}</b>
+            <b className="text-[14px] font-extrabold text-danger">{rp(g.total)}</b>
+          </div>
+          <div className="card !py-1.5 lg:grid lg:grid-cols-2 lg:gap-x-8 lg:!px-6">
+            {g.items.map((x) => (
+              <Baris
+                key={x.indeks}
+                ubin={<span className={`permen permen-kecil ${GAYA.nunggak.permen} grid h-11 w-11 shrink-0 place-items-center rounded-[14px] font-display text-[14px] font-bold`}>{BULAN[x.indeks].slice(0, 3)}</span>}
+                judul={namaBulanTa(g.ta, x.indeks)}
+                catatan={<b className={`font-extrabold ${GAYA.nunggak.teks}`}>{x.dibayar > 0 ? `Kurang ${rp(x.kurang)}` : 'Belum dibayar'} · tahun ajaran lalu</b>}
+                dibayar={x.dibayar}
+                target={x.dibayar + x.kurang}
+                warnaBar={GAYA.nunggak.bar}
+              />
+            ))}
+          </div>
+        </div>
+      ))}
+      {/* kegiatan tahun ajaran lalu yang belum lunas (0042) */}
+      {tab === 'keg' && kegLalu.length > 0 && (
+        <div className="mb-3">
+          <div className="mb-1.5 flex items-baseline justify-between gap-2 px-1">
+            <b className="text-[14px] font-extrabold text-danger">Kegiatan tahun lalu belum lunas</b>
+            <b className="text-[14px] font-extrabold text-danger">{rp(kegLalu.reduce((t, k) => t + k.kurang, 0))}</b>
+          </div>
+          <div className="card !py-1.5 lg:grid lg:grid-cols-2 lg:gap-x-8 lg:!px-6">
+            {kegLalu.map((k) => (
+              <Baris
+                key={k.biayaId}
+                ubin={<GambarKegiatan emoji={emojiKegiatan(k)} size={44} className="rounded-[14px]" />}
+                judul={k.nama}
+                catatan={<b className={`font-extrabold ${GAYA.nunggak.teks}`}>{k.dibayar > 0 ? `Kurang ${rp(k.kurang)}` : 'Belum dibayar'} · {k.ta}</b>}
+                dibayar={k.dibayar}
+                target={k.nominal}
+                warnaBar={GAYA.nunggak.bar}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+      {tanpaTahunIni && tab !== 'paket' && ((tab === 'spp' && !lalu.length) || (tab === 'keg' && !kegLalu.length)) && (
+        <div className="card mb-3"><Kosong>{tab === 'spp' ? 'Tidak ada tunggakan SPP.' : 'Tidak ada tunggakan biaya kegiatan.'}</Kosong></div>
+      )}
+      {!tanpaTahunIni && ((tab === 'spp' && lalu.length > 0) || (tab === 'keg' && kegLalu.length > 0)) && (
+        <div className="mb-1.5 px-1 text-[14px] font-extrabold">Tahun ajaran {pengaturan.tahunAjaran}</div>
+      )}
+      {a.daftarDepan && tab !== 'paket' && (
+        <div className="card mb-3 !py-3 text-[13px] font-semibold leading-snug">
+          <b className="block font-extrabold">Ananda terdaftar mulai tahun ajaran {a.daftarDepan.ta}</b>
+          <span className="text-muted">Tagihan SPP & kegiatan dimulai Juli. Untuk saat ini hanya PMB yang perlu dibayar.</span>
+        </div>
+      )}
+
+      <div className={`card !py-1.5 lg:grid lg:grid-cols-2 lg:gap-x-8 lg:!px-6 ${tab === 'paket' || tanpaTahunIni ? '!hidden' : ''}`}>
         {tab === 'spp'
           ? BULAN.map((b, i) => {
               const dibayar = dibayarSpp(a, i)
-              const target = pengaturan.sppNominal
+              const target = targetSpp(a, i, pengaturan.sppNominal)
               const status = statusSpp(dibayar, target, i, kini, pengaturan.tanggalJatuhTempo)
               const g = GAYA[status]
               return (
@@ -62,7 +125,8 @@ export default function Tagihan({ aktif, bukaCaraBayar, bukaKegiatan }) {
                   judul={b}
                   catatan={
                     <b className={`font-extrabold ${g.teks}`}>
-                      {status === 'lunas' ? 'Lunas · sudah dibayar penuh'
+                      {status === 'bebas' ? `${ketBebas(a, i)} · tidak ditagih`
+                      : status === 'lunas' ? 'Lunas · sudah dibayar penuh'
                       : status === 'sebagian' ? `Kurang ${rp(target - dibayar)}`
                       : status === 'nunggak' ? `Terlambat · jatuh tempo ${labelJatuhTempoPeriode(pengaturan.tanggalJatuhTempo, i)}`
                       : status === 'belum-bayar' ? `Belum bayar · jatuh tempo ${labelJatuhTempoPeriode(pengaturan.tanggalJatuhTempo, i)}`
@@ -75,9 +139,9 @@ export default function Tagihan({ aktif, bukaCaraBayar, bukaKegiatan }) {
                 />
               )
             })
-          : biaya.length === 0
+          : kegAnak.length === 0
           ? <Kosong>Belum ada biaya kegiatan pada tahun ajaran ini.</Kosong>
-          : biaya.map((b, i) => {
+          : kegAnak.map(({ b, i }) => {
               const dibayar = dibayarKegiatan(a, i)
               const lunas = dibayar >= b.nominal
               const sebagian = !lunas && dibayar > 0
@@ -199,7 +263,7 @@ const Baris = ({ ubin, judul, catatan, dibayar, target, warnaBar, ketuk }) => {
       <div className="min-w-0 flex-1">
         <div className="flex items-baseline justify-between gap-3">
           <b className="min-w-0 truncate text-[14.5px] font-extrabold">{judul}</b>
-          <span className="shrink-0 font-display text-[14px] font-bold text-[#34405C] dark:text-[#DCE3F2]">{rp(target)}</span>
+          <span className="shrink-0 font-display text-[14px] font-bold text-[#34405C] dark:text-[#DCE3F2]">{target > 0 ? rp(target) : "—"}</span>
         </div>
         <div className="mt-0.5 text-[12px] font-semibold leading-snug text-muted">{catatan}</div>
         {sebagian && (

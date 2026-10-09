@@ -234,6 +234,13 @@ async function kuitansiPdf(k) {
 
 /* ===================== kuitansi pembayaran orang tua ===================== */
 
+/** SPP: tambahkan tahun ajaran kalau labelnya belum memuat tahun (data sebelum 0041). */
+function untukSpp(d) {
+  const ket = d.keterangan || ''
+  if (d.jenis !== 'spp' || !d.tahunAjaran || /\b20\d\d\b/.test(ket)) return ket
+  return `${ket} · TA ${d.tahunAjaran}`
+}
+
 /** Bentuk isi kuitansi dari hasil RPC kuitansi_staf / kuitansi_portal. */
 export function isiKuitansiBayar(d) {
   const sisa = Math.max(0, (d.target || 0) - (d.terbayarSampaiIni || 0))
@@ -245,7 +252,7 @@ export function isiKuitansiBayar(d) {
     baris: [
       ['Telah terima dari', d.siswa.wali ? `${d.siswa.wali} (orang tua/wali)` : `Orang tua/wali ${d.siswa.nama}`],
       ['Nama siswa', `${d.siswa.nama} · Kelas ${d.siswa.kelas}${d.siswa.nis ? ' · NIS ' + d.siswa.nis : ''}`],
-      ['Untuk pembayaran', d.jenis === 'paket' && !lunas ? `${d.keterangan} (cicilan)` : d.keterangan],
+      ['Untuk pembayaran', d.jenis === 'paket' && !lunas ? `${d.keterangan} (cicilan)` : untukSpp(d)],
       ['Cara bayar', `${d.metode === 'Tabungan' ? 'Potong tabungan siswa' : d.metode} · ${jamWib(d.dibayarPada)}`],
       ['Dicatat oleh', d.petugas || '-'],
     ],

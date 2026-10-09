@@ -5,7 +5,8 @@
  * tampilan & tombol Unduh Excel bisa dicoba tanpa server.
  */
 import {
-  BULAN, bulanBerjalan, bulanTertunggak, perluDitagihSekarang, rp, sppPerluSekarang, sudahLewatJatuhTempo, tanggalISO,
+  BULAN, bulanBerjalan, bulanTertunggak, kegiatanLaluBelum, namaBulanTa, perluDitagihSekarang, rp, sppPerluSekarang, sudahLewatJatuhTempo,
+  tahunAjaranBerjalan, tanggalISO, targetSpp, tunggakanLalu as tunggakanLaluSpp,
 } from './format.js'
 
 const CATATAN = '\n\n*(Mode demo — ini contoh jawaban dari data demo, bukan AI sungguhan.)*'
@@ -19,8 +20,8 @@ function tunggakan({ siswa, pengaturan }) {
     .map((s) => ({
       nama: s.nama, kelas: s.kelas, wali: s.wali,
       jumlah_bulan_nunggak: bulanTertunggak(s, n),
-      bulan_nunggak: BULAN.slice(0, kini).map((b, i) => ({ bulan: b, dibayar: s.spp[i] || 0, kurang: n - (s.spp[i] || 0) })).filter((b) => b.kurang > 0),
-      bulan_berjalan_lewat_jatuh_tempo_belum_lunas: lewat && (s.spp[kini] || 0) < n,
+      bulan_nunggak: BULAN.slice(0, kini).map((b, i) => ({ bulan: b, dibayar: s.spp[i] || 0, kurang: targetSpp(s, i, n) - (s.spp[i] || 0) })).filter((b) => b.kurang > 0),
+      bulan_berjalan_lewat_jatuh_tempo_belum_lunas: lewat && (s.spp[kini] || 0) < targetSpp(s, kini, n),
       perlu_dibayar_sekarang_spp: sppPerluSekarang(s, n, jt),
     }))
     .sort((a, b) => b.jumlah_bulan_nunggak - a.jumlah_bulan_nunggak || b.perlu_dibayar_sekarang_spp - a.perlu_dibayar_sekarang_spp)
@@ -71,7 +72,7 @@ function perKelas({ siswa, pengaturan }) {
       total_bulan_nunggak: ss.reduce((t, s) => t + bulanTertunggak(s, n), 0),
       kurang_spp_rupiah: ss.reduce((t, s) => t + sppPerluSekarang(s, n, jt), 0),
       kurang_kegiatan_rupiah: 0,
-      lunas_spp_bulan_berjalan: ss.filter((s) => (s.spp[bulanBerjalan()] || 0) >= n).length,
+      lunas_spp_bulan_berjalan: ss.filter((s) => (s.spp[bulanBerjalan()] || 0) >= targetSpp(s, bulanBerjalan(), n)).length,
       spp_terkumpul_tahun_ajaran: ss.reduce((t, s) => t + s.spp.reduce((a, v) => a + (v || 0), 0), 0),
     }
   }).sort((a, b) => b.kurang_spp_rupiah - a.kurang_spp_rupiah)
@@ -86,8 +87,8 @@ function perKelas({ siswa, pengaturan }) {
 function rekap({ siswa, pembayaran, pengaturan }) {
   const n = pengaturan.sppNominal
   const i = bulanBerjalan()
-  const lunas = siswa.filter((s) => (s.spp[i] || 0) >= n).length
-  const sebagian = siswa.filter((s) => (s.spp[i] || 0) > 0 && (s.spp[i] || 0) < n).length
+  const lunas = siswa.filter((s) => (s.spp[i] || 0) >= targetSpp(s, i, n)).length
+  const sebagian = siswa.filter((s) => (s.spp[i] || 0) > 0 && (s.spp[i] || 0) < targetSpp(s, i, n)).length
   const masuk = pembayaran.filter((p) => bulanBerjalan(new Date(p.tanggal)) === i && new Date(p.tanggal).getFullYear() === new Date().getFullYear())
   const total = masuk.reduce((t, p) => t + p.nominal, 0)
   const jawaban =
@@ -235,6 +236,37 @@ function statusKegiatan({ siswa, biaya }, p) {
   return { jawaban, data: [{ alat: 'status_kegiatan', hasil }] }
 }
 
+/** Tunggakan tahun ajaran lalu, termasuk siswa yang sudah lulus / keluar (bentuk ai_tunggakan_lalu, 0044). */
+async function tunggakanLalu({ siswa, pembayaran, pengaturan }) {
+  const aktif = siswa.map((s) => ({
+    s, status: `masih aktif, kelas ${s.kelas}`,
+    rincian: [
+      ...tunggakanLaluSpp(s, pengaturan.sppNominal).map((x) => ({ tahun_ajaran: x.ta, kelas_saat_itu: (s.keanggotaan || []).find((k) => k.ta === x.ta)?.kelas || s.kelas, tagihan: x.label, dibayar: x.dibayar, kurang: x.kurang })),
+      ...kegiatanLaluBelum(s).map((k) => ({ tahun_ajaran: k.ta, kelas_saat_itu: (s.keanggotaan || []).find((x) => x.ta === k.ta)?.kelas || s.kelas, tagihan: 'Kegiatan ' + k.nama, dibayar: k.dibayar, kurang: k.kurang })),
+    ],
+  }))
+  const kini = tahunAjaranBerjalan()
+  const lain = (await (await import('./api.js')).tunggakanNonaktif({ pembayaran })).map((x) => ({
+    s: x, status: x.status === 'alumni' ? `sudah lulus${x.tahunLulus ? ` (${x.tahunLulus})` : ''}` : 'sudah keluar / pindah',
+    rincian: x.item.filter((it) => it.ta < kini).map((it) => ({ tahun_ajaran: it.ta, kelas_saat_itu: x.kelas, tagihan: it.jenis === 'spp' ? `SPP ${namaBulanTa(it.ta, it.i)}` : 'Kegiatan ' + it.nama, dibayar: it.dibayar, kurang: it.target - it.dibayar })),
+  }))
+  const daftar = [...aktif, ...lain].filter((x) => x.rincian.length)
+    .map((x) => ({ nama: x.s.nama, status: x.status, wali: x.s.wali, kurang_total: x.rincian.reduce((t, r) => t + r.kurang, 0), rincian: x.rincian }))
+    .sort((a, b) => b.kurang_total - a.kurang_total)
+  const hasil = {
+    tahun_ajaran: 'semua tahun ajaran lalu', kelas: 'semua kelas', jumlah_siswa: daftar.length,
+    total_kurang_rupiah: daftar.reduce((t, s) => t + s.kurang_total, 0), siswa: daftar,
+  }
+  const jawaban = daftar.length === 0
+    ? 'Tidak ada tunggakan dari tahun ajaran yang sudah lewat. 👍'
+    : `Masih ada **${daftar.length} siswa** dengan tunggakan tahun ajaran lalu, total **${rp(hasil.total_kurang_rupiah)}** — ` +
+      `${lain.filter((x) => x.rincian.length).length} di antaranya sudah lulus / keluar.\n\n` +
+      '| Nama | Status | Tunggakan | Kurang |\n|---|---|---|---|\n' +
+      daftar.map((s) => `| ${s.nama} | ${s.status} | ${s.rincian.map((r) => r.tagihan).join(', ')} | ${rp(s.kurang_total)} |`).join('\n') +
+      '\n\nSiswa yang sudah lulus / keluar ada di menu Tagihan › "Sudah lulus / keluar, masih menunggak".'
+  return { jawaban, data: [{ alat: 'tunggakan_tahun_lalu', hasil }] }
+}
+
 export async function jawabDemo(pesan, data) {
   await new Promise((r) => setTimeout(r, 900))
   const p = pesan.toLowerCase()
@@ -248,6 +280,7 @@ export async function jawabDemo(pesan, data) {
     soalKegiatan && /lunas|sudah bayar|belum bayar|sebagian|rekap/.test(p) ? statusKegiatan(data, p)
     : /hari ini|transaksi|yang bayar|kemarin/.test(p) ? transaksiHariIni(data)
     : /kelas mana|per kelas|bandingkan|kelas/.test(p) ? perKelas(data)
+    : /tahun lalu|tahun ajaran lalu|alumni|lulus|sudah keluar|pindah/.test(p) ? await tunggakanLalu(data)
     : /belum bayar|nunggak|tunggak|belum lunas|tagih/.test(p) ? tunggakan(data)
     : rekap(data)
   return { ...hasil, jawaban: hasil.jawaban + CATATAN, kuota: { terpakai: 1, batas: 30 } }

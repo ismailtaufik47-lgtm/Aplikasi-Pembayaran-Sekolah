@@ -26,8 +26,7 @@ import {
   tanggalISO,
   tanggalPanjang,
   totalDibayar,
-  totalKegiatan,
-} from './format.js'
+  kegiatanWajib, targetSpp, targetSppTahun, totalKegiatanSiswa } from './format.js'
 import { WARNA, isiSel, FONT_HEADER, FONT_JUDUL, gayaStatus, LABEL_STATUS, judulLembar, baposHeader } from './exportHelpers.js'
 
 export async function unduhExcel({ siswa, biaya, pembayaran, pengaturan }) {
@@ -62,7 +61,7 @@ function sheetRingkasan(wb, { siswa, biaya, pembayaran, pengaturan, kini }) {
   const tunggakanSpp = siswa.reduce((t, s) => t + sppPerluSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini), 0)
   const kurangKegiatan = siswa.reduce((t, s) => t + kegiatanBelum(s, biaya), 0)
   const menunggak = siswa.filter((s) => perluDitagihSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)).length
-  const targetTahun = 12 * pengaturan.sppNominal * siswa.length + totalKegiatan(biaya) * siswa.length
+  const targetTahun = siswa.reduce((t, s) => t + targetSppTahun(s, pengaturan.sppNominal) + totalKegiatanSiswa(s, biaya), 0)
   const totalSemuaDibayar = siswa.reduce((t, s) => t + totalDibayar(s), 0)
   const tingkat = targetTahun ? Math.round((totalSemuaDibayar / targetTahun) * 1000) / 10 : 0
 
@@ -106,7 +105,7 @@ function sheetRingkasan(wb, { siswa, biaya, pembayaran, pengaturan, kini }) {
   r += 1
   const hitung = { lunas: 0, sebagian: 0, belum: 0 }
   siswa.forEach((s) => hitung[statusRingkasSiswa(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)]++)
-  ;[['lunas', 'Lunas'], ['sebagian', 'Sebagian'], ['belum', 'Menunggak']].forEach(([key, label]) => {
+  ;[['lunas', 'Lunas'], ['sebagian', 'Mencicil'], ['belum', 'Menunggak']].forEach(([key, label]) => {
     const n = hitung[key]
     const persen = siswa.length ? Math.round((n / siswa.length) * 1000) / 10 : 0
     const gaya = gayaStatus(key)
@@ -180,9 +179,9 @@ function sheetSpp(wb, { siswa, pembayaran, pengaturan, kini }) {
 
     BULAN.forEach((_, i) => {
       const dibayar = dibayarSpp(s, i)
-      const status = statusSpp(dibayar, pengaturan.sppNominal, i, kini, pengaturan.tanggalJatuhTempo)
+      const status = statusSpp(dibayar, targetSpp(s, i, pengaturan.sppNominal), i, kini, pengaturan.tanggalJatuhTempo)
       const cell = ws.getCell(r, 5 + i)
-      cell.value = dibayar > 0 ? dibayar : status === 'menunggu' ? null : 0
+      cell.value = dibayar > 0 ? dibayar : status === 'menunggu' || status === 'bebas' ? null : 0
       cell.numFmt = '"Rp "#,##0'
       const gaya = gayaStatus(status)
       cell.fill = gaya.fill
@@ -264,14 +263,14 @@ function statusSppSiswa(s, sppNominal, tanggalJatuhTempo, kini) {
   if (siswa_bulanTertunggak(s, sppNominal, kini) > 0) return 'nunggak'
   for (let i = 0; i <= kini; i++) {
     const bayar = s.spp[i] || 0
-    if (bayar > 0 && bayar < sppNominal) return 'sebagian'
+    if (bayar > 0 && bayar < targetSpp(s, i, sppNominal)) return 'sebagian'
   }
   return 'belum-bayar'
 }
 
 function siswa_bulanTertunggak(s, sppNominal, kini) {
   let n = 0
-  for (let i = 0; i < kini; i++) if ((s.spp[i] || 0) < sppNominal) n++
+  for (let i = 0; i < kini; i++) if ((s.spp[i] || 0) < targetSpp(s, i, sppNominal)) n++
   return n
 }
 
@@ -311,7 +310,7 @@ function sheetKegiatan(wb, { siswa, biaya }) {
       const dibayar = dibayarKegiatan(s, i)
       if (dibayar >= b.nominal) jmlLunas++
       const cell = ws.getCell(r, 5 + i)
-      cell.value = dibayar
+      cell.value = !kegiatanWajib(s, i) && !dibayar ? null : dibayar // kosong = tidak ditagihkan (0042)
       cell.numFmt = '"Rp "#,##0'
       cell.alignment = { horizontal: 'right' }
     })
@@ -324,7 +323,7 @@ function sheetKegiatan(wb, { siswa, biaya }) {
     // Status besar: LUNAS (semua item lunas, hijau) atau BELUM (merah).
     // Kalau ada yang lunas tapi belum semua, tetap "BELUM" tapi angka
     // per-kolom sudah menunjukkan mana yang sudah/belum.
-    const semua = jmlLunas === jmlKeg
+    const semua = jmlLunas >= biaya.filter((_, i) => kegiatanWajib(s, i)).length
     const cS = ws.getCell(r, colStatus)
     cS.value = semua ? 'LUNAS' : 'BELUM'
     cS.fill = isiSel(semua ? 'FF8CC63F' : 'FFF01E1E')
@@ -373,8 +372,8 @@ function sheetPrioritas(wb, { siswa, biaya, pengaturan, kini }) {
     // daftar bulan bermasalah (belum lunas s.d. bulan ini)
     const bulanMasalah = []
     for (let i = 0; i <= kini; i++) {
-      if ((s.spp[i] || 0) < pengaturan.sppNominal) {
-        const st = statusSpp(s.spp[i] || 0, pengaturan.sppNominal, i, kini, pengaturan.tanggalJatuhTempo)
+      if ((s.spp[i] || 0) < targetSpp(s, i, pengaturan.sppNominal)) {
+        const st = statusSpp(s.spp[i] || 0, targetSpp(s, i, pengaturan.sppNominal), i, kini, pengaturan.tanggalJatuhTempo)
         if (st === 'nunggak' || st === 'belum-bayar' || st === 'sebagian') bulanMasalah.push(BULAN[i])
       }
     }

@@ -1,10 +1,13 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { BtnKecil, Ikon, KepalaHalaman, Kosong, Sheet, Tile } from '../components/ui.jsx'
+import InputTanggal from '../components/InputTanggal.jsx'
 import { GambarKegiatan } from '../components/Gambar.jsx'
 import InputNominal from '../components/InputNominal.jsx'
 import { useData } from '../lib/store.jsx'
-import { AKHIR_BULAN, adaInfoKegiatan, jatuhTempoAkhirBulan, rp, tanggalKegiatan } from '../lib/format.js'
+import { AKHIR_BULAN, adaInfoKegiatan, daftarTaSekolah, jatuhTempoAkhirBulan, rp, taPendek, tahunAjaranBerjalan, tanggalKegiatan } from '../lib/format.js'
+import PilihTa from '../components/PilihTa.jsx'
+import { geserTa } from '../lib/bentukData.js'
 import { PILIHAN_EMOJI, emojiKegiatan, tebakEmoji } from '../lib/emojiKegiatan.js'
 import { EMOJI_JENIS, LABEL_JENIS, WARNA_JENIS, urutPaket } from '../lib/paket.js'
 import SheetPaket from './SheetPaket.jsx'
@@ -14,14 +17,22 @@ const POLA_PAKET = /^\s*(pmb|ppdb|spmb|du)\b|pendaftaran|daftar\s*ulang|uang\s+p
 const tebakJenisPaket = (nama = '') => (/daftar\s*ulang|^\s*du\b|registrasi\s*ulang|her[- ]?registrasi/i.test(nama) ? 'du' : 'pmb')
 
 export default function JenisBiaya() {
-  const { biaya, paket, pengaturan, tambahBiaya, hapusBiaya, ubahEmojiBiaya, ubahInfoBiaya, ubahPengaturan, pindahkanBiayaKePaket, toast, boleh } = useData()
+  const { biaya, biayaLain, siswa, paket, pengaturan, tambahBiaya, hapusBiaya, ubahEmojiBiaya, ubahInfoBiaya, ubahPengaturan, aturTarifSpp, salinKegiatan, pindahkanBiayaKePaket, toast, boleh } = useData()
   const ro = !boleh('biaya') // hak akses "lihat" saja
   const nav = useNavigate()
   const [buka, setBuka] = useState(false)
   const [nama, setNama] = useState('')
   const [nominal, setNominal] = useState('')
-  const [spp, setSpp] = useState(pengaturan.sppNominal)
   const [tempo, setTempo] = useState(pengaturan.tanggalJatuhTempo)
+  // 0042: tarif SPP per tahun ajaran (standar + kelas khusus), kegiatan per tahun ajaran
+  const taKini = tahunAjaranBerjalan()
+  const taDepan = geserTa(taKini, 1)
+  const taLalu = geserTa(taKini, -1)
+  const [taTarif, setTaTarif] = useState(taKini)
+  // semua tahun ajaran yang sudah lewat & ada datanya (terbaru dulu)
+  const taLewat = useMemo(() => daftarTaSekolah({ pengaturan, siswa, biayaLain }).filter((t) => t < taKini), [pengaturan, siswa, biayaLain, taKini])
+  const [lihatTa, setLihatTa] = useState(taKini)
+  const [salin, setSalin] = useState(null) // { dari, ke }
   const [emojiBaru, setEmojiBaru] = useState(null) // null = otomatis dari nama
   const [pilihEmoji, setPilihEmoji] = useState(null) // { untuk: 'baru' } | { untuk: indeks biaya }
   const [infoBaru, setInfoBaru] = useState(INFO_KOSONG)
@@ -90,9 +101,8 @@ export default function JenisBiaya() {
             <div className="text-[12.5px] text-muted">Siklus Juli–Juni</div>
           </div>
         </div>
+        <TarifSpp ta={taTarif} setTa={setTaTarif} taKini={taKini} taDepan={taDepan} taLewat={taLewat} ro={ro} siswa={siswa} pengaturan={pengaturan} aturTarifSpp={aturTarifSpp} toast={toast} />
         <fieldset disabled={ro} className={ro ? 'opacity-80' : ''}>
-        <label className="mb-1.5 block text-[13px] font-bold">Nominal per bulan</label>
-        <InputNominal className="mb-3.5" value={spp} onChange={setSpp} placeholder="150.000" />
         <label className="mb-1.5 block text-[13px] font-bold">Jatuh tempo setiap bulan</label>
         <div className="mb-2.5 grid grid-cols-2 gap-1 rounded-[18px] bg-isi p-1" role="radiogroup">
           {[
@@ -131,11 +141,11 @@ export default function JenisBiaya() {
         {!ro && <button
           className="bigbtn"
           onClick={async () => {
-            await ubahPengaturan({ sppNominal: Number(spp) || 0, tanggalJatuhTempo: jatuhTempoAkhirBulan(tempo) ? AKHIR_BULAN : Math.min(28, Math.max(1, Number(tempo) || 10)) })
-            toast('Pengaturan SPP disimpan')
+            await ubahPengaturan({ tanggalJatuhTempo: jatuhTempoAkhirBulan(tempo) ? AKHIR_BULAN : Math.min(28, Math.max(1, Number(tempo) || 10)) })
+            toast('Jatuh tempo SPP disimpan')
           }}
         >
-          Simpan
+          Simpan jatuh tempo
         </button>}
        </div>
 
@@ -182,8 +192,33 @@ export default function JenisBiaya() {
        <div>
       <div className="seghead lg:mt-0">
         <h2>Biaya kegiatan</h2>
-        {!ro && <button className="text-[13px] font-bold text-brand lg:hidden" onClick={() => setBuka(true)}>+ Tambah</button>}
+        {!ro && lihatTa === taKini && <button className="text-[13px] font-bold text-brand lg:hidden" onClick={() => setBuka(true)}>+ Tambah</button>}
       </div>
+      <div className="noscroll -mx-0.5 mb-3 flex gap-1.5 overflow-x-auto px-0.5" role="group" aria-label="Tahun ajaran kegiatan">
+        {/* semua tahun yang sudah lewat lewat satu pilihan, supaya tetap rapi walau sudah bertahun-tahun */}
+        <PilihTa on={lihatTa < taKini} nilai={lihatTa < taKini ? lihatTa : ''} ubah={setLihatTa} daftar={taLewat} label="Tahun lalu" className="!py-[7px] !text-[12.5px]" />
+        {[[taKini, 'Tahun ini'], [taDepan, 'Tahun depan']].map(([t, l]) => (
+          <button key={t} type="button" aria-pressed={lihatTa === t} onClick={() => setLihatTa(t)}
+            className={`shrink-0 rounded-pill px-3.5 py-2 text-[12.5px] font-extrabold ${lihatTa === t ? 'permen permen-kecil permen-biru' : 'border-[1.5px] border-[#DCE6F4] bg-kartu text-muted dark:border-line'}`}>
+            {l} <span className="font-bold opacity-75">{taPendek(t)}</span>
+          </button>
+        ))}
+      </div>
+      {lihatTa !== taKini ? (
+        <KegiatanTahunLain ta={lihatTa} lalu={lihatTa < taKini} daftar={biayaLain.filter((b) => b.tahunAjaran === lihatTa)} ro={ro}
+          bisaSalin={lihatTa > taKini && biaya.length > 0} salinDariKini={() => setSalin({ dari: taKini, ke: taDepan })} />
+      ) : (
+      <>
+      {!ro && biayaLain.some((b) => b.tahunAjaran === taLalu && !biaya.some((x) => x.nama.trim().toLowerCase() === b.nama.trim().toLowerCase())) && (
+        <button type="button" onClick={() => setSalin({ dari: taLalu, ke: taKini })}
+          className="mb-3 flex w-full items-center gap-3 rounded-[18px] border-[1.5px] border-dashed border-[#B9CBEF] bg-kartu px-3.5 py-3 text-left dark:border-line">
+          <span className="tile h-[38px] w-[38px] shrink-0 rounded-[12px] bg-brand-soft text-brand"><Ikon.dokumen size={19} /></span>
+          <span className="min-w-0 flex-1 text-[12.5px] font-semibold leading-snug text-muted">
+            <b className="block text-[13.5px] font-extrabold text-brand">Salin kegiatan tahun lalu</b>
+            Nama, nominal & keterangan dari {taLalu} — tinggal isi tanggalnya.
+          </span>
+        </button>
+      )}
       <div className="card">
         {biaya.length === 0 ? (
           <Kosong>Belum ada biaya kegiatan.</Kosong>
@@ -241,8 +276,15 @@ export default function JenisBiaya() {
           ))
         )}
       </div>
+      </>
+      )}
        </div>
       </div>
+
+      <SheetSalinKegiatan buka={!!salin} tutup={() => setSalin(null)} dari={salin?.dari} ke={salin?.ke}
+        sumber={salin?.dari === taKini ? biaya : biayaLain.filter((b) => b.tahunAjaran === salin?.dari)}
+        sudahAda={salin?.ke === taKini ? biaya : biayaLain.filter((b) => b.tahunAjaran === salin?.ke)}
+        salinKegiatan={salinKegiatan} toast={toast} />
 
       <Sheet buka={buka} tutup={() => setBuka(false)} judul="Tambah biaya kegiatan" lead="Biaya ini otomatis muncul di kartu semua siswa.">
         <label className="mb-1.5 block text-[13px] font-bold">Nama kegiatan</label>
@@ -388,17 +430,19 @@ function FormInfoKegiatan({ info, ubah }) {
       <div className="mb-3 grid grid-cols-2 gap-2.5">
         <div>
           <label className={label}>Tanggal</label>
-          <input type="date" className="field-input" value={info.tanggal} onChange={(e) => ubah({ tanggal: e.target.value })} />
+          <InputTanggal kecil bisaKosong value={info.tanggal} onChange={(v) => ubah(v ? { tanggal: v } : { tanggal: '', tanggalSelesai: '' })} placeholder="Pilih" aria-label="Tanggal kegiatan" />
         </div>
         <div>
           <label className={label}>Sampai <span className="font-semibold text-muted">(opsional)</span></label>
-          <input
-            type="date"
-            className="field-input"
+          <InputTanggal
+            kecil
+            bisaKosong
             value={info.tanggalSelesai}
             min={info.tanggal || undefined}
             disabled={!info.tanggal}
-            onChange={(e) => ubah({ tanggalSelesai: e.target.value })}
+            onChange={(v) => ubah({ tanggalSelesai: v })}
+            placeholder="—"
+            aria-label="Tanggal selesai"
           />
         </div>
       </div>
@@ -427,5 +471,178 @@ function FormInfoKegiatan({ info, ubah }) {
       />
       <p className="mb-3 text-xs text-muted">Semua isian boleh dikosongkan. Yang kosong tidak ditampilkan ke orang tua.</p>
     </>
+  )
+}
+
+/* ---------- tarif SPP per tahun ajaran & per kelas (0042) ---------- */
+
+function TarifSpp({ ta, setTa, taKini, taDepan, taLewat = [], ro, siswa, pengaturan, aturTarifSpp, toast }) {
+  const tarif = pengaturan.tarifSpp?.[ta] || pengaturan.tarifSpp?.[taKini] || { standar: pengaturan.sppNominal, kelas: {} }
+  // kelas yang ada di tahun itu (tahun depan: hasil kenaikan kelas + siswa baru)
+  const kelas = useMemo(() => {
+    const n = new Map()
+    siswa.forEach((s) => {
+      const k = ta === taKini ? s.terdaftar?.kelas : (s.keanggotaan || []).find((x) => x.ta === ta)?.kelas
+      if (k) n.set(k, (n.get(k) || 0) + 1)
+    })
+    Object.keys(tarif.kelas || {}).forEach((k) => { if (!n.has(k)) n.set(k, 0) })
+    return [...n.entries()].sort(([a], [b]) => a.localeCompare(b, 'id'))
+  }, [siswa, ta, taKini, tarif])
+  const [standar, setStandar] = useState(tarif.standar)
+  const [khusus, setKhusus] = useState({ ...(tarif.kelas || {}) })
+  const [sibuk, setSibuk] = useState(false)
+  const kunciTarif = JSON.stringify(tarif)
+  useEffect(() => {
+    const t = JSON.parse(kunciTarif)
+    setStandar(t.standar)
+    setKhusus({ ...(t.kelas || {}) })
+  }, [ta, kunciTarif])
+  const nKhusus = Object.values(khusus).filter((v) => v !== '' && v != null && Number(v) !== Number(standar)).length
+
+  const simpan = async () => {
+    const n = Number(standar) || 0
+    if (n <= 0) return toast('Isi nominal SPP standar dulu')
+    const kls = {}
+    Object.entries(khusus).forEach(([k, v]) => { if (v !== '' && v != null && Number(v) >= 0 && Number(v) !== n) kls[k] = Number(v) })
+    setSibuk(true)
+    try {
+      await aturTarifSpp(ta, n, kls)
+      toast(`Tarif SPP ${ta} disimpan${Object.keys(kls).length ? ` · ${Object.keys(kls).length} kelas tarif khusus` : ''}`)
+    } catch {
+      /* pesan ditampilkan store */
+    } finally {
+      setSibuk(false)
+    }
+  }
+
+  return (
+    <div className="mb-4">
+      <div className="mb-2.5 grid grid-cols-3 gap-1 rounded-[18px] bg-isi p-1" role="group" aria-label="Tahun ajaran tarif SPP">
+        <label className={`relative grid min-w-0 cursor-pointer place-items-center rounded-[14px] py-2 text-[12.5px] font-extrabold ${ta < taKini ? 'permen permen-kecil permen-biru' : 'text-muted'}`}>
+          <span className="truncate px-1">{ta < taKini ? taPendek(ta) : 'Tahun lalu'} ▾</span>
+          <select className="absolute inset-0 cursor-pointer opacity-0" value={ta < taKini ? ta : ''} onChange={(e) => e.target.value && setTa(e.target.value)} aria-label="Tarif SPP tahun ajaran lalu">
+            {ta >= taKini && <option value="">Tahun lalu</option>}
+            {taLewat.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </label>
+        {[[taKini, 'Tahun ini'], [taDepan, 'Tahun depan']].map(([t, l]) => (
+          <button key={t} type="button" aria-pressed={ta === t} onClick={() => setTa(t)}
+            className={`min-w-0 truncate rounded-[14px] px-1 py-2 text-[12.5px] font-extrabold ${ta === t ? 'permen permen-kecil permen-biru' : 'text-muted'}`}>
+            {l} <span className="hidden sm:inline">· {taPendek(t)}</span>
+          </button>
+        ))}
+      </div>
+      <fieldset disabled={ro} className={ro ? 'opacity-80' : ''}>
+        <label className="mb-1.5 block text-[13px] font-bold">Nominal standar per bulan</label>
+        <InputNominal className="mb-1.5" value={standar} onChange={setStandar} placeholder="150.000" />
+        <p className="mb-3 text-xs font-semibold text-muted">
+          {ta === taKini ? 'Berlaku untuk semua kelas, kecuali kelas yang diberi tarif khusus di bawah.'
+            : ta < taKini ? `Tarif tahun ajaran ${ta} yang sudah lewat — dipakai menghitung tunggakan tahun itu. Ubah hanya kalau dulu salah catat.`
+            : `Disiapkan untuk tahun ajaran ${ta} — mulai berlaku 1 Juli.`}
+        </p>
+        <details className="mb-3 rounded-2xl bg-canvas px-3.5" open={nKhusus > 0}>
+          <summary className="cursor-pointer py-2.5 text-[13px] font-extrabold">
+            Tarif khusus per kelas {nKhusus > 0 && <span className="ml-1 rounded-pill bg-brand-soft px-2 py-0.5 text-[11px] text-brand">{nKhusus} kelas</span>}
+          </summary>
+          {kelas.length === 0 ? (
+            <p className="pb-3 text-[12.5px] font-semibold text-muted">Belum ada siswa di tahun ajaran ini.</p>
+          ) : (
+            <div className="pb-3">
+              {kelas.map(([k, n]) => (
+                <div key={k} className="flex items-center gap-3 border-t border-dashed border-line py-2 first:border-t-0">
+                  <span className="min-w-0 flex-1">
+                    <b className="block truncate text-[13.5px] font-extrabold">Kelas {k}</b>
+                    <span className="text-[11.5px] font-semibold text-muted">{n} siswa</span>
+                  </span>
+                  <InputNominal className="!w-[150px] shrink-0" value={khusus[k] ?? ''} onChange={(v) => setKhusus((x) => ({ ...x, [k]: v }))}
+                    placeholder={Number(standar || 0).toLocaleString('id-ID')} aria-label={`Tarif SPP kelas ${k}`} />
+                </div>
+              ))}
+              <p className="mt-1 text-[11.5px] font-semibold text-muted">Kosongkan = ikut nominal standar.</p>
+            </div>
+          )}
+        </details>
+      </fieldset>
+      {!ro && <button className="bigbtn-ghost !py-3 disabled:opacity-60" onClick={simpan} disabled={sibuk}>{sibuk ? 'Menyimpan…' : `Simpan tarif SPP ${taPendek(ta)}`}</button>}
+    </div>
+  )
+}
+
+/* ---------- kegiatan tahun ajaran lain (0042) ---------- */
+
+function KegiatanTahunLain({ ta, lalu, daftar, ro, bisaSalin, salinDariKini }) {
+  return (
+    <>
+      <div className="card">
+        {daftar.length === 0 ? (
+          <Kosong>{lalu ? `Tidak ada kegiatan tercatat di tahun ajaran ${ta}.` : `Belum ada kegiatan untuk tahun ajaran ${ta}.`}</Kosong>
+        ) : (
+          daftar.map((b) => (
+            <div key={b.id} className="row">
+              <GambarKegiatan emoji={emojiKegiatan(b)} size={46} className="rounded-[15px]" />
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-[14.5px] font-extrabold">{b.nama}</span>
+                <span className="block truncate text-[12.5px] text-muted">{rp(b.nominal)}{b.tanggal ? ` · ${tanggalKegiatan(b, true)}` : ''}</span>
+              </span>
+            </div>
+          ))
+        )}
+      </div>
+      <p className="mt-2.5 px-1 text-[12px] font-semibold leading-snug text-muted">
+        {lalu
+          ? 'Kegiatan tahun lalu yang belum lunas tetap ditagih sebagai tunggakan di Kartu siswa & Tagihan.'
+          : 'Kegiatan tahun depan mulai ditagih 1 Juli, ke siswa yang terdaftar di tahun itu.'}
+      </p>
+      {!ro && bisaSalin && (
+        <button className="bigbtn-ghost mt-3" onClick={salinDariKini}>Salin kegiatan tahun ini ke {ta}</button>
+      )}
+    </>
+  )
+}
+
+function SheetSalinKegiatan({ buka, tutup, dari, ke, sumber = [], sudahAda = [], salinKegiatan, toast }) {
+  const ada = useMemo(() => new Set(sudahAda.map((b) => b.nama.trim().toLowerCase())), [sudahAda])
+  const bisa = sumber.filter((b) => !ada.has(b.nama.trim().toLowerCase()))
+  const [pilih, setPilih] = useState([])
+  const [sibuk, setSibuk] = useState(false)
+  useEffect(() => { if (buka) setPilih(bisa.map((b) => b.id)) }, [buka]) // eslint-disable-line react-hooks/exhaustive-deps
+  const ganti = (id) => setPilih((x) => (x.includes(id) ? x.filter((y) => y !== id) : [...x, id]))
+  const kirim = async () => {
+    if (!pilih.length) return toast('Pilih minimal satu kegiatan')
+    setSibuk(true)
+    try {
+      const n = await salinKegiatan(dari, ke, pilih)
+      toast(`${n} kegiatan disalin ke ${ke} — jangan lupa isi tanggalnya`)
+      tutup()
+    } catch {
+      /* pesan ditampilkan store */
+    } finally {
+      setSibuk(false)
+    }
+  }
+  return (
+    <Sheet buka={buka} tutup={() => !sibuk && tutup()} judul={`Salin kegiatan ke ${ke || ''}`} lead={`Dari tahun ajaran ${dari || ''}. Nama, nominal, gambar & keterangan ikut; tanggal dikosongkan.`}>
+      {bisa.length === 0 ? (
+        <Kosong>Semua kegiatan {dari} sudah ada di {ke}.</Kosong>
+      ) : (
+        <div className="card mb-4 !py-1">
+          {bisa.map((b) => (
+            <label key={b.id} className="row cursor-pointer items-center">
+              <input type="checkbox" className="h-[18px] w-[18px] shrink-0 accent-[#3B6EF6]" checked={pilih.includes(b.id)} onChange={() => ganti(b.id)} />
+              <GambarKegiatan emoji={emojiKegiatan(b)} size={38} className="rounded-[12px]" />
+              <span className="min-w-0 flex-1">
+                <b className="block truncate text-[14px] font-extrabold">{b.nama}</b>
+                <span className="text-[12px] font-semibold text-muted">{rp(b.nominal)}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+      )}
+      {bisa.length > 0 && (
+        <button className="bigbtn disabled:opacity-60" onClick={kirim} disabled={sibuk || !pilih.length}>
+          {sibuk ? 'Menyalin…' : `Salin ${pilih.length} kegiatan`}
+        </button>
+      )}
+    </Sheet>
   )
 }

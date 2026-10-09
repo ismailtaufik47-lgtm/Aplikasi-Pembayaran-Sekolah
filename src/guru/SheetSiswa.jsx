@@ -12,7 +12,8 @@ import PilihAvatar from '../components/PilihAvatar.jsx'
 import { Ikon, Sheet } from '../components/ui.jsx'
 import { useData } from '../lib/store.jsx'
 import { GambarKegiatan } from '../components/Gambar.jsx'
-import { rp } from '../lib/format.js'
+import { BULAN, bulanBerjalan, namaBulanTa, rp, tahunAjaranBerjalan } from '../lib/format.js'
+import { geserTa } from '../lib/bentukData.js'
 import { EMOJI_JENIS, urutPaket } from '../lib/paket.js'
 
 const kosong = {
@@ -35,6 +36,7 @@ export default function SheetSiswa({ buka, tutup, siswaId = null, onSimpan }) {
   const [sibuk, setSibuk] = useState(false)
   const [konfirmasi, setKonfirmasi] = useState(false)
   const [tagihPaket, setTagihPaket] = useState(() => new Set()) // paket PMB/DU untuk siswa baru
+  const [mulai, setMulai] = useState(0) // 0042: bulan pertama ditagih (0 = Juli) · 'depan' = tahun ajaran depan
   const daftarPaket = useMemo(() => [...paket].sort(urutPaket), [paket])
 
   const sedangUbah = !!siswaId
@@ -47,6 +49,9 @@ export default function SheetSiswa({ buka, tutup, siswaId = null, onSimpan }) {
     // siswa baru: langsung tagihkan PMB terbaru (bisa dimatikan)
     const pmb = daftarPaket.find((p) => p.jenis === 'pmb')
     setTagihPaket(new Set(!siswaId && pmb ? [pmb.id] : []))
+    // siswa baru: bawaan ditagih penuh sejak Juli (aman untuk sekolah yang baru memasukkan data);
+    // pindahan / pendaftar tahun depan dipilih sendiri
+    setMulai(0)
     const s = siswa.find((x) => x.id === siswaId)
     setForm(
       s
@@ -81,7 +86,7 @@ export default function SheetSiswa({ buka, tutup, siswaId = null, onSimpan }) {
         await ubahSiswa(siswaId, bersih)
         toast('Data ' + bersih.nama + ' diperbarui')
       } else {
-        await tambahSiswa({ ...bersih, paketIds: [...tagihPaket] })
+        await tambahSiswa({ ...bersih, paketIds: [...tagihPaket], mulai })
         toast(bersih.nama + ' ditambahkan ke kelas ' + bersih.kelas + (tagihPaket.size ? ' · tagihan PMB/DU dibuat' : ''))
       }
       tutup()
@@ -174,6 +179,21 @@ export default function SheetSiswa({ buka, tutup, siswaId = null, onSimpan }) {
             </button>
           ))}
         </div>
+      )}
+
+      {!sedangUbah && (
+        <>
+          <label className="mb-1.5 mt-3.5 block text-[13px] font-bold">Mulai ditagih SPP</label>
+          <select className="field-input" value={mulai} onChange={(e) => setMulai(e.target.value === 'depan' ? 'depan' : Number(e.target.value))} aria-label="Mulai ditagih SPP">
+            {BULAN.map((_, i) => <option key={i} value={i}>{namaBulanTa(tahunAjaranBerjalan(), i)}{i === bulanBerjalan() ? ' (bulan ini)' : ''}</option>)}
+            <option value="depan">Tahun ajaran depan · {geserTa(tahunAjaranBerjalan(), 1)}</option>
+          </select>
+          <p className="mt-1.5 text-xs font-semibold leading-snug text-muted">
+            {mulai === 'depan'
+              ? `Siswa baru ${geserTa(tahunAjaranBerjalan(), 1)}: tidak ada SPP & kegiatan tahun ini — cukup tagihan PMB.`
+              : mulai > 0 ? `SPP sebelum ${BULAN[mulai]} tidak ditagih (pindahan / masuk di tengah tahun).` : 'Ditagih penuh sejak Juli.'}
+          </p>
+        </>
       )}
 
       <div className="mb-3.5 mt-3.5 flex gap-3">

@@ -34,12 +34,14 @@ const IKON_TAB = {
   pembayaran: <><path d="M6 3h8l4 4v14l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.5z" /><path d="M9 10h6M9 14h4" /></>,
   keuangan: <><rect x="3" y="6" width="18" height="13" rx="3" /><path d="M3 10.5h18M16.5 14.8h1" /></>,
   kegiatan: <><path d="M5 21V4" /><path d="M5 4h11l-2 4 2 4H5" /></>,
+  tahunan: <><rect x="3.5" y="5" width="17" height="15" rx="3" /><path d="M3.5 10h17M8 3v4M16 3v4M8 14h3M8 17h6" /></>,
 }
 export function TabLaporan({ tab, pilih, ada = ['pembayaran', 'keuangan'] }) {
   const daftar = [
-    { id: 'pembayaran', warna: 'pink', label: 'Pembayaran', sub: 'SPP & kegiatan' },
+    { id: 'pembayaran', warna: 'pink', label: 'Pembayaran', pendek: 'Bayar', sub: 'SPP & kegiatan' },
     { id: 'keuangan', warna: 'kuning', label: 'Keuangan', sub: 'Kas sekolah' },
-    { id: 'kegiatan', warna: 'tosca', label: 'Kegiatan', sub: 'Dana per acara', baru: true },
+    { id: 'kegiatan', warna: 'tosca', label: 'Kegiatan', sub: 'Dana per acara' },
+    { id: 'tahunan', warna: 'biru', label: 'Tahunan', sub: 'Rekap per tahun', baru: true },
   ].filter((t) => ada.includes(t.id))
   return (
     <div className="flex gap-1 rounded-[20px] bg-kartu/70 p-1 shadow-[0_4px_14px_rgba(30,64,140,.06)] dark:bg-white/5 sm:inline-flex" role="tablist">
@@ -57,8 +59,10 @@ export function TabLaporan({ tab, pilih, ada = ['pembayaran', 'keuangan'] }) {
           >
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className={`shrink-0 ${daftar.length > 2 ? 'hidden sm:block' : ''}`}>{IKON_TAB[t.id]}</svg>
             <span className="min-w-0 text-left leading-tight">
-              <span className="block text-[14px] font-extrabold">{t.label}</span>
-              <span className="block truncate text-[11px] font-semibold opacity-80">{t.sub}</span>
+              {t.pendek && daftar.length > 3
+                ? <><span className="block text-[14px] font-extrabold sm:hidden">{t.pendek}</span><span className="hidden text-[14px] font-extrabold sm:block">{t.label}</span></>
+                : <span className="block text-[14px] font-extrabold">{t.label}</span>}
+              <span className={`truncate text-[11px] font-semibold opacity-80 ${daftar.length > 3 ? 'hidden sm:block' : 'block'}`}>{t.sub}</span>
             </span>
             {t.baru && <span className="absolute -top-2 right-1.5 rounded-[7px] bg-danger px-1.5 py-px text-[9.5px] font-extrabold tracking-[.03em] text-white">BARU</span>}
           </button>

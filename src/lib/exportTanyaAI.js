@@ -16,7 +16,7 @@ const RUPIAH = '"Rp "#,##0'
 const rpX = (n) => rp(n).replace(/\u00A0/g, ' ')
 
 const LABEL_STATUS = {
-  lunas: 'Lunas', sebagian: 'Sebagian', nunggak: 'Nunggak',
+  lunas: 'Lunas', sebagian: 'Mencicil', nunggak: 'Nunggak',
   'belum-bayar': 'Belum bayar', menunggu: 'Belum jatuh tempo', belum: 'Belum bayar',
 }
 
@@ -226,7 +226,7 @@ function lembarStatusKegiatan(wb, h, sekolah) {
     c.font = { bold: true, color: { argb: t === 'Lunas' ? 'FF15803D' : t.startsWith('Kurang') ? 'FFB45309' : 'FFDC2626' } }
   }))
   r = tabel(ws, r + 1, [
-    { label: 'Kegiatan', lebar: 26 }, { label: 'Lunas', lebar: 10 }, { label: 'Sebagian', lebar: 10 }, { label: 'Belum', lebar: 10 },
+    { label: 'Kegiatan', lebar: 26 }, { label: 'Lunas', lebar: 10 }, { label: 'Mencicil', lebar: 10 }, { label: 'Belum', lebar: 10 },
     { label: 'Target', lebar: 16, rp: true }, { label: 'Terkumpul', lebar: 16, rp: true }, { label: 'Kekurangan', lebar: 16, rp: true },
   ], h.kegiatan.map((k) => [k.kegiatan, k.lunas.jumlah, k.sebagian.jumlah, k.belum_bayar.jumlah, k.target, k.terkumpul, k.kekurangan]))
   const rk = h.rekap_per_siswa
@@ -244,7 +244,7 @@ function lembarStatusSpp(wb, h, sekolah) {
   ]
   judulLembar(ws, kolom.length, `SPP ${h.bulan} — ${sekolah}`,
     `Kelas: ${Array.isArray(h.kelas) ? h.kelas.join(', ') : h.kelas} · ${h.jumlah_siswa} siswa · posisi ${tanggalPanjang()}`)
-  const LABEL = { lunas: 'Lunas', sebagian: 'Sebagian', nunggak: 'Nunggak', belum_bayar_lewat_jatuh_tempo: 'Belum bayar', belum_jatuh_tempo: 'Belum jatuh tempo' }
+  const LABEL = { lunas: 'Lunas', sebagian: 'Mencicil', nunggak: 'Nunggak', belum_bayar_lewat_jatuh_tempo: 'Belum bayar', belum_jatuh_tempo: 'Belum jatuh tempo' }
   const baris = []
   Object.entries(LABEL).forEach(([k, label]) => (h.kelompok?.[k]?.siswa || []).forEach((x) => baris.push([
     x.nama, x.kelas, label, k === 'lunas' ? h.nominal_spp : x.dibayar || 0, x.kurang || 0,
@@ -254,7 +254,26 @@ function lembarStatusSpp(wb, h, sekolah) {
   barisTotal(ws, r + 2, 'Kekurangan', h.kekurangan, 6)
 }
 
+/** Tunggakan tahun ajaran lalu (0044) — termasuk siswa yang sudah lulus / keluar. */
+function lembarTunggakanLalu(wb, h, sekolah) {
+  const ws = sheet(wb, 'Tunggakan tahun lalu')
+  const kolom = [
+    { label: 'No', lebar: 5 }, { label: 'Nama siswa', lebar: 26 }, { label: 'Status', lebar: 20 }, { label: 'Wali', lebar: 20 },
+    { label: 'Rincian', lebar: 48, wrap: true }, { label: 'Total kurang', lebar: 16, rp: true },
+  ]
+  judulLembar(ws, kolom.length, `Tunggakan tahun ajaran lalu — ${sekolah}`,
+    `${h.tahun_ajaran} · kelas: ${h.kelas} · ${h.jumlah_siswa} siswa · posisi ${tanggalPanjang()}`)
+  const baris = (h.siswa || []).map((s, i) => [
+    i + 1, s.nama, s.status, s.wali || '',
+    (s.rincian || []).map((r) => `${r.tagihan} (${r.tahun_ajaran}, kls ${r.kelas_saat_itu}) ${rpX(r.kurang)}`).join(', '),
+    s.kurang_total,
+  ])
+  const r = tabel(ws, 4, kolom, baris)
+  barisTotal(ws, r + 1, 'Total', h.total_kurang_rupiah, 6)
+}
+
 const PEMBUAT = {
+  tunggakan_tahun_lalu: lembarTunggakanLalu,
   kas: lembarKas,
   kas_per_bulan: lembarKasBulanan,
   daftar_tunggakan: lembarTunggakan,

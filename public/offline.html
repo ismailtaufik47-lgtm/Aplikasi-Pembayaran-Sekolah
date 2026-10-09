@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#3B6EF6" />
+    <title>Kasceria — tidak ada internet</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <style>
+      :root { --latar: #F5F6FA; --kartu: #FFFFFF; --teks: #1B2559; --redup: #6B7489; --garis: #E3E7EF; }
+      @media (prefers-color-scheme: dark) {
+        :root { --latar: #0F131B; --kartu: #181E2A; --teks: #EEF1F7; --redup: #9AA3B5; --garis: #2A3346; }
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        background: var(--latar); color: var(--teks);
+        font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+        display: flex; align-items: center; justify-content: center; padding: 16px;
+      }
+      .kartu {
+        width: 100%; max-width: 380px; background: var(--kartu); border: 1.5px solid var(--garis);
+        border-radius: 26px; padding: 28px 22px 22px; text-align: center;
+      }
+      img { width: 84px; height: 84px; display: block; margin: 0 auto 16px; }
+      h1 { font-family: Fredoka, 'Plus Jakarta Sans', system-ui, sans-serif; font-size: 23px; font-weight: 600; margin: 0 0 8px; }
+      p { margin: 0 0 20px; font-size: 15px; font-weight: 600; line-height: 1.55; color: var(--redup); }
+      button {
+        width: 100%; min-height: 52px; border: 0; border-radius: 18px; cursor: pointer;
+        background: #3B6EF6; color: #fff; font: inherit; font-size: 16px; font-weight: 800;
+        box-shadow: inset 0 -4px 0 rgba(0, 0, 0, .14);
+      }
+      button:active { transform: translateY(1px); }
+    </style>
+  </head>
+  <body>
+    <main class="kartu">
+      <img src="/icons/icon-192.png" alt="" />
+      <h1>Sedang tidak ada internet</h1>
+      <p>Kasceria perlu internet untuk menampilkan data tagihan dan kas terbaru. Periksa sinyal atau Wi-Fi, lalu coba lagi.</p>
+      <button type="button" onclick="location.reload()">Coba lagi</button>
+    </main>
+    <script>
+      window.addEventListener('online', function () { location.reload() })
+    </script>
+  </body>
+</html>

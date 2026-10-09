@@ -210,9 +210,9 @@ function sheetKelas(wb, { kelas, tagihan, pengaturan }) {
     ws.getCell(r, 7).value = t.sisa; ws.getCell(r, 7).numFmt = '"Rp "#,##0'
     ws.getCell(r, 7).font = { bold: true, color: { argb: t.sisa > 0 ? WARNA.danger : WARNA.abu } }
 
-    const statusKey = t.status === 'nunggak' ? 'nunggak' : t.status === 'sebagian' ? 'sebagian' : t.status === 'lunas' ? 'lunas' : 'belum-bayar'
-    const gaya = gayaStatus(statusKey)
-    const label = t.paketId ? t.badge.teks : { nunggak: 'Nunggak', sebagian: 'Sebagian', lunas: 'Lunas', 'belum-bayar': 'Belum' }[statusKey]
+    // status sama dengan layar Tagihan: lunas / mencicil / belum / nunggak
+    const gaya = gayaStatus(t.status === 'belum' ? 'menunggu' : t.status)
+    const label = t.badge.teks
     ws.getCell(r, 8).value = label
     ws.getCell(r, 8).fill = gaya.fill
     ws.getCell(r, 8).font = gaya.font

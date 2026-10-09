@@ -13,6 +13,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { BtnKecil, Chevron, Chip, Ikon, KepalaHalaman, Kosong, Pil, Sheet } from '../components/ui.jsx'
+import InputTanggal from '../components/InputTanggal.jsx'
 import { GambarKegiatan, KoinMaskot } from '../components/Gambar.jsx'
 import InputNominal from '../components/InputNominal.jsx'
 import FormBatal from './FormBatal.jsx'
@@ -43,7 +44,7 @@ function selisihMundur(g) {
 const dicatatMundur = (g) => selisihMundur(g) > BATAS_MUNDUR
 
 const PER_HALAMAN = 30
-const RENTANG = [
+export const RENTANG = [
   { id: '7', label: '7 hari', dari: () => hariLalu(6) },
   { id: '30', label: '30 hari', dari: () => hariLalu(29) },
   { id: 'bulan', label: 'Bulan ini', dari: () => tanggalISO().slice(0, 8) + '01' },
@@ -462,7 +463,7 @@ function Peringatan({ e, judul, children, aksi, merah }) {
 }
 
 /* ---------- pilih rentang tanggal sendiri ---------- */
-function PilihTanggal({ awal, min, terapkan, toast }) {
+export function PilihTanggal({ awal, min, terapkan, toast }) {
   const [dari, setDari] = useState(awal.dari)
   const [sampai, setSampai] = useState(awal.sampai)
   const kirim = () => {
@@ -473,14 +474,14 @@ function PilihTanggal({ awal, min, terapkan, toast }) {
   return (
     <div className="card mb-2.5 !p-3">
       <div className="grid grid-cols-2 gap-2">
-        <label className="min-w-0">
+        <div className="min-w-0">
           <span className="mb-1 block text-[11.5px] font-bold text-muted">Dari</span>
-          <input type="date" className="field-input !py-2.5" value={dari} min={min} max={tanggalISO()} onChange={(e) => setDari(e.target.value)} />
-        </label>
-        <label className="min-w-0">
+          <InputTanggal kecil value={dari} min={min} max={tanggalISO()} onChange={setDari} aria-label="Dari tanggal" className="!py-2.5" />
+        </div>
+        <div className="min-w-0">
           <span className="mb-1 block text-[11.5px] font-bold text-muted">Sampai</span>
-          <input type="date" className="field-input !py-2.5" value={sampai} min={dari || min} max={tanggalISO()} onChange={(e) => setSampai(e.target.value)} />
-        </label>
+          <InputTanggal kecil value={sampai} min={dari || min} max={tanggalISO()} onChange={setSampai} aria-label="Sampai tanggal" className="!py-2.5" />
+        </div>
       </div>
       <button className="bigbtn mt-2.5 !py-2.5 !text-[13.5px]" onClick={kirim}>Tampilkan</button>
     </div>
@@ -488,7 +489,7 @@ function PilihTanggal({ awal, min, terapkan, toast }) {
 }
 
 /* ---------- daftar transaksi, dikelompokkan per tanggal & per catatan (grup) ---------- */
-function DaftarTransaksi({ item, buka, kosong, cariLabel }) {
+export function DaftarTransaksi({ item, buka, kosong, cariLabel }) {
   if (item.length === 0) return <div className="card"><Kosong>{kosong}</Kosong></div>
   const hari = []
   item.forEach((g) => {
@@ -847,7 +848,7 @@ function SheetCatatKas({ jenis, awalKegiatan, tutup, mulai, onUbahMulai, kategor
       <div className={`mb-3 grid gap-2.5 ${modeKegiatan ? 'grid-cols-1' : 'grid-cols-2'}`}>
         <div>
           <label className={label}>Tanggal</label>
-          <input type="date" className="field-input" value={f.tanggal} min={mulai || undefined} max={tanggalISO()} onChange={(e) => ubah({ tanggal: e.target.value })} />
+          <InputTanggal kecil={!modeKegiatan} value={f.tanggal} min={mulai || undefined} max={tanggalISO()} onChange={(v) => ubah({ tanggal: v })} aria-label="Tanggal" />
         </div>
         {!modeKegiatan && (
           <div>
@@ -993,7 +994,7 @@ function SheetCatatKas({ jenis, awalKegiatan, tutup, mulai, onUbahMulai, kategor
 }
 
 /* ---------- detail + label kegiatan + batalkan ---------- */
-function SheetDetailKas({ baris, tutup, bisaCatat, label, onUbahLabel, bisaBatal, cegahKunci, oleh, demo, toast, onBatal }) {
+export function SheetDetailKas({ baris, tutup, bisaCatat, label, onUbahLabel, bisaBatal, cegahKunci, oleh, demo, toast, onBatal }) {
   const [nota, setNota] = useState([]) // [{ alamat, url }]
   const [muatNota, setMuatNota] = useState(false)
   const [alasan, setAlasan] = useState(null) // null = belum mau membatalkan
@@ -1192,7 +1193,7 @@ function SheetSaldoAwal({ buka, awal, demo, tutup, toast, onSimpan }) {
   return (
     <Sheet buka={buka} tutup={() => !sibuk && tutup()} judul="Saldo awal kas" lead="Uang kas yang ada di sekolah pada tanggal mulai memakai fitur kas ini.">
       <label className="mb-1.5 block text-[13px] font-bold">Per tanggal</label>
-      <input type="date" className="field-input mb-3" value={mulai} max={tanggalISO()} onChange={(e) => setMulai(e.target.value)} />
+      <div className="mb-3"><InputTanggal value={mulai} max={tanggalISO()} onChange={setMulai} aria-label="Per tanggal" /></div>
       <label className="mb-1.5 block text-[13px] font-bold">Saldo kas pada tanggal itu</label>
       <InputNominal className="mb-3" value={saldo} onChange={setSaldo} placeholder="0" />
       <div className="mb-4 rounded-xl bg-isi px-3.5 py-3 text-[12px] font-semibold leading-relaxed text-muted">

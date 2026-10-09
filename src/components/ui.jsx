@@ -120,6 +120,7 @@ const JALUR_MENU = {
   gerigi: <><circle cx="12" cy="12" r="3" /><path d="M12 2.8v2.4M12 18.8v2.4M4.2 7.5l2 1.2M17.8 15.3l2 1.2M4.2 16.5l2-1.2M17.8 8.7l2-1.2" /><circle cx="12" cy="12" r="6.6" /></>,
   folder: <><path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" /></>,
   orangPerisai: <><circle cx="9.5" cy="8" r="3.3" /><path d="M3.5 19.5c.9-3.4 3.3-5 6-5 1.2 0 2.3.3 3.2.8" /><path d="M17.5 12.5l3.5 1.4v2.6c0 2.3-1.5 3.9-3.5 4.5-2-.6-3.5-2.2-3.5-4.5v-2.6z" /></>,
+  meter: <><path d="M3.5 17a8.5 8.5 0 0 1 17 0" /><path d="M12 17l4-5.5" /><circle cx="12" cy="17" r="1.6" /><path d="M6.2 11.2l1.2 1M12 8.5v1.5M17.8 11.2l-1.2 1" /></>,
 }
 
 /** id menu → { ikon, warna permen }. `e` = emoji lama (cadangan teks). */
@@ -137,6 +138,7 @@ export const EMOJI_MENU = {
   langganan: { ikon: 'permata', warna: 'ungu', e: '💎' },
   akun: { ikon: 'orang', warna: 'biru', e: '🙋' },
   akunstaf: { ikon: 'orangPerisai', warna: 'tosca', e: '🛡️' },
+  indikator: { ikon: 'meter', warna: 'biru', e: '📟' },
   ringkasan: { ikon: 'naik', warna: 'ungu', e: '📈' },
   riwayat: { ikon: 'folder', warna: 'kuning', e: '🗂️' },
   ai: { ikon: 'robot', warna: 'biru', e: '🤖' },
@@ -288,7 +290,23 @@ export function AdeganSekolah({ besar = false, className = '' }) {
 }
 
 /** Pelangi & awan (siang) atau bulan & bintang (malam) di pojok kanan atas. */
-export function LangitKepala() {
+export function LangitKepala({ pas = false }) {
+  // pas = pelangi kecil yang seluruhnya di dalam layar HP (dipakai kepala halaman portal wali,
+  // yang judulnya dibatasi pr-[118px] supaya tidak tertimpa pelangi)
+  if (pas) {
+    return (
+      <div aria-hidden="true" className="pointer-events-none absolute right-0 top-[-2px] h-[78px] w-[118px] lg:-right-2 lg:-top-3 lg:h-[150px] lg:w-[260px]">
+        <div className="dark:hidden">
+          <Pelangi className="absolute right-0 top-[6px] w-[112px] lg:top-0 lg:w-[210px]" />
+          <Awan className="absolute left-[-120px] top-[18px] hidden w-[64px] lg:block" />
+        </div>
+        <div className="hidden dark:block">
+          <Bintang className="absolute inset-0 h-full w-full" />
+          <Bulan className="absolute right-[18px] top-[8px] w-[40px] lg:right-[26px] lg:top-2 lg:w-[54px]" />
+        </div>
+      </div>
+    )
+  }
   return (
     <div aria-hidden="true" className="pointer-events-none absolute -right-[18px] -top-[58px] h-[190px] w-[240px] lg:-right-2 lg:-top-3 lg:h-[150px] lg:w-[260px]">
       <div className="dark:hidden">

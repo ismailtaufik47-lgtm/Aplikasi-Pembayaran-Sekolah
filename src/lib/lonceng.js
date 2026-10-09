@@ -11,7 +11,7 @@
  */
 import { useMemo, useSyncExternalStore } from 'react'
 import { useData } from './store.jsx'
-import { bulanBerjalan, perluDitagihSekarang, statusSpp } from './format.js'
+import { bulanBerjalan, perluDitagihSekarang, statusSpp, targetSpp } from './format.js'
 import { paketTerlambat, tahapPaket, dibayarPaket } from './paket.js'
 
 const KUNCI = 'kasceria-lonceng-dilihat'
@@ -47,7 +47,7 @@ const langganan = (f) => {
 function tandaSiswa(s, pengaturan, kini, telat = []) {
   const bulan = []
   for (let i = 0; i <= kini; i++) {
-    const st = statusSpp(s.spp[i] || 0, pengaturan.sppNominal, i, kini, pengaturan.tanggalJatuhTempo)
+    const st = statusSpp(s.spp[i] || 0, targetSpp(s, i, pengaturan.sppNominal), i, kini, pengaturan.tanggalJatuhTempo)
     if (st === 'nunggak' || st === 'belum-bayar' || st === 'sebagian') bulan.push(i)
   }
   const pk = telat.map(({ p }) => `${p.id}:${tahapPaket(p, dibayarPaket(s, p.id)).filter((t) => t.lewat && !t.lunas).length}`)

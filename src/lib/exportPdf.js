@@ -21,8 +21,7 @@ import {
   statusRingkasSiswa,
   statusSpp,
   tanggalISO,
-  tanggalPanjang,
-} from './format.js'
+  tanggalPanjang, kegiatanWajib, targetSpp } from './format.js'
 
 const WARNA = {
   brand: [59, 110, 246], brandDeep: [42, 85, 204],
@@ -33,7 +32,7 @@ const WARNA = {
   teks: [21, 26, 38], putih: [255, 255, 255],
 }
 
-const KODE_STATUS = { lunas: 'L', sebagian: 'S', nunggak: 'N', 'belum-bayar': 'B', menunggu: '–' }
+const KODE_STATUS = { lunas: 'L', sebagian: 'C', nunggak: 'N', 'belum-bayar': 'B', menunggu: '–', bebas: '·' }
 const WARNA_STATUS = {
   lunas: [WARNA.okSoft, WARNA.ok],
   sebagian: [WARNA.warnSoft, WARNA.warn],
@@ -120,8 +119,8 @@ export function unduhPdf({ siswa, biaya, pembayaran, pengaturan }) {
     body: siswa.map((s) => {
       const baris = BULAN.map((_, i) => {
         const dibayar = dibayarSpp(s, i)
-        const status = statusSpp(dibayar, pengaturan.sppNominal, i, kini, pengaturan.tanggalJatuhTempo)
-        return { teks: KODE_STATUS[status], status }
+        const status = statusSpp(dibayar, targetSpp(s, i, pengaturan.sppNominal), i, kini, pengaturan.tanggalJatuhTempo)
+        return { teks: KODE_STATUS[status], status: status === 'bebas' ? 'menunggu' : status }
       })
       const tunggakanSiswa = sppPerluSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)
       let statusAkhir, labelAkhir
@@ -130,7 +129,7 @@ export function unduhPdf({ siswa, biaya, pembayaran, pengaturan }) {
       } else if (bulanTertunggak(s, pengaturan.sppNominal, kini) > 0) {
         statusAkhir = 'nunggak'; labelAkhir = 'Nunggak'
       } else if (baris.some((b) => b.status === 'sebagian')) {
-        statusAkhir = 'sebagian'; labelAkhir = 'Sebagian'
+        statusAkhir = 'sebagian'; labelAkhir = 'Mencicil'
       } else {
         statusAkhir = 'belum-bayar'; labelAkhir = 'Belum bayar'
       }
@@ -173,15 +172,17 @@ export function unduhPdf({ siswa, biaya, pembayaran, pengaturan }) {
       head: [['Nama Siswa', 'Kelas', ...biaya.map((b) => b.nama), 'Total Dibayar', 'Status']],
       body: siswa.map((s) => {
         let jmlLunas = 0
+        const nIkut = biaya.filter((_, i) => kegiatanWajib(s, i)).length
         const kol = biaya.map((b, i) => {
           const dibayar = dibayarKegiatan(s, i)
+          if (!kegiatanWajib(s, i) && !dibayar) return { teks: '·', status: 'menunggu' } // tidak ditagih (0042)
           const status = dibayar >= b.nominal ? 'lunas' : dibayar > 0 ? 'sebagian' : 'belum'
           if (status === 'lunas') jmlLunas++
           return { teks: status === 'lunas' ? 'L' : status === 'sebagian' ? '½' : '–', status }
         })
         const totalDb = biaya.reduce((t, _, i) => t + dibayarKegiatan(s, i), 0)
-        const statusAkhir = jmlLunas === biaya.length ? 'lunas' : jmlLunas === 0 ? 'belum' : 'sebagian'
-        const labelAkhir = jmlLunas === biaya.length ? 'Semua lunas' : jmlLunas === 0 ? 'Belum ada' : `${jmlLunas}/${biaya.length} lunas`
+        const statusAkhir = jmlLunas >= nIkut ? 'lunas' : jmlLunas === 0 ? 'belum' : 'sebagian'
+        const labelAkhir = jmlLunas >= nIkut ? 'Semua lunas' : jmlLunas === 0 ? 'Belum ada' : `${jmlLunas}/${nIkut} lunas`
         return [s.nama, s.kelas, ...kol.map((k) => k), rp(totalDb), { teks: labelAkhir, status: statusAkhir }]
       }),
       styles: { fontSize: 7.5, cellPadding: 1.8, halign: 'center', lineColor: [238, 240, 245], lineWidth: 0.2 },
@@ -221,8 +222,8 @@ function legenda(doc, x, y, item) {
   })
 }
 
-const LEGENDA_SPP = [['L', WARNA_STATUS.lunas, 'Lunas'], ['S', WARNA_STATUS.sebagian, 'Sebagian'], ['N', WARNA_STATUS.nunggak, 'Nunggak'], ['B', WARNA_STATUS['belum-bayar'], 'Belum bayar bulan ini'], ['–', WARNA_STATUS.menunggu, 'Menunggu jatuh tempo']]
-const LEGENDA_KEGIATAN = [['L', WARNA_STATUS.lunas, 'Lunas'], ['½', WARNA_STATUS.sebagian, 'Sebagian'], ['–', WARNA_STATUS.belum, 'Belum bayar']]
+const LEGENDA_SPP = [['L', WARNA_STATUS.lunas, 'Lunas'], ['C', WARNA_STATUS.sebagian, 'Mencicil'], ['N', WARNA_STATUS.nunggak, 'Nunggak'], ['B', WARNA_STATUS['belum-bayar'], 'Belum bayar bulan ini'], ['–', WARNA_STATUS.menunggu, 'Menunggu jatuh tempo']]
+const LEGENDA_KEGIATAN = [['L', WARNA_STATUS.lunas, 'Lunas'], ['½', WARNA_STATUS.sebagian, 'Mencicil'], ['–', WARNA_STATUS.belum, 'Belum bayar']]
 
 function tempelFooter(doc, lebar) {
   const h = doc.internal.pageSize.getHeight()
@@ -251,7 +252,7 @@ function gambarDonut(hitung, total) {
 
   const cx = 42, cy = 55, R = 30, LEBAR = 10
   const warna = { lunas: '#22C55E', sebagian: '#F5A524', belum: '#EF4444' }
-  const label = { lunas: 'Lunas', sebagian: 'Sebagian', belum: 'Menunggak' }
+  const label = { lunas: 'Lunas', sebagian: 'Mencicil', belum: 'Menunggak' }
   let mulai = -Math.PI / 2
   ;['lunas', 'sebagian', 'belum'].forEach((k) => {
     const frac = total ? hitung[k] / total : 0
@@ -297,7 +298,7 @@ function gambarBar(siswa, pengaturan, kini) {
   const data = []
   for (let i = mulaiIdx; i <= kini; i++) {
     const masuk = siswa.reduce((t, s) => t + dibayarSpp(s, i), 0)
-    const target = siswa.length * pengaturan.sppNominal
+    const target = siswa.reduce((t, s) => t + targetSpp(s, i, pengaturan.sppNominal), 0)
     data.push({ label: BULAN[i].slice(0, 3), masuk, target })
   }
   const maks = Math.max(...data.map((d) => Math.max(d.masuk, d.target)), 1)

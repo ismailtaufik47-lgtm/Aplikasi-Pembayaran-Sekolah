@@ -106,7 +106,7 @@ export function menuSekolah(boleh, peran) {
     { id: 'beranda', label: 'Beranda', emoji: 'beranda', ke: '/guru', grup: 'menu', ada: true },
     { id: 'siswa', label: 'Siswa', emoji: 'siswa', ke: '/guru/siswa', grup: 'menu', sub: 'Data siswa & wali', ada: boleh('siswa', 'lihat') },
     { id: 'tagihan', label: 'Tagihan', emoji: 'tagihan', ke: '/guru/tagihan', grup: 'menu', sub: 'Semua tagihan SPP & kegiatan', ada: boleh('pembayaran', 'lihat') },
-    { id: 'pembayaran', label: 'Pembayaran', emoji: 'pembayaran', ke: '/guru/pembayaran', grup: 'menu', sub: 'Riwayat transaksi & pembatalan', ada: boleh('pembayaran', 'lihat') || boleh('batal', 'lihat') },
+    { id: 'pembayaran', label: 'Transaksi', emoji: 'pembayaran', ke: '/guru/pembayaran', grup: 'menu', sub: 'Riwayat pemasukan, pengeluaran & pembatalan', ada: boleh('pembayaran', 'lihat') || boleh('batal', 'lihat') || boleh('kas', 'lihat') || boleh('lap_keuangan', 'lihat') },
     { id: 'laporan', label: 'Laporan', emoji: 'laporan', ke: '/guru/laporan', grup: 'menu', sub: 'Laporan pembayaran & keuangan', ada: lihatLaporan },
     { id: 'kas', label: 'Kas sekolah', emoji: 'kas', ke: '/guru/kas', grup: 'menu', sub: 'Pengeluaran, pemasukan & saldo kas', ada: boleh('kas', 'lihat') },
     { id: 'ai', label: 'Tanya SAKU', emoji: 'ai', ke: '/guru/tanya-ai', grup: 'menu', sub: 'Sahabat Keuangan Sekolah — asisten 24 jam', ada: boleh('ai') },
@@ -114,6 +114,7 @@ export function menuSekolah(boleh, peran) {
     { id: 'kode-aktivasi', label: 'Kode aktivasi', emoji: 'kode', ke: '/guru/kode-aktivasi', grup: 'atur', sub: 'Undang akun Admin/TU baru', ada: boleh('sekolah') },
     // Menonaktifkan akun Admin/TU — KHUSUS kepala sekolah (dicek juga di database, 0032).
     { id: 'akun-staf', label: 'Akun staf', emoji: 'akunstaf', ke: '/guru/akun-staf', grup: 'atur', sub: 'Aktifkan / nonaktifkan akun Admin/TU', ada: peran === 'kepala' },
+    { id: 'atur-indikator', label: 'Indikator keuangan', emoji: 'indikator', ke: '/guru/atur-indikator', grup: 'atur', sub: 'Atur cara menilai kesehatan keuangan sekolah', ada: boleh('sekolah') && (boleh('kas', 'lihat') || boleh('lap_keuangan', 'lihat')) },
     { id: 'profil-sekolah', label: 'Profil sekolah', emoji: 'sekolah', ke: '/guru/profil-sekolah', grup: 'atur', sub: 'Identitas, logo & rekening sekolah', ada: boleh('sekolah') },
     { id: 'langganan', label: 'Langganan', emoji: 'langganan', ke: '/guru/langganan', grup: 'atur', sub: 'Masa aktif aplikasi & perpanjangan', ada: boleh('sekolah') },
   ].filter((m) => m.ada)
@@ -124,15 +125,15 @@ export function menuSekolah(boleh, peran) {
  * prioritas dari menu yang boleh dibuka akun ini.
  */
 /**
- * Tab bar HP. Tombol tengah "Transaksi" membuka pilihan catat pembayaran /
+ * Tab bar HP. Tombol tengah "Catat" membuka pilihan catat pembayaran /
  * pengeluaran / pemasukan lain — muncul kalau akun boleh salah satunya.
  */
 export function pilihTab(menu, bisaCatat) {
   const ada = (id) => menu.find((m) => m.id === id)
   const urutan = [
     ada('siswa') && { id: 'siswa', emoji: 'siswa', label: 'Siswa', ke: '/guru/siswa' },
-    bisaCatat && { id: 'bayar', emoji: 'bayar', label: 'Transaksi', catat: true },
-    ada('pembayaran') && { id: 'pembayaran', emoji: 'pembayaran', label: 'Riwayat', ke: '/guru/pembayaran' },
+    bisaCatat && { id: 'bayar', emoji: 'bayar', label: 'Catat', catat: true },
+    ada('pembayaran') && { id: 'pembayaran', emoji: 'pembayaran', label: 'Transaksi', ke: '/guru/pembayaran' },
     ada('laporan') && { id: 'laporan', emoji: 'laporan', label: 'Laporan', ke: '/guru/laporan' },
     ada('ai') && { id: 'ai', emoji: 'ai', label: 'SAKU', ke: '/guru/tanya-ai' },
     ada('kas') && { id: 'kas', emoji: 'kas', label: 'Kas', ke: '/guru/kas' },

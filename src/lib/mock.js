@@ -70,6 +70,8 @@ const hari = (n) => new Date(Date.now() - n * 864e5).toISOString()
 const sekarang = new Date()
 const awalTa = sekarang.getMonth() >= 6 ? sekarang.getFullYear() : sekarang.getFullYear() - 1
 const taDemo = `${awalTa}/${awalTa + 1}`
+const taLalu = `${awalTa - 1}/${awalTa}`
+const BULAN_DEMO = ['Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni']
 /** "MM-DD" pada tahun ajaran berjalan (Jul–Des = tahun awal), tidak pernah melewati hari ini. */
 const tglTa = (mmdd) => {
   const [m, d] = mmdd.split('-').map(Number)
@@ -139,17 +141,83 @@ export const pembayaran = [
     id: 'pp' + i, siswa_id: sid, jenis: 'paket', periode: null, biaya_id: null, paket_id: pk,
     keterangan: pk === 'pk1' ? `PMB ${taDemo}` : `Daftar ulang ${taDemo}`, nominal, metode, petugas: 'Bu Rina', dibayar_pada: tglTa(tgl),
   })),
+  // SPP tahun ajaran LALU (0041) — supaya "Tunggakan 2025/2026" kelihatan di mode demo:
+  //  • Qaisha  : bayar Juli–Maret → tunggak April–Juni
+  //  • Arkan   : bayar Juli–Mei   → tunggak Juni
+  //  • Zidan   : baru masuk Januari, bayar Januari–Juni → tidak ada tunggakan
+  ...[['s3', 0, 8], ['s4', 0, 10], ['s2', 6, 11]].flatMap(([sid, dari, sampai]) =>
+    Array.from({ length: sampai - dari + 1 }, (_, k) => dari + k).map((i) => ({
+      id: `pl-${sid}-${i}`, siswa_id: sid, jenis: 'spp', periode: i, tahun_ajaran: taLalu, biaya_id: null,
+      keterangan: `SPP bulanan — ${BULAN_DEMO[i]} ${i < 6 ? awalTa - 1 : awalTa}`, nominal: 150000,
+      metode: 'Tunai', petugas: 'Bu Rina', dibayar_pada: new Date(i < 6 ? awalTa - 1 : awalTa, (i + 6) % 12, 6, 9, 0).toISOString(),
+    }))),
   // contoh cicilan — supaya progress bar "sebagian" kelihatan di mode demo
   { id: 'p13', siswa_id: 's7', jenis: 'spp', periode: 0, biaya_id: null, keterangan: 'SPP bulanan — Juli', nominal: 100000, metode: 'Tunai', petugas: 'Bu Yanti', dibayar_pada: hari(40) },
   { id: 'p14', siswa_id: 's6', jenis: 'kegiatan', periode: null, biaya_id: 'b6', keterangan: 'Biaya kegiatan — Pentas seni', nominal: 100000, metode: 'Transfer', petugas: 'Bu Yanti', dibayar_pada: hari(20) },
 ]
 
 /** Wali murid yang membuka portal demo — punya dua anak. */
-export const waliDemo = { nama: 'Ibu Wulan', anak: ['s1', 's4'] }
+// Rayyan (sa1) kakaknya, sudah lulus tapi masih menunggak → tetap tampil di portal (0044)
+export const waliDemo = { nama: 'Ibu Wulan', anak: ['s1', 's4', 'sa1'] }
 
 /** Dipakai lib/api.js sebagai pengganti hasil query Supabase. */
+/* ---------- tahun ajaran & keanggotaan demo (0042) ---------- */
+// Riwayat kelas: Qaisha tinggal kelas di A (2 tahun di TK A), Arkan naik A → B,
+// Zidan masuk Januari tahun lalu di KB lalu naik ke A, Naura siswa baru tahun depan.
+const taDepan = `${awalTa + 1}/${awalTa + 2}`
+export const tahunAjaranDemo = [
+  { kode: taLalu, spp_nominal: 150000, spp_kelas: {} },
+  { kode: taDemo, spp_nominal: 150000, spp_kelas: {} },
+]
+const kelasKini = { s1: 'A', s2: 'A', s3: 'A', s4: 'B', s5: 'B', s6: 'B', s7: 'B' }
+export const siswaTahunDemo = [
+  ...Object.entries(kelasKini).map(([id, kelas]) => ({ siswa_id: id, tahun_ajaran: taDemo, kelas, mulai: 0, selesai: null, akhir: null })),
+  { siswa_id: 's3', tahun_ajaran: taLalu, kelas: 'A', mulai: 0, selesai: null, akhir: 'tinggal' },
+  { siswa_id: 's4', tahun_ajaran: taLalu, kelas: 'A', mulai: 0, selesai: null, akhir: 'naik' },
+  { siswa_id: 's2', tahun_ajaran: taLalu, kelas: 'KB', mulai: 6, selesai: null, akhir: 'naik' },
+  { siswa_id: 's8', tahun_ajaran: taDepan, kelas: 'A', mulai: 0, selesai: null, akhir: null },
+]
+const siswaDepan = { id: 's8', avatar: 5, nama: 'Naura Salsabila', panggilan: 'Naura', jenis_kelamin: 'P', kelas: 'A', nis: `${awalTa + 1}-001`, wali: 'Ibu Fitri', hp: '0813-9090-1212', guru: '', foto: '' }
+// kegiatan tahun lalu: Qaisha baru bayar sebagian → ikut jadi tunggakan tahun lalu
+const biayaLalu = [{ id: 'bl1', sekolah_id: idSekolah, nama: 'Pentas akhir tahun', nominal: 150000, urutan: 1, tahun_ajaran: taLalu, tanggal: `${awalTa}-06-13` }]
+const bayarKegLalu = [['s3', 50000], ['s4', 150000], ['s2', 150000]].map(([sid, nominal]) => ({
+  id: `plk-${sid}`, siswa_id: sid, jenis: 'kegiatan', periode: null, biaya_id: 'bl1', keterangan: `Biaya kegiatan — Pentas akhir tahun ${taLalu}`,
+  nominal, metode: 'Tunai', petugas: 'Bu Rina', dibayar_pada: new Date(awalTa, 5, 2, 9, 0).toISOString(),
+}))
+
+/* ---------- siswa sudah lulus / keluar yang masih menunggak (0044) ---------- */
+// Rayyan: kakak Aisyah & Arkan (wali Ibu Wulan), lulus tahun lalu — SPP Mei (dicicil) & Juni + pentas belum lunas.
+// Kirana: pindah kota, terakhir ditagih September tahun ini — SPP September belum dibayar.
+export const siswaNonaktif = [
+  { id: 'sa1', avatar: 3, nama: 'Rayyan Alfarizi', panggilan: 'Rayyan', jenis_kelamin: 'L', kelas: 'B', nis: `${awalTa - 2}-014`, wali: 'Ibu Wulan', hp: '0812-1122-3344', guru: 'Bu Yanti', foto: '', status_siswa: 'alumni', tahun_lulus: taLalu },
+  { id: 'sk1', avatar: 4, nama: 'Kirana Larasati', panggilan: 'Kirana', jenis_kelamin: 'P', kelas: 'A', nis: `${awalTa}-007`, wali: 'Ibu Maya', hp: '0819-2233-4455', guru: 'Bu Rina', foto: '', status_siswa: 'keluar', tahun_lulus: null },
+]
+const siswaTahunNonaktif = [
+  { siswa_id: 'sa1', tahun_ajaran: taLalu, kelas: 'B', mulai: 0, selesai: null, akhir: 'lulus' },
+  { siswa_id: 'sk1', tahun_ajaran: taDemo, kelas: 'A', mulai: 0, selesai: 2, akhir: 'pindah' },
+]
+const bayarNonaktifLama = Array.from({ length: 10 }, (_, i) => ({
+  id: `pa1-${i}`, siswa_id: 'sa1', jenis: 'spp', periode: i, tahun_ajaran: taLalu, biaya_id: null,
+  keterangan: `SPP bulanan — ${BULAN_DEMO[i]} ${i < 6 ? awalTa - 1 : awalTa}`, nominal: 150000,
+  metode: 'Transfer', petugas: 'Bu Rina', dibayar_pada: new Date(i < 6 ? awalTa - 1 : awalTa, (i + 6) % 12, 8, 9, 0).toISOString(),
+}))
+// pembayaran tahun ini (ikut tampil di Transaksi walau siswanya sudah tidak aktif)
+const bayarNonaktifKini = [
+  { id: 'pa1-10', siswa_id: 'sa1', jenis: 'spp', periode: 10, tahun_ajaran: taLalu, biaya_id: null, keterangan: `SPP bulanan — Mei ${awalTa}`, nominal: 100000, metode: 'Tunai', petugas: 'Bu Rina', dibayar_pada: hari(20) },
+  { id: 'pk1-0', siswa_id: 'sk1', jenis: 'spp', periode: 0, tahun_ajaran: taDemo, biaya_id: null, keterangan: 'SPP bulanan — Juli', nominal: 150000, metode: 'Tunai', petugas: 'Bu Rina', dibayar_pada: tglTa('07-08') },
+  { id: 'pk1-1', siswa_id: 'sk1', jenis: 'spp', periode: 1, tahun_ajaran: taDemo, biaya_id: null, keterangan: 'SPP bulanan — Agustus', nominal: 150000, metode: 'Tunai', petugas: 'Bu Rina', dibayar_pada: tglTa('08-06') },
+]
+
 export function bentukDemo() {
-  return { sekolah, biaya, siswa, pembayaran, paket, paketSiswa, wali: null }
+  return {
+    sekolah, biaya: [...biaya, ...biayaLalu], siswa: [...siswa, siswaDepan], pembayaran: [...pembayaran, ...bayarKegLalu, ...bayarNonaktifKini], paket, paketSiswa, wali: null,
+    siswaTahun: siswaTahunDemo, tahunAjaran: tahunAjaranDemo,
+  }
+}
+
+/** Data mentah siswa lulus/keluar (untuk Tagihan › "Sudah lulus / keluar" & portal demo). */
+export function nonaktifDemo() {
+  return { siswa: siswaNonaktif, siswaTahun: siswaTahunNonaktif, pembayaran: [...bayarNonaktifLama, ...bayarNonaktifKini] }
 }
 
 /* ---------- buku kas demo (0028) ---------- */

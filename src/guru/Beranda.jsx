@@ -29,8 +29,7 @@ import {
 } from './KartuBeranda.jsx'
 import { rpRingkas } from './GrafikLaporan.jsx'
 import {
-  BULAN, bulanBerjalan, labelTunggakan, perluDitagihSekarang, rp, sppPerluSekarang, tanggalISO, tanggalJatuhTempoDi,
-} from '../lib/format.js'
+  BULAN, bulanBerjalan, labelTunggakan, perluDitagihSekarang, rp, sppPerluSekarang, tanggalISO, tanggalJatuhTempoDi, targetSpp } from '../lib/format.js'
 import { NAMA_BULAN, geserBulan, hariLalu, kunciBulan } from '../lib/kas.js'
 import { LABEL_JENIS, paketTerlambat } from '../lib/paket.js'
 
@@ -163,7 +162,7 @@ export default function Beranda({ onCatat, onTambahSiswa }) {
   }, [arus, kas.info])
 
   // ---------- data pembayaran (dari store) ----------
-  const lunasBulanIni = siswa.filter((s) => (s.spp[kini] || 0) >= pengaturan.sppNominal).length
+  const lunasBulanIni = siswa.filter((s) => targetSpp(s, kini, pengaturan.sppNominal) > 0 && (s.spp[kini] || 0) >= targetSpp(s, kini, pengaturan.sppNominal)).length
   const sekarang = new Date()
   const masukBayar = pembayaran
     .filter((p) => {
@@ -172,7 +171,7 @@ export default function Beranda({ onCatat, onTambahSiswa }) {
     })
     .reduce((t, p) => t + p.nominal, 0)
   const jt = jatuhTempoBerikut(pengaturan.tanggalJatuhTempo)
-  const segeraJt = jt.sisaHari <= 7 ? siswa.filter((s) => (s.spp[jt.indeks] || 0) < pengaturan.sppNominal).length : 0
+  const segeraJt = jt.sisaHari <= 7 ? siswa.filter((s) => (s.spp[jt.indeks] || 0) < targetSpp(s, jt.indeks, pengaturan.sppNominal)).length : 0
   const tglJt = `${jt.tanggal} ${BULAN[jt.indeks].slice(0, 3)}`
   const teksJt = jt.sisaHari === 0
     ? `Jatuh tempo SPP hari ini, ${tglJt}`
@@ -256,7 +255,7 @@ export default function Beranda({ onCatat, onTambahSiswa }) {
     !boleh('siswa') && lihatSiswa && { k: 'data-siswa', ikon: <Garis.siswa size={20} />, warna: 'bg-grape', latar: 'bg-[#FAF7FF]', label: 'Data siswa', onClick: () => nav('/guru/siswa') },
     lihatLaporan && { k: 'laporan', ikon: <Garis.grafik size={20} />, warna: 'bg-[#0E7490]', latar: 'bg-[#F7F9FF]', label: 'Laporan', onClick: () => nav('/guru/laporan') },
     boleh('biaya', 'lihat') && { k: 'biaya', ikon: <Garis.label size={20} />, warna: 'bg-warn', latar: 'bg-[#FFFBF3]', label: 'Jenis biaya', onClick: () => nav('/guru/biaya') },
-    bisaRiwayat && { k: 'riwayat', ikon: <Garis.riwayat size={20} />, warna: 'bg-rose', latar: 'bg-[#FFF7FA]', label: 'Riwayat & pembatalan', pendek: 'Riwayat', onClick: () => nav('/guru/pembayaran') },
+    bisaRiwayat && { k: 'riwayat', ikon: <Garis.riwayat size={20} />, warna: 'bg-rose', latar: 'bg-[#FFF7FA]', label: 'Riwayat transaksi', pendek: 'Transaksi', onClick: () => nav('/guru/pembayaran') },
     !bisaKas && halamanKas && { k: 'kas', ikon: <Garis.dompet size={20} />, warna: 'bg-ok', latar: 'bg-[#F5FCF8]', label: 'Kas sekolah', onClick: () => nav('/guru/kas') },
     boleh('sekolah') && { k: 'sekolah', ikon: <Garis.rumah size={20} />, warna: 'bg-brand', latar: 'bg-[#F7F9FF]', label: 'Profil sekolah', onClick: () => nav('/guru/profil-sekolah') },
   ].filter(Boolean)

@@ -1,7 +1,8 @@
 import { AvatarStaf } from '../components/Avatar.jsx'
 import { Ikon, IkonWhatsappPolos, KartuTema, KepalaHalaman } from '../components/ui.jsx'
-import { waSekolah } from '../lib/format.js'
+import { labelKelasSiswa, waSekolah } from '../lib/format.js'
 import { useData } from '../lib/store.jsx'
+import { KartuPasang } from '../components/PasangAplikasi.jsx'
 
 const TANYA = [
   [
@@ -49,7 +50,7 @@ export default function Bantuan({ aktif, kunciPortal }) {
   const { pengaturan, toast } = useData()
   const nomorWa = waSekolah(pengaturan)
   const teksWa = encodeURIComponent(
-    `Assalamu'alaikum, saya orang tua ${aktif.nama} (Kelas ${aktif.kelas}). Saya ingin bertanya tentang pembayaran.`,
+    `Assalamu'alaikum, saya orang tua ${aktif.nama} (${labelKelasSiswa(aktif)}). Saya ingin bertanya tentang pembayaran.`,
   )
   const isiTombolWa = (
     <>
@@ -130,6 +131,8 @@ export default function Bantuan({ aktif, kunciPortal }) {
               </button>
             </section>
           )}
+
+          <KartuPasang wali />
 
           <KartuTema />
         </div>

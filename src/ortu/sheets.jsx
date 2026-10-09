@@ -5,9 +5,11 @@ import { useData } from '../lib/store.jsx'
 import * as api from '../lib/api.js'
 import { emojiKegiatan } from '../lib/emojiKegiatan.js'
 import { GambarKegiatan } from '../components/Gambar.jsx'
-import {
+import { labelKelasSiswa,
   BULAN, adaInfoKegiatan, bulanBerjalan, jarakKegiatan, nomorKuitansi, persenBayar, rp, statusSpp,
   tanggalKegiatan, teksJatuhTempo, waSekolah,
+  namaBulanTa, tunggakanLaluPerTa,
+  kegiatanLaluBelum, kegiatanWajib, targetSpp,
 } from '../lib/format.js'
 import { EMOJI_JENIS, dibayarPaket, keteranganPaket, paketSiswa, statusPaket, tahapPaket } from '../lib/paket.js'
 
@@ -26,8 +28,9 @@ export function kalimatSpp(anak, pengaturan, kini = bulanBerjalan()) {
   const belum = []
   BULAN.forEach((b, i) => {
     const dibayar = anak.spp[i] || 0
-    const st = statusSpp(dibayar, pengaturan.sppNominal, i, kini, pengaturan.tanggalJatuhTempo)
-    if (st === 'sebagian') sebagian.push(`SPP ${b} baru dibayar sebagian (kurang ${rp(pengaturan.sppNominal - dibayar)})`)
+    const t = targetSpp(anak, i, pengaturan.sppNominal)
+    const st = statusSpp(dibayar, t, i, kini, pengaturan.tanggalJatuhTempo)
+    if (st === 'sebagian') sebagian.push(`SPP ${b} baru dibayar sebagian (kurang ${rp(t - dibayar)})`)
     else if (st === 'nunggak' || st === 'belum-bayar') belum.push(b)
   })
   const bagian = [...sebagian]
@@ -65,10 +68,27 @@ export function daftarPemberitahuan(anak, pengaturan, biaya, kini = bulanBerjala
       anggota: tahapPaket(p, d, hariIni).filter((x) => !x.lunas && (x.lewat || x === t)).map((x) => `${p.id}:${x.jatuhTempo}`),
     })
   })
+  // SPP tahun ajaran lalu yang belum lunas (0041)
+  tunggakanLaluPerTa(anak, pengaturan.sppNominal).forEach((g) => {
+    hasil.push({
+      id: 'spp-lalu-' + g.ta, warna: 'red', judul: `Tunggakan SPP tahun ajaran ${g.ta}`,
+      isi: `SPP ${g.items.map((x) => namaBulanTa(g.ta, x.indeks)).join(', ')} belum lunas — total ${rp(g.total)}.`,
+      anggota: g.items.map((x) => `${g.ta}:${x.indeks}`),
+    })
+  })
+  // kegiatan tahun ajaran lalu yang belum lunas (0042)
+  const kl = kegiatanLaluBelum(anak)
+  if (kl.length) {
+    hasil.push({
+      id: 'keg-lalu', warna: 'red', judul: kl.length === 1 ? `Biaya ${kl[0].nama.toLowerCase()} (${kl[0].ta}) belum lunas` : `${kl.length} biaya kegiatan tahun lalu belum lunas`,
+      isi: `${kl.map((k) => `${k.nama} ${k.ta}`).join(', ')} · total ${rp(kl.reduce((t, k) => t + k.kurang, 0))}.`,
+      anggota: kl.map((k) => `lalu:${k.biayaId}`),
+    })
+  }
   const teksSpp = kalimatSpp(anak, pengaturan, kini)
   if (teksSpp) {
     const bulan = BULAN.map((_, i) => i).filter((i) =>
-      ['sebagian', 'nunggak', 'belum-bayar'].includes(statusSpp(anak.spp[i] || 0, pengaturan.sppNominal, i, kini, pengaturan.tanggalJatuhTempo)),
+      ['sebagian', 'nunggak', 'belum-bayar'].includes(statusSpp(anak.spp[i] || 0, targetSpp(anak, i, pengaturan.sppNominal), i, kini, pengaturan.tanggalJatuhTempo)),
     )
     hasil.push({
       id: 'spp', warna: 'red', judul: `SPP ${anak.panggilan} belum lunas`, isi: teksSpp,
@@ -88,7 +108,7 @@ export function daftarPemberitahuan(anak, pengaturan, biaya, kini = bulanBerjala
   })
   // Biaya kegiatan digabung jadi SATU pemberitahuan supaya lonceng tidak penuh angka.
   const keg = biaya
-    .map((b, i) => ({ id: b.id, nama: b.nama, kurang: b.nominal - (anak.kegiatan[i] || 0) }))
+    .map((b, i) => ({ id: b.id, nama: b.nama, kurang: kegiatanWajib(anak, i) ? b.nominal - (anak.kegiatan[i] || 0) : 0 }))
     .filter((k) => k.kurang > 0)
   if (keg.length > 0) {
     hasil.push({
@@ -212,7 +232,7 @@ export function SheetStruk({ id, tutup, nis, token }) {
           <Avatar nama={s.nama} jenis={s.jenis} avatar={s.avatar} foto={s.foto} size={40} />
           <div className="min-w-0">
             <div className="truncate text-sm font-bold">{s.nama}</div>
-            <div className="text-[12.5px] text-muted">Kelas {s.kelas} · NIS {s.nis}</div>
+            <div className="text-[12.5px] text-muted">{labelKelasSiswa(s)} · NIS {s.nis}</div>
           </div>
         </div>
         <Sobek />
@@ -263,7 +283,7 @@ export function SheetCaraBayar({ buka, tutup, anak }) {
   const { pengaturan, toast } = useData()
   const nomorWa = waSekolah(pengaturan)
   const teksWa = encodeURIComponent(
-    `Assalamu'alaikum, saya orang tua ${anak?.nama || ''} (Kelas ${anak?.kelas || ''}). Berikut saya kirimkan bukti transfer pembayaran.`,
+    `Assalamu'alaikum, saya orang tua ${anak?.nama || ''} (${anak ? labelKelasSiswa(anak) : ''}). Berikut saya kirimkan bukti transfer pembayaran.`,
   )
   const salin = (teks) => {
     navigator.clipboard?.writeText(teks.replace(/\s/g, ''))
@@ -422,7 +442,7 @@ export function SheetKegiatan({ id, tutup, anak, bukaCaraBayar }) {
   const barang = (b.perlengkapan || '').split('\n').map((x) => x.replace(/^\s*[-•*]\s*/, '').trim()).filter(Boolean)
   const nomorWa = waSekolah(pengaturan)
   const teksWa = encodeURIComponent(
-    `Assalamu'alaikum, saya orang tua ${anak.nama} (Kelas ${anak.kelas}). Saya ingin bertanya tentang kegiatan ${b.nama}.`,
+    `Assalamu'alaikum, saya orang tua ${anak.nama} (${labelKelasSiswa(anak)}). Saya ingin bertanya tentang kegiatan ${b.nama}.`,
   )
 
   return (
@@ -437,7 +457,8 @@ export function SheetKegiatan({ id, tutup, anak, bukaCaraBayar }) {
                 {j.selesai ? 'Sudah terlaksana' : j.label}
               </Chip>
             )}
-            {lunas ? <Chip warna="green">Lunas</Chip> : <Chip warna="amber">{sebagian ? 'Dibayar sebagian' : 'Belum dibayar'}</Chip>}
+            {!kegiatanWajib(anak, i) && !dibayar ? <Chip warna="grey">Tidak ditagihkan ke ananda</Chip>
+              : lunas ? <Chip warna="green">Lunas</Chip> : <Chip warna="amber">{sebagian ? 'Dibayar sebagian' : 'Belum dibayar'}</Chip>}
           </div>
         </div>
       </div>

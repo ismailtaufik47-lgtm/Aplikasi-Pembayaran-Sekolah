@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import Avatar from '../components/Avatar.jsx'
 import { Chevron, Chip, Ikon, KolomCari, Sheet } from '../components/ui.jsx'
+import InputTanggal from '../components/InputTanggal.jsx'
 import { GambarKegiatan } from '../components/Gambar.jsx'
 import InputNominal from '../components/InputNominal.jsx'
 import { useData } from '../lib/store.jsx'
 import { emojiKegiatan } from '../lib/emojiKegiatan.js'
-import { BULAN, bulanBerjalan, bulanTertunggak, dibayarKegiatan, dibayarSpp, rp, tanggalISO, tanggalPanjang } from '../lib/format.js'
+import { BULAN, bulanBerjalan, bulanTertunggak, dibayarKegiatan, dibayarSpp, kegiatanLaluBelum, kegiatanWajib, ketBebas, namaBulanTa, rp, tahunAjaranBerjalan, tanggalISO, tanggalPanjang, targetSpp, taPendek, tunggakanLaluPerTa } from '../lib/format.js'
 import { alokasiCicilan, dibayarPaket, keteranganPaket, tahapPaket, urutPaket } from '../lib/paket.js'
 
 /**
@@ -19,6 +20,8 @@ export default function SheetCatat({ buka, awal, tutup }) {
   const [siswaId, setSiswaId] = useState(siswa[0]?.id)
   const [jenis, setJenis] = useState('spp') // spp | kegiatan | pmb | du
   const [indeks, setIndeks] = useState(kini) // bulan · urutan kegiatan · id paket
+  const [ta, setTa] = useState(null) // SPP: null = tahun ajaran berjalan · '2025/2026' = tunggakan tahun lalu
+  const [bl, setBl] = useState(null) // kegiatan tahun ajaran lalu (id kegiatan) — 0042
   const [nominal, setNominal] = useState(pengaturan.sppNominal)
   const [metode, setMetode] = useState('Tunai')
   const [tanggal, setTanggal] = useState(tanggalISO())
@@ -29,7 +32,7 @@ export default function SheetCatat({ buka, awal, tutup }) {
    *  sebagai nominal default, supaya cicilan yang sudah berjalan tidak
    *  tertagih dobel kalau guru asal isi nominal penuh lagi. */
   const paketUntuk = (idSiswa, j) => paket.filter((p) => p.jenis === j && p.siswaIds.includes(idSiswa)).sort(urutPaket)
-  const sisaUntuk = (idSiswa, j, i) => {
+  const sisaUntuk = (idSiswa, j, i, t = null) => {
     const x = siswa.find((y) => y.id === idSiswa)
     if (j === 'pmb' || j === 'du') {
       const p = paket.find((k) => k.id === i)
@@ -37,10 +40,14 @@ export default function SheetCatat({ buka, awal, tutup }) {
       const t = tahapPaket(p, dibayarPaket(x, p.id)).find((k) => !k.lunas)
       return t ? t.kurang : Math.max(0, p.total - dibayarPaket(x, p.id))
     }
-    const target = j === 'spp' ? pengaturan.sppNominal : biaya[i]?.nominal || 0
+    const target = j === 'spp' ? targetSpp(x, i, pengaturan.sppNominal, t || undefined) : biaya[i]?.nominal || 0
     if (!x) return target
-    const dibayar = j === 'spp' ? dibayarSpp(x, i) : dibayarKegiatan(x, i)
+    const dibayar = j === 'spp' ? dibayarSpp(x, i, t) : dibayarKegiatan(x, i)
     return Math.max(0, target - dibayar)
+  }
+  const sisaLalu = (idSiswa, id) => {
+    const k = (siswa.find((y) => y.id === idSiswa)?.kegiatanLalu || []).find((z) => z.biayaId === id)
+    return k ? Math.max(0, k.nominal - k.dibayar) : 0
   }
   /** Indeks awal tiap jenis: bulan berjalan, kegiatan pertama, atau paket terbaru siswa itu. */
   const indeksAwal = (idSiswa, j) => (j === 'spp' ? kini : j === 'kegiatan' ? 0 : paketUntuk(idSiswa, j)[0]?.id || null)
@@ -54,44 +61,70 @@ export default function SheetCatat({ buka, awal, tutup }) {
     setPilihSiswa(!idAwal && siswa.length > 0)
     const jAwal = ['spp', 'kegiatan', 'pmb', 'du'].includes(awal?.jenis) ? awal.jenis : 'spp'
     const iAwal = awal?.indeks ?? indeksAwal(idAwal, jAwal)
+    const tAwal = jAwal === 'spp' ? awal?.ta || null : null
     setJenis(jAwal)
     setIndeks(iAwal)
-    setNominal(isiAwal(idAwal, jAwal, iAwal))
+    setTa(tAwal)
+    setBl(jAwal === 'kegiatan' ? awal?.biayaLaluId || null : null)
+    setNominal(jAwal === 'kegiatan' && awal?.biayaLaluId ? sisaLalu(idAwal, awal.biayaLaluId) : isiAwal(idAwal, jAwal, iAwal, tAwal))
     setMetode('Tunai')
     setTanggal(tanggalISO())
     setSukses(null)
   }, [buka, awal])
 
-  const isiAwal = (id, j, i) => {
-    const sisa = sisaUntuk(id, j, i)
+  const isiAwal = (id, j, i, t = null) => {
+    const sisa = sisaUntuk(id, j, i, t)
     if (j === 'pmb' || j === 'du') return sisa || ''
-    return sisa || (j === 'spp' ? pengaturan.sppNominal : biaya[i]?.nominal || 0)
+    const x = siswa.find((y) => y.id === id)
+    if (x && sisa === 0) return '' // sudah lunas
+    return sisa || (j === 'spp' ? targetSpp(x, i, pengaturan.sppNominal, t || undefined) || '' : biaya[i]?.nominal || 0)
   }
   const gantiSiswa = (id) => {
     setSiswaId(id)
-    const i = jenis === 'pmb' || jenis === 'du' ? indeksAwal(id, jenis) : indeks
-    setIndeks(i)
-    setNominal(isiAwal(id, jenis, i))
+    // pindah siswa: tunggakan tahun lalu milik siswa sebelumnya tidak berlaku → kembali ke bulan berjalan
+    const i = jenis === 'pmb' || jenis === 'du' ? indeksAwal(id, jenis) : ta ? kini : indeks
+    const i2 = bl ? 0 : i
+    setIndeks(i2)
+    setTa(null)
+    setBl(null)
+    setNominal(isiAwal(id, jenis, i2))
   }
   const gantiJenis = (j) => {
     const i = indeksAwal(siswaId, j)
     setJenis(j)
     setIndeks(i)
+    setTa(null)
+    setBl(null)
     setNominal(isiAwal(siswaId, j, i))
   }
-  const gantiIndeks = (i) => {
+  const gantiIndeks = (i, t = null) => {
     setIndeks(i)
-    setNominal(isiAwal(siswaId, jenis, i))
+    setTa(t)
+    setBl(null)
+    setNominal(isiAwal(siswaId, jenis, i, t))
+  }
+  const pilihKegLalu = (id) => {
+    setBl(id)
+    setIndeks(-1)
+    setNominal(sisaLalu(siswaId, id) || '')
   }
 
   const s = siswa.find((x) => x.id === siswaId)
   const modePaket = jenis === 'pmb' || jenis === 'du'
   const pilihanPaket = modePaket ? paketUntuk(siswaId, jenis) : []
   const pk = modePaket ? pilihanPaket.find((p) => p.id === indeks) || null : null
-  const target = jenis === 'spp' ? pengaturan.sppNominal : modePaket ? pk?.total || 0 : biaya[indeks]?.nominal || 0
-  const dibayarSaatIni = s ? (jenis === 'spp' ? dibayarSpp(s, indeks) : modePaket ? (pk ? dibayarPaket(s, pk.id) : 0) : dibayarKegiatan(s, indeks)) : 0
+  const kl = jenis === 'kegiatan' && bl ? (s?.kegiatanLalu || []).find((k) => k.biayaId === bl) || null : null
+  const target = jenis === 'spp' ? targetSpp(s, indeks, pengaturan.sppNominal, ta || undefined) : modePaket ? pk?.total || 0 : kl ? kl.nominal : biaya[indeks]?.nominal || 0
+  const dibayarSaatIni = s ? (jenis === 'spp' ? dibayarSpp(s, indeks, ta) : modePaket ? (pk ? dibayarPaket(s, pk.id) : 0) : kl ? kl.dibayar : dibayarKegiatan(s, indeks)) : 0
+  // bulan sebelum masuk / sesudah keluar, atau kegiatan yang tidak ditagihkan (0042)
+  const tidakDitagih = !!s && ((jenis === 'spp' && !(target > 0)) || (jenis === 'kegiatan' && !kl && !kegiatanWajib(s, Number(indeks))))
   const sisaSaatIni = Math.max(0, target - dibayarSaatIni)
   const alokasi = pk ? alokasiCicilan(pk, dibayarSaatIni, nominal) : []
+  // Sudah lunas → tombol simpan dikunci; nominal tidak boleh melebihi sisa.
+  const sudahLunas = !!s && target > 0 && sisaSaatIni <= 0
+  const lebihSisa = !sudahLunas && target > 0 && Number(nominal) > sisaSaatIni
+  const labelTagihan = jenis === 'spp' ? (ta ? `SPP ${namaBulanTa(ta, Number(indeks))}` : `SPP ${BULAN[indeks] || ''}`) : modePaket ? pk?.nama || '' : kl ? `${kl.nama} ${taPendek(kl.ta)}` : biaya[indeks]?.nama || 'Kegiatan'
+  const kegLalu = s && jenis === 'kegiatan' ? kegiatanLaluBelum(s) : []
 
   const simpan = async () => {
     if (cegahKunci('bayar')) return
@@ -101,10 +134,13 @@ export default function SheetCatat({ buka, awal, tutup }) {
     }
     const n = Number(nominal) || 0
     if (modePaket && !pk) return toast(`${s?.nama || 'Siswa ini'} tidak ditagih ${jenis === 'pmb' ? 'PMB' : 'daftar ulang'}`)
+    if (tidakDitagih) return toast(`${labelTagihan} tidak ditagihkan ke ${s.panggilan || s.nama}`)
     if (n <= 0) return toast('Isi nominal dulu')
     try {
       const baris = await catatPembayaran({
         siswaId, jenis: modePaket ? 'paket' : jenis, indeks: modePaket ? pk.id : Number(indeks), nominal: n, metode, tanggal,
+        tahunAjaran: jenis === 'spp' ? ta : null,
+        biayaLaluId: kl?.biayaId || null,
       })
       setSukses({ ...baris, lunasSetelah: dibayarSaatIni + n >= target, sisaSetelah: Math.max(0, target - dibayarSaatIni - n) })
     } catch {
@@ -212,21 +248,51 @@ export default function SheetCatat({ buka, awal, tutup }) {
         )
       ) : (
         <>
-          <label className="mb-1.5 block text-[13px] font-bold">{jenis === 'spp' ? 'Bulan' : 'Kegiatan'}</label>
+          {jenis === 'spp' && s && tunggakanLaluPerTa(s, pengaturan.sppNominal).map((g) => (
+            <div key={g.ta} className="mb-3 rounded-2xl bg-danger-soft/60 p-2.5 dark:bg-danger-soft/40">
+              <div className="mb-1.5 flex items-baseline justify-between gap-2 px-0.5">
+                <span className="text-[13px] font-extrabold text-danger">Tunggakan {g.ta}</span>
+                <span className="text-[12px] font-bold text-danger">{rp(g.total)}</span>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5" role="group" aria-label={`Tunggakan SPP tahun ajaran ${g.ta}`}>
+                {g.items.map((x) => {
+                  const on = ta === g.ta && Number(indeks) === x.indeks
+                  return (
+                    <button
+                      key={x.indeks}
+                      type="button"
+                      aria-pressed={on}
+                      onClick={() => gantiIndeks(x.indeks, g.ta)}
+                      className={`rounded-[12px] px-1 py-2 text-[12.5px] font-extrabold ${on ? 'permen permen-kecil permen-pink' : 'border-[1.5px] border-danger/35 bg-kartu text-danger'}`}
+                    >
+                      {BULAN[x.indeks].slice(0, 3)} {String(namaBulanTa(g.ta, x.indeks)).slice(-2)}
+                      <span className="block text-[9.5px] font-bold opacity-80">{x.dibayar > 0 ? 'sebagian' : 'belum'}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
+          <label className="mb-1.5 block text-[13px] font-bold">{jenis === 'spp' ? (s && tunggakanLaluPerTa(s, pengaturan.sppNominal).length ? `Bulan · ${tahunAjaranBerjalan()}` : 'Bulan') : 'Kegiatan'}</label>
           {jenis === 'spp' ? (
             <div className="mb-3.5 grid grid-cols-4 gap-1.5" role="group" aria-label="Pilih bulan">
               {BULAN.map((b, i) => {
                 const d = s ? dibayarSpp(s, i) : 0
-                const lunas = d >= pengaturan.sppNominal
-                const on = Number(indeks) === i
+                const t = s ? targetSpp(s, i, pengaturan.sppNominal) : pengaturan.sppNominal
+                const bebas = !(t > 0) && d === 0
+                const lunas = !bebas && d >= t
+                const on = !ta && Number(indeks) === i
                 return (
                   <button
                     key={b}
                     type="button"
                     aria-pressed={on}
+                    disabled={bebas}
+                    title={bebas ? ketBebas(s, i) : undefined}
                     onClick={() => gantiIndeks(i)}
                     className={`relative rounded-[12px] px-1 py-2 text-[12.5px] font-extrabold ${
-                      on ? 'permen permen-kecil permen-biru'
+                      bebas ? 'cursor-not-allowed bg-canvas text-muted opacity-60'
+                      : on ? 'permen permen-kecil permen-biru'
                         : lunas ? 'bg-ok-soft text-ok-deep'
                           : d > 0 ? 'bg-warn-soft text-warn-deep'
                             : i < kini ? 'border-[1.5px] border-danger/35 bg-kartu text-danger'
@@ -234,18 +300,39 @@ export default function SheetCatat({ buka, awal, tutup }) {
                     }`}
                   >
                     {b.slice(0, 3)}
-                    <span className="block text-[9.5px] font-bold opacity-80">{lunas ? 'lunas' : d > 0 ? 'sebagian' : i === kini ? 'bulan ini' : i < kini ? 'belum' : '·'}</span>
+                    <span className="block text-[9.5px] font-bold opacity-80">{bebas ? '—' : lunas ? 'lunas' : d > 0 ? 'sebagian' : i === kini ? 'bulan ini' : i < kini ? 'belum' : '·'}</span>
                   </button>
                 )
               })}
             </div>
-          ) : biaya.length === 0 ? (
+          ) : biaya.length === 0 && !kegLalu.length ? (
             <p className="mb-3.5 rounded-2xl bg-canvas px-3.5 py-3 text-[12.5px] font-semibold text-muted">Belum ada biaya kegiatan. Tambahkan di menu Jenis biaya.</p>
           ) : (
             <div className="mb-3.5 grid gap-1.5" role="group" aria-label="Pilih kegiatan">
+              {kegLalu.map((k) => {
+                const on = bl === k.biayaId
+                return (
+                  <button
+                    key={k.biayaId}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => pilihKegLalu(k.biayaId)}
+                    className={`flex items-center gap-2.5 rounded-[14px] px-2.5 py-2 text-left ${on ? 'border-2 border-danger bg-danger-soft/60 dark:bg-white/5' : 'border-[1.5px] border-danger/35 bg-kartu'}`}
+                  >
+                    <GambarKegiatan emoji={emojiKegiatan(k)} size={32} className="rounded-[10px]" />
+                    <span className="min-w-0 flex-1">
+                      <b className="block truncate text-[13.5px] font-extrabold">{k.nama}</b>
+                      <span className="block text-[11.5px] font-semibold text-danger">Tunggakan {k.ta} · {rp(k.nominal)}</span>
+                    </span>
+                    <Chip warna="red">Kurang {rp(k.kurang)}</Chip>
+                  </button>
+                )
+              })}
               {biaya.map((b, i) => {
                 const d = s ? dibayarKegiatan(s, i) : 0
-                const on = Number(indeks) === i
+                const on = !bl && Number(indeks) === i
+                const ikut = !s || kegiatanWajib(s, i)
+                if (!ikut && d === 0) return null // tidak ditagihkan ke siswa ini (masuk / keluar di tengah tahun)
                 return (
                   <button
                     key={b.id}
@@ -297,13 +384,25 @@ export default function SheetCatat({ buka, awal, tutup }) {
           ))}
         </div>
       )}
-      {Number(nominal) > sisaSaatIni && sisaSaatIni > 0 ? (
-        <p className="mb-3.5 flex items-start gap-2 rounded-xl bg-warn-soft px-3 py-2.5 text-xs font-semibold text-warn-deep">
-          <Ikon.peringatan size={15} />
+      {tidakDitagih ? (
+        <p className="mb-3.5 flex items-start gap-2 rounded-xl bg-canvas px-3 py-2.5 text-[12.5px] font-bold text-muted">
+          <Ikon.info size={16} />
           <span>
-            Nominal ini {rp(Number(nominal) - sisaSaatIni)} lebih besar dari sisa tagihan ({rp(sisaSaatIni)}).
-            Tetap bisa disimpan sebagai kelebihan bayar.
+            {jenis === 'spp'
+              ? s.daftarDepan ? `${s.panggilan || s.nama} baru masuk tahun ajaran ${s.daftarDepan.ta} — belum ada SPP tahun ini.` : `${labelTagihan}: ${ketBebas(s, Number(indeks)).toLowerCase()} — tidak ditagih.`
+              : `${labelTagihan} tidak ditagihkan ke ${s.panggilan || s.nama}.`}
           </span>
+        </p>
+      ) : sudahLunas ? (
+        <p className="mb-3.5 flex items-start gap-2 rounded-xl bg-ok-soft px-3 py-2.5 text-[12.5px] font-bold text-ok-deep">
+          <Ikon.cek size={16} />
+          <span>{labelTagihan} sudah lunas ({rp(target)}). Pilih bulan / kegiatan lain.</span>
+        </p>
+      ) : lebihSisa ? (
+        <p className="mb-3.5 flex flex-wrap items-center gap-2 rounded-xl bg-danger-soft px-3 py-2.5 text-xs font-semibold text-danger">
+          <Ikon.peringatan size={15} />
+          <span className="min-w-0 flex-1">Melebihi sisa tagihan. Maksimal {rp(sisaSaatIni)}.</span>
+          <button type="button" className="rounded-pill bg-kartu px-2.5 py-1 font-extrabold text-danger" onClick={() => setNominal(sisaSaatIni)}>Isi {rp(sisaSaatIni)}</button>
         </p>
       ) : (
         !modePaket && Number(nominal) > 0 && Number(nominal) < sisaSaatIni && (
@@ -321,13 +420,7 @@ export default function SheetCatat({ buka, awal, tutup }) {
       </div>
 
       <label className="mb-1.5 block text-[13px] font-bold">Tanggal pembayaran</label>
-      <input
-        type="date"
-        className="field-input mb-1.5"
-        value={tanggal}
-        max={tanggalISO()}
-        onChange={(e) => setTanggal(e.target.value)}
-      />
+      <div className="mb-1.5"><InputTanggal value={tanggal} max={tanggalISO()} onChange={setTanggal} aria-label="Tanggal pembayaran" /></div>
       {tanggal !== tanggalISO() && (
         <p className="mb-4 text-xs font-semibold text-muted">
           Dicatat mundur — tanggal transaksi disimpan sesuai tanggal ini, bukan hari ini.
@@ -335,7 +428,9 @@ export default function SheetCatat({ buka, awal, tutup }) {
       )}
       {tanggal === tanggalISO() && <div className="mb-4" />}
 
-      <button className="bigbtn disabled:opacity-60" onClick={simpan} disabled={modePaket && !pk}>Simpan pembayaran</button>
+      <button className="bigbtn disabled:opacity-50" onClick={simpan} disabled={(modePaket && !pk) || sudahLunas || lebihSisa || tidakDitagih}>
+        {tidakDitagih ? 'Tidak ditagih' : sudahLunas ? '✓ Sudah lunas' : lebihSisa ? `Maksimal ${rp(sisaSaatIni)}` : 'Simpan pembayaran'}
+      </button>
     </Sheet>
     <SheetPilihSiswa
       buka={buka && pilihSiswa}

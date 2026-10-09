@@ -1,26 +1,39 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import Avatar from '../components/Avatar.jsx'
 import { Chip, Ikon, IkonWhatsappPolos, Kosong, Segment, Sheet, Track } from '../components/ui.jsx'
 import { GambarKegiatan } from '../components/Gambar.jsx'
 import SheetPeriode from './SheetPeriode.jsx'
+import { KartuRiwayatKelas, LABEL_AKHIR, SheetKeluar, SheetMasaTerdaftar, teksMasa } from './RiwayatKelas.jsx'
+import PilihTa from '../components/PilihTa.jsx'
 import { useData } from '../lib/store.jsx'
 import { emojiKegiatan } from '../lib/emojiKegiatan.js'
 import * as api from '../lib/api.js'
 import {
   BULAN,
   bulanBerjalan,
+  bulanDitagih,
   dibayarKegiatan,
   dibayarSpp,
   kegiatanBelum,
+  kegiatanLaluBelum,
+  kegiatanWajib,
+  ketBebas,
   lunasSpp,
+  namaBulanTa,
   persenBayar,
   rp,
+  taPendek,
   sppPerluSekarang,
   statusSpp,
+  targetSpp,
+  targetSppTahun,
   totalDibayar,
-  totalKegiatan,
+  totalKegiatanLalu,
+  totalKegiatanSiswa,
+  tunggakanLaluPerTa,
 } from '../lib/format.js'
+import { kegiatanLewat } from '../lib/statusSiswa.js'
 import {
   BADGE_PAKET, EMOJI_JENIS, LABEL_JENIS, WARNA_JENIS, dibayarPaket, keteranganPaket, kurangSekarangPaket, paketSiswa, statusPaket, tahapPaket, tglPendek, urutPaket,
 } from '../lib/paket.js'
@@ -28,39 +41,69 @@ import {
 export default function DetailSiswa({ onCatat, onUbah }) {
   const { id } = useParams()
   const nav = useNavigate()
-  const { siswa, biaya, paket, pengaturan, toast, boleh } = useData()
+  const { siswa, biaya, biayaLain, paket, pembayaran, pengaturan, toast, boleh } = useData()
   const [seg, setSeg] = useState('spp')
-  const [periode, setPeriode] = useState(null) // { jenis, indeks } | null
+  // Tahun ajaran yang dilihat (0044): tahun lalu dibuka lengkap 12 bulan; transaksinya dibaca saat dibuka
+  const [taLihat, setTaLihat] = useState(pengaturan.tahunAjaran)
+  const [bayarLama, setBayarLama] = useState(null) // pembayaran siswa ini dari server (semua tahun)
+  const [versiLama, setVersiLama] = useState(0)
+  const [periode, setPeriode] = useState(null) // { jenis, indeks, ta?, biayaLaluId? } | null
+  const [sheetMasa, setSheetMasa] = useState(false)
+  const [sheetKeluar, setSheetKeluar] = useState(false)
   const [linkOrtu, setLinkOrtu] = useState(null) // { token, nama } | null, saat sheet link dibuka
   const [memuatLink, setMemuatLink] = useState(false)
   const s = siswa.find((x) => x.id === id)
   const kini = bulanBerjalan()
+  const lamaDilihat = taLihat !== pengaturan.tahunAjaran
+  useEffect(() => { setTaLihat(pengaturan.tahunAjaran); setBayarLama(null) }, [id]) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    if (!lamaDilihat || !s) return undefined
+    let aktif = true
+    api.pembayaranSiswa(s.id, { pembayaran, biaya }).then((d) => aktif && setBayarLama(d)).catch((e) => aktif && toast('Gagal memuat riwayat: ' + e.message))
+    return () => { aktif = false }
+  }, [lamaDilihat, s?.id, versiLama]) // eslint-disable-line react-hooks/exhaustive-deps
   const bisaUbah = boleh('siswa')
   const bisaCatat = boleh('pembayaran')
 
   if (!s) return <Kosong>Data siswa tidak ditemukan.</Kosong>
 
+  // tahun ajaran lalu yang tercatat untuk siswa ini (terbaru dulu)
+  const taLewat = (s.keanggotaan || []).map((k) => k.ta).filter((t) => t < pengaturan.tahunAjaran).sort().reverse()
+
   // PMB & daftar ulang yang ditagihkan ke siswa ini (0033)
   const paketS = paketSiswa(paket, s.id).sort(urutPaket)
   const bayarPaket = paketS.reduce((t, p) => t + Math.min(p.total, dibayarPaket(s, p.id)), 0)
   const dibayar = totalDibayar(s) + bayarPaket
-  const total = 12 * pengaturan.sppNominal + totalKegiatan(biaya) + paketS.reduce((t, p) => t + p.total, 0)
-  const sisaTahunAjaran = total - dibayar
-  const perluSekarang = sppPerluSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini) + kegiatanBelum(s, biaya)
+  // target tahun ini = bulan-bulan saat terdaftar × tarif kelasnya + kegiatan yang ditagihkan (0042)
+  const total = targetSppTahun(s, pengaturan.sppNominal) + totalKegiatanSiswa(s, biaya) + paketS.reduce((t, p) => t + p.total, 0)
+  // + tunggakan SPP & kegiatan tahun ajaran lalu supaya "sisa" = semua yang masih harus dibayar
+  const lalu = tunggakanLaluPerTa(s, pengaturan.sppNominal)
+  const kegLalu = kegiatanLaluBelum(s)
+  const taLalu = [...new Set([...lalu.map((g) => g.ta), ...kegLalu.map((k) => k.ta)])].sort()
+  const tunggakLalu = lalu.reduce((t, g) => t + g.total, 0) + totalKegiatanLalu(s)
+  const sisaTahunAjaran = total - dibayar + tunggakLalu
+  const perluSekarang = sppPerluSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini) + kegiatanBelum(s, biaya) + totalKegiatanLalu(s)
     + paketS.reduce((t, p) => t + kurangSekarangPaket(p, dibayarPaket(s, p.id)), 0)
   const jmlLunasSpp = lunasSpp(s, pengaturan.sppNominal)
-  const jmlLunasKeg = biaya.filter((b, i) => dibayarKegiatan(s, i) >= b.nominal).length
+  const jmlBulan = bulanDitagih(s, pengaturan.sppNominal)
+  const kegS = biaya.filter((_, i) => kegiatanWajib(s, i))
+  const jmlLunasKeg = biaya.filter((b, i) => kegiatanWajib(s, i) && dibayarKegiatan(s, i) >= b.nominal).length
 
   const statusKartu = (jenisX, i, jumlah, target) => {
     if (jenisX !== 'spp') {
       if (jumlah >= target) return { warna: 'green', label: 'Lunas' }
-      if (jumlah > 0) return { warna: 'amber', label: 'Sebagian' }
-      return { warna: 'grey', label: 'Belum' }
+      // kegiatan jatuh tempo pada tanggal kegiatannya (sama dengan menu Tagihan & Siswa)
+      if (kegiatanLewat(biaya[i])) return { warna: 'red', label: 'Nunggak' }
+      if (jumlah > 0) return { warna: 'amber', label: 'Mencicil' }
+      return { warna: 'grey', label: 'Belum bayar' }
     }
-    const status = statusSpp(jumlah, target, i, kini, pengaturan.tanggalJatuhTempo)
+    // sama dengan menu Tagihan: bulan yang sudah lewat & baru dicicil = Nunggak
+    const st = statusSpp(jumlah, target, i, kini, pengaturan.tanggalJatuhTempo)
+    if (st === 'bebas') return { warna: 'grey', label: ketBebas(s, i), bebas: true }
+    const status = st === 'sebagian' && i < kini ? 'nunggak' : st
     return {
       lunas: { warna: 'green', label: 'Lunas' },
-      sebagian: { warna: 'amber', label: 'Sebagian' },
+      sebagian: { warna: 'amber', label: 'Mencicil' },
       nunggak: { warna: 'red', label: 'Nunggak' },
       'belum-bayar': { warna: 'amber', label: 'Belum bayar' },
       menunggu: { warna: 'grey', label: 'Menunggu' },
@@ -122,6 +165,8 @@ export default function DetailSiswa({ onCatat, onUbah }) {
               <div className="min-w-0">
                 <div className="line-clamp-2 font-display text-[22px] font-bold leading-[1.1] tracking-[-.2px]">{s.nama}</div>
                 <div className="mt-1 text-[12.5px] font-bold opacity-90">Kelas {s.kelas} · NIS {s.nis}</div>
+                {s.daftarDepan && <div className="mt-0.5 text-[12px] font-extrabold">Mulai tahun ajaran {s.daftarDepan.ta}</div>}
+                {s.terdaftar?.mulai > 0 && <div className="mt-0.5 text-[12px] font-extrabold">Masuk {namaBulanTa(s.terdaftar.ta, s.terdaftar.mulai)}</div>}
                 <div className="truncate text-[12.5px] font-bold opacity-90">{s.wali || 'Wali belum diisi'}{s.hp ? ` · ${s.hp}` : ''}</div>
               </div>
             </div>
@@ -139,7 +184,7 @@ export default function DetailSiswa({ onCatat, onUbah }) {
             </div>
             {sisaTahunAjaran > perluSekarang && (
               <div className="mt-2.5 text-[11.5px] font-semibold leading-snug opacity-85">
-                Sisa tahun ajaran (termasuk bulan yang belum jatuh tempo): {rp(sisaTahunAjaran)}
+                {tunggakLalu > 0 ? 'Sisa seluruhnya (tunggakan tahun lalu + tahun ini, termasuk bulan yang belum jatuh tempo)' : 'Sisa tahun ajaran (termasuk bulan yang belum jatuh tempo)'}: {rp(sisaTahunAjaran)}
               </div>
             )}
             {(bisaCatat || bisaUbah) && (
@@ -168,16 +213,16 @@ export default function DetailSiswa({ onCatat, onUbah }) {
             <div className="mb-3">
               <div className="mb-1.5 flex items-center justify-between text-xs font-semibold">
                 <span className="text-muted">Iuran SPP</span>
-                <span>{jmlLunasSpp}/12 bulan lunas</span>
+                <span>{jmlLunasSpp}/{jmlBulan} bulan lunas</span>
               </div>
-              <Track persen={(jmlLunasSpp / 12) * 100} warna="#3B6EF6" tinggi={7} />
+              <Track persen={jmlBulan ? (jmlLunasSpp / jmlBulan) * 100 : 0} warna="#3B6EF6" tinggi={7} />
             </div>
             <div>
               <div className="mb-1.5 flex items-center justify-between text-xs font-semibold">
                 <span className="text-muted">Biaya kegiatan</span>
-                <span>{jmlLunasKeg}/{biaya.length || 0} item lunas</span>
+                <span>{jmlLunasKeg}/{kegS.length} item lunas</span>
               </div>
-              <Track persen={biaya.length ? (jmlLunasKeg / biaya.length) * 100 : 0} warna="#8B5CF6" tinggi={7} />
+              <Track persen={kegS.length ? (jmlLunasKeg / kegS.length) * 100 : 0} warna="#8B5CF6" tinggi={7} />
             </div>
             {paketS.map((p) => (
               <div key={p.id} className="mt-3">
@@ -189,9 +234,25 @@ export default function DetailSiswa({ onCatat, onUbah }) {
               </div>
             ))}
           </div>
+          <div className="hidden lg:block">
+            <KartuRiwayatKelas s={s} bisaUbah={bisaUbah} onAtur={() => setSheetMasa(true)} onKeluar={() => setSheetKeluar(true)} />
+          </div>
         </div>
 
         <div className="min-w-0">
+          {taLewat.length > 0 && (
+            <div className="noscroll -mx-0.5 mb-3 flex gap-1.5 overflow-x-auto px-0.5" role="group" aria-label="Tahun ajaran">
+              <button type="button" aria-pressed={!lamaDilihat} onClick={() => setTaLihat(pengaturan.tahunAjaran)}
+                className={`shrink-0 rounded-pill px-3.5 py-2 text-[12.5px] font-extrabold ${!lamaDilihat ? 'permen permen-kecil permen-biru' : 'border-[1.5px] border-[#DCE6F4] bg-kartu text-muted dark:border-line'}`}>
+                Tahun ini <span className="font-bold opacity-75">{taPendek(pengaturan.tahunAjaran)}</span>
+              </button>
+              <PilihTa on={lamaDilihat} nilai={lamaDilihat ? taLihat : ''} ubah={(t) => { setTaLihat(t); if (seg === 'paket') setSeg('spp') }} daftar={taLewat} label="Tahun lalu" className="!py-[7px] !text-[12.5px]" />
+            </div>
+          )}
+          {lamaDilihat ? (
+            <TahunLalu s={s} ta={taLihat} seg={seg} setSeg={setSeg} biayaLain={biayaLain} buka={setPeriode} />
+          ) : (
+          <>
           <div className="lg:max-w-[420px]">
             <Segment
               nilai={seg}
@@ -218,18 +279,70 @@ export default function DetailSiswa({ onCatat, onUbah }) {
             </div>
           )}
 
-          <div className={`lg:grid lg:grid-cols-2 lg:gap-3.5 2xl:grid-cols-3 ${seg === 'paket' ? '!hidden' : ''}`}>
+          {s.daftarDepan && (
+            <div className="card mb-3.5 flex items-start gap-3 !py-3">
+              <span className="tile h-[38px] w-[38px] shrink-0 rounded-[12px] bg-brand-soft text-brand"><Ikon.kalender size={19} /></span>
+              <p className="text-[13px] font-semibold leading-snug">
+                <b className="block font-extrabold">Siswa baru tahun ajaran {s.daftarDepan.ta} · Kelas {s.daftarDepan.kelas}</b>
+                <span className="text-muted">Belum ada tagihan SPP & kegiatan tahun ini. Tagihan mulai otomatis 1 Juli.</span>
+              </p>
+            </div>
+          )}
+
+          {seg !== 'paket' && taLalu.map((t) => {
+            const g = lalu.find((x) => x.ta === t) || { items: [], total: 0 }
+            const kl = kegLalu.filter((k) => k.ta === t)
+            const jml = g.total + kl.reduce((a, k) => a + k.kurang, 0)
+            return (
+            <div key={t} className="card mb-3.5 border-l-4 border-danger !py-3">
+              <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+                <b className="text-[15px] font-extrabold text-danger">Tunggakan tahun ajaran {t}</b>
+                <b className="text-[15px] font-extrabold text-danger">{rp(jml)}</b>
+              </div>
+              <p className="mt-0.5 text-[12.5px] font-semibold text-muted">
+                {g.items.length && kl.length ? 'SPP & kegiatan' : kl.length ? 'Kegiatan' : 'SPP'} tahun ajaran lalu yang belum lunas. Ketuk untuk mencatat pembayaran.
+              </p>
+              <div className="mt-2.5 flex flex-wrap gap-2">
+                {kl.map((k) => (
+                  <button
+                    key={k.biayaId}
+                    type="button"
+                    onClick={() => setPeriode({ jenis: 'kegiatan', indeks: -1, biayaLaluId: k.biayaId })}
+                    className="rounded-[14px] border-[1.5px] border-danger/35 bg-kartu px-3 py-2 text-left active:scale-[.98]"
+                  >
+                    <b className="block text-[13.5px] font-extrabold text-danger">{k.nama}</b>
+                    <span className="block text-[11.5px] font-bold text-muted">{k.dibayar > 0 ? `kurang ${rp(k.kurang)}` : rp(k.kurang)}</span>
+                  </button>
+                ))}
+                {g.items.map((x) => (
+                  <button
+                    key={x.indeks}
+                    type="button"
+                    onClick={() => setPeriode({ jenis: 'spp', indeks: x.indeks, ta: g.ta })}
+                    className="rounded-[14px] border-[1.5px] border-danger/35 bg-kartu px-3 py-2 text-left active:scale-[.98]"
+                  >
+                    <b className="block text-[13.5px] font-extrabold text-danger">{namaBulanTa(g.ta, x.indeks)}</b>
+                    <span className="block text-[11.5px] font-bold text-muted">{x.dibayar > 0 ? `kurang ${rp(x.kurang)}` : rp(x.kurang)}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+            )
+          })}
+
+          <div className={`lg:grid lg:grid-cols-2 lg:gap-3.5 2xl:grid-cols-3 ${seg === 'paket' || s.daftarDepan ? '!hidden' : ''}`}>
             {seg === 'spp'
               ? BULAN.map((b, i) => {
                   const jml = dibayarSpp(s, i)
+                  const t = targetSpp(s, i, pengaturan.sppNominal)
                   return (
                     <Kartu
                       key={b}
                       nomor={i + 1}
                       judul={b}
                       dibayar={jml}
-                      target={pengaturan.sppNominal}
-                      status={statusKartu('spp', i, jml, pengaturan.sppNominal)}
+                      target={t}
+                      status={statusKartu('spp', i, jml, t)}
                       onClick={() => setPeriode({ jenis: 'spp', indeks: i })}
                     />
                   )
@@ -238,6 +351,7 @@ export default function DetailSiswa({ onCatat, onUbah }) {
               ? <Kosong>Belum ada biaya kegiatan. Tambahkan di menu Jenis biaya.</Kosong>
               : biaya.map((b, i) => {
                   const jml = dibayarKegiatan(s, i)
+                  const ikut = kegiatanWajib(s, i)
                   return (
                     <Kartu
                       key={b.id}
@@ -246,12 +360,14 @@ export default function DetailSiswa({ onCatat, onUbah }) {
                       ikon={emojiKegiatan(b)}
                       dibayar={jml}
                       target={b.nominal}
-                      status={statusKartu('kegiatan', i, jml, b.nominal)}
+                      status={ikut || jml > 0 ? statusKartu('kegiatan', i, jml, b.nominal) : { warna: 'grey', label: 'Tidak ikut', bebas: true }}
                       onClick={() => setPeriode({ jenis: 'kegiatan', indeks: i })}
                     />
                   )
                 })}
           </div>
+          </>
+          )}
         </div>
       </div>
 
@@ -261,7 +377,16 @@ export default function DetailSiswa({ onCatat, onUbah }) {
         siswaId={s.id}
         jenis={periode?.jenis}
         indeks={periode?.indeks}
+        ta={periode?.ta || null}
+        biayaLaluId={periode?.biayaLaluId || null}
+        transaksiLuar={lamaDilihat ? bayarLama : null}
+        onBerubah={() => lamaDilihat && setVersiLama((v) => v + 1)}
       />
+      <div className="lg:hidden">
+        <KartuRiwayatKelas s={s} bisaUbah={bisaUbah} onAtur={() => setSheetMasa(true)} onKeluar={() => setSheetKeluar(true)} />
+      </div>
+      <SheetMasaTerdaftar buka={sheetMasa} tutup={() => setSheetMasa(false)} s={s} />
+      <SheetKeluar buka={sheetKeluar} tutup={() => setSheetKeluar(false)} s={s} />
 
       <Sheet buka={!!linkOrtu} tutup={() => setLinkOrtu(null)} judul="Link portal orang tua" lead={`Untuk memantau status pembayaran ${s.nama}`}>
         {memuatLink ? (
@@ -289,6 +414,61 @@ export default function DetailSiswa({ onCatat, onUbah }) {
           <p className="py-6 text-center text-sm text-danger">Gagal membuat link. Coba lagi.</p>
         )}
       </Sheet>
+    </>
+  )
+}
+
+/**
+ * Kartu siswa › tahun ajaran lalu (0044): 12 bulan SPP & kegiatan tahun itu, lengkap.
+ * Angkanya dari ringkasan tunggakan (sudah ada di HP); rincian transaksinya dibaca saat
+ * kartu bulan/kegiatan diketuk.
+ */
+function TahunLalu({ s, ta, seg, setSeg, biayaLain, buka }) {
+  const k = (s.keanggotaan || []).find((x) => x.ta === ta)
+  const target = s.sppTargetLalu?.[ta] || Array(12).fill(0)
+  const bayar = s.sppLalu?.[ta] || Array(12).fill(0)
+  const keg = biayaLain.filter((b) => b.tahunAjaran === ta)
+  const kl = (s.kegiatanLalu || []).filter((x) => x.ta === ta)
+  const targetSpp = target.reduce((t, v) => t + v, 0)
+  const masukSpp = target.reduce((t, v, i) => t + (v > 0 ? Math.min(v, bayar[i] || 0) : 0), 0)
+  const targetKeg = kl.reduce((t, x) => t + x.nominal, 0)
+  const masukKeg = kl.reduce((t, x) => t + Math.min(x.nominal, x.dibayar), 0)
+  const sisa = targetSpp - masukSpp + targetKeg - masukKeg
+  const status = (dibayar, tg) => (!(tg > 0) ? { warna: 'grey', label: 'Tidak terdaftar', bebas: true }
+    : dibayar >= tg ? { warna: 'green', label: 'Lunas' } : { warna: 'red', label: dibayar > 0 ? 'Kurang' : 'Nunggak' })
+  return (
+    <>
+      <div className={`card mb-3.5 !py-3 ${sisa > 0 ? 'border-l-4 border-danger' : ''}`}>
+        <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5">
+          <b className="text-[15px] font-extrabold">Tahun ajaran {ta}</b>
+          <b className={`text-[15px] font-extrabold ${sisa > 0 ? 'text-danger' : 'text-ok-deep'}`}>{sisa > 0 ? `Sisa ${rp(sisa)}` : 'Lunas ✓'}</b>
+        </div>
+        <p className="mt-0.5 text-[12.5px] font-semibold text-muted">
+          {k ? `Kelas ${k.kelas} · ${teksMasa(k) || 'Juli – Juni'}${k.akhir ? ` · ${LABEL_AKHIR[k.akhir]}` : ''}` : 'Tidak terdaftar di tahun ini'}
+          {' · '}SPP {rp(masukSpp)} dari {rp(targetSpp)}{targetKeg ? ` · kegiatan ${rp(masukKeg)} dari ${rp(targetKeg)}` : ''}
+        </p>
+      </div>
+      <div className="lg:max-w-[420px]">
+        <Segment nilai={seg === 'keg' ? 'keg' : 'spp'} ubah={setSeg} opsi={[{ nilai: 'spp', label: 'Iuran SPP' }, { nilai: 'keg', label: 'Kegiatan' }]} />
+      </div>
+      <div className="lg:grid lg:grid-cols-2 lg:gap-3.5 2xl:grid-cols-3">
+        {seg !== 'keg'
+          ? BULAN.map((b, i) => (
+              <Kartu key={b} nomor={i + 1} judul={namaBulanTa(ta, i)} dibayar={bayar[i] || 0} target={target[i]}
+                status={status(bayar[i] || 0, target[i])}
+                onClick={() => target[i] > 0 && buka({ jenis: 'spp', indeks: i, ta })} />
+            ))
+          : keg.length === 0
+          ? <Kosong>Tidak ada biaya kegiatan di tahun ajaran {ta}.</Kosong>
+          : keg.map((b, i) => {
+              const x = kl.find((y) => y.biayaId === b.id)
+              return (
+                <Kartu key={b.id} nomor={i + 1} judul={b.nama} ikon={emojiKegiatan(b)} dibayar={x?.dibayar || 0} target={b.nominal}
+                  status={x ? status(x.dibayar, x.nominal) : { warna: 'grey', label: 'Tidak ikut', bebas: true }}
+                  onClick={() => x && buka({ jenis: 'kegiatan', indeks: -1, biayaLaluId: b.id })} />
+              )
+            })}
+      </div>
     </>
   )
 }
@@ -361,7 +541,7 @@ function Kartu({ nomor, ikon, judul, dibayar, target, status, onClick }) {
   return (
     <button
       onClick={onClick}
-      className="mb-2.5 w-full rounded-[20px] bg-kartu px-3.5 py-3 text-left shadow-[0_8px_24px_rgba(30,64,140,.08)] transition hover:-translate-y-[1px] hover:shadow-[0_10px_26px_rgba(30,64,140,.14)] dark:shadow-[0_8px_24px_rgba(0,0,0,.3)] lg:mb-0 lg:p-4"
+      className={`${status.bebas ? 'opacity-55 ' : ''}mb-2.5 w-full rounded-[20px] bg-kartu px-3.5 py-3 text-left shadow-[0_8px_24px_rgba(30,64,140,.08)] transition hover:-translate-y-[1px] hover:shadow-[0_10px_26px_rgba(30,64,140,.14)] dark:shadow-[0_8px_24px_rgba(0,0,0,.3)] lg:mb-0 lg:p-4`}
     >
       <div className="flex items-center gap-3">
         {ikon ? (
@@ -374,7 +554,7 @@ function Kartu({ nomor, ikon, judul, dibayar, target, status, onClick }) {
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[14.5px] font-extrabold">{judul}</span>
           <span className="block truncate text-xs font-semibold text-muted">
-            {rp(dibayar)} <span className="opacity-60">/ {rp(target)}</span>
+            {status.bebas && !dibayar ? 'Tidak ditagih' : <>{rp(dibayar)} <span className="opacity-60">/ {rp(target)}</span></>}
           </span>
         </span>
         <Chip warna={status.warna}>{status.label}</Chip>
