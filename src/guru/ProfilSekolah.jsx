@@ -32,11 +32,24 @@ export default function ProfilSekolah() {
     setRekening(pengaturan.rekening || [])
   }, [pengaturan])
 
+  // Dimuat saat halaman dibuka DAN setiap kali tab/aplikasi kembali aktif,
+  // supaya staf yang baru terkunci langsung terlihat tanpa memuat ulang halaman.
   useEffect(() => {
-    api.daftarStafTerkunci()
-      .then(setStafTerkunci)
-      .catch(() => {})
-      .finally(() => setMemuatTerkunci(false))
+    let batal = false
+    const muat = () =>
+      api.daftarStafTerkunci()
+        .then((d) => !batal && setStafTerkunci(d))
+        .catch(() => {})
+        .finally(() => !batal && setMemuatTerkunci(false))
+    const saatAktif = () => document.visibilityState === 'visible' && muat()
+    muat()
+    window.addEventListener('focus', saatAktif)
+    document.addEventListener('visibilitychange', saatAktif)
+    return () => {
+      batal = true
+      window.removeEventListener('focus', saatAktif)
+      document.removeEventListener('visibilitychange', saatAktif)
+    }
   }, [])
 
   const bukaKunci = async (staf) => {
@@ -189,7 +202,9 @@ export default function ProfilSekolah() {
                 </span>
                 <div className="min-w-0 flex-1">
                   <div className="truncate text-[14.5px] font-bold">{s.nama}</div>
-                  <div className="text-xs text-muted">Salah PIN 3x — {s.peran === 'kepala' ? 'Kepala sekolah' : 'Admin/TU'}</div>
+                  <div className="text-xs text-muted">
+                    {s.peran === 'kepala' ? 'Kepala sekolah' : 'Admin/TU'} · terbuka sendiri ±{s.menit || 10} menit lagi
+                  </div>
                 </div>
                 <button
                   className="shrink-0 rounded-xl bg-brand px-3.5 py-2 text-xs font-bold text-white disabled:opacity-60"
@@ -202,9 +217,9 @@ export default function ProfilSekolah() {
             ))}
           </div>
           <p className="mb-6 text-xs leading-relaxed text-muted lg:max-w-lg">
-            Membuka kunci cuma mereset hitungan salah — PIN staf itu <b className="text-ink">tidak berubah</b>,
-            jadi mereka bisa langsung coba masuk lagi dengan PIN yang sama seperti biasa. Kalau mereka lupa PIN-nya,
-            arahkan masuk pakai Google dulu lalu buat PIN baru lewat Profil Akun.
+            Salah PIN 3× dikunci 10 menit, lalu terbuka sendiri. Tombol <b className="text-ink">Buka kunci</b> hanya
+            mempercepatnya — PIN staf itu tidak berubah. Kalau mereka lupa PIN, arahkan masuk pakai Google lalu buat
+            PIN baru lewat Profil Akun (kuncinya ikut terbuka).
           </p>
         </>
       )}

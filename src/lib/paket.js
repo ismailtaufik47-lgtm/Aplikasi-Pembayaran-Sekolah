@@ -13,7 +13,7 @@
  *     siswaIds: [id siswa yang ditagih] }
  * Rupiah yang sudah dibayar per siswa: siswa.paket[paket.id].
  */
-import { rp, tanggalDari } from './format.js'
+import { rp, tahunAjaranBerjalan, tanggalDari } from './format.js'
 
 export const LABEL_JENIS = { pmb: 'PMB', du: 'Daftar ulang' }
 export const LABEL_PANJANG = { pmb: 'Pendaftaran murid baru', du: 'Daftar ulang siswa lama' }
@@ -44,6 +44,16 @@ export const totalRincian = (rincian = []) => rincian.reduce((t, r) => t + (Numb
 
 /** Paket yang ditagihkan ke satu siswa. */
 export const paketSiswa = (paket = [], siswaId) => paket.filter((p) => p.siswaIds.includes(siswaId))
+
+/**
+ * Paket yang masih relevan untuk tagihan siswa: tahun ajaran ini / depan, atau tahun lalu
+ * yang BELUM lunas. PMB / daftar ulang tahun lalu yang sudah lunas tidak ikut lagi di total
+ * & daftar tagihan (riwayatnya ada di Laporan › Tahunan & Kartu siswa › tahun lalu) — v32.
+ */
+export const paketSiswaKini = (paket = [], s, hariIni = new Date()) => {
+  const ta = tahunAjaranBerjalan(hariIni)
+  return paketSiswa(paket, s?.id).filter((p) => !(p.tahunAjaran && p.tahunAjaran < ta && dibayarPaket(s, p.id) >= p.total))
+}
 
 /**
  * Pembagian uang yang sudah masuk ke tiap tahap (tahap paling awal diisi dulu).

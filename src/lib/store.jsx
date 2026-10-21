@@ -26,6 +26,7 @@ export function DataProvider({ children }) {
   const [biayaLain, setBiayaLain] = useState([]) // kegiatan tahun ajaran lain (0042)
   const [siswa, setSiswa] = useState([])
   const [siswaLain, setSiswaLain] = useState([]) // siswa lulus / keluar yang pembayarannya ikut termuat (0044)
+  const [siswaKeluar, setSiswaKeluar] = useState([]) // keluar di tengah tahun ini — tetap ikut laporan bulan sebelum keluar (v32)
   const [pembayaran, setPembayaran] = useState([])
   const [paket, setPaket] = useState([]) // PMB & daftar ulang (lib/paket.js)
   const [wali, setWali] = useState(null)
@@ -51,6 +52,7 @@ export function DataProvider({ children }) {
     setBiayaLain(d.biayaLain || [])
     setSiswa(d.siswa)
     setSiswaLain(d.siswaLain || [])
+    setSiswaKeluar(d.siswaKeluar || [])
     setPembayaran(d.pembayaran)
     setPaket(d.paket || [])
     setWali(d.wali)
@@ -97,8 +99,8 @@ export function DataProvider({ children }) {
    * bisa dipanggil berkali-kali untuk cicilan) dan batalkanPembayaran
    * (delta negatif, mengembalikan angka setelah satu transaksi dihapus).
    */
-  const tambahJumlah = (siswaId, jenis, indeks, delta, ta, biayaId) =>
-    setSiswa((lama) =>
+  const tambahJumlah = (siswaId, jenis, indeks, delta, ta, biayaId) => {
+    const ubah = (lama) =>
       lama.map((x) => {
         if (x.id !== siswaId) return x
         const salin = { ...x, spp: [...x.spp], sppLalu: { ...(x.sppLalu || {}) }, kegiatan: [...x.kegiatan], paket: { ...(x.paket || {}) } }
@@ -116,7 +118,9 @@ export function DataProvider({ children }) {
         else salin.kegiatan[indeks] = (salin.kegiatan[indeks] || 0) + delta
         return salin
       })
-    )
+    setSiswa(ubah)
+    setSiswaKeluar(ubah)
+  }
 
   /**
    * jenis 'spp' → indeks = bulan (0–11) · 'kegiatan' → indeks = urutan biaya ·
@@ -235,6 +239,9 @@ export function DataProvider({ children }) {
    * Siswa ini tidak ada di daftar aktif, jadi sisa tagihannya dicek ulang di database (0036).
    */
   async function catatTunggakanLain(sl, item, { nominal, metode, tanggal }) {
+    const ta = tahunAjaranBerjalan()
+    // kegiatan tahun ini → indeks di daftar biaya (supaya laporan bulan ini ikut berubah)
+    const iKeg = item.jenis === 'kegiatan' && item.ta === ta ? biaya.findIndex((b) => b.id === item.biayaId) : -1
     const keterangan = item.jenis === 'spp' ? `SPP bulanan — ${namaBulanTa(item.ta, item.i)}` : `Biaya kegiatan — ${item.nama} ${item.ta}`
     try {
       const baris = await api.catatPembayaran({
@@ -243,11 +250,12 @@ export function DataProvider({ children }) {
         keterangan, nominal, metode, petugas, tanggal,
       })
       const tampil = {
-        id: baris.id, siswaId: sl.id, jenis: item.jenis, indeks: item.jenis === 'spp' ? item.i : -1,
+        id: baris.id, siswaId: sl.id, jenis: item.jenis, indeks: item.jenis === 'spp' ? item.i : iKeg,
         biayaId: item.jenis === 'kegiatan' ? item.biayaId : null, paketId: null, tahunAjaran: item.jenis === 'spp' ? item.ta : null,
         ket: keterangan, nominal, metode, petugas, tanggal: baris.dibayar_pada, waktu: waktuTampil(baris.dibayar_pada),
       }
       setPembayaran((lama) => [tampil, ...lama])
+      if (item.ta === ta) tambahJumlah(sl.id, item.jenis, tampil.indeks, nominal, item.ta, item.jenis === 'kegiatan' && iKeg < 0 ? item.biayaId : null)
       setSiswaLain((lama) => (lama.some((x) => x.id === sl.id) ? lama : [...lama, sl]))
       return tampil
     } catch (e) {
@@ -634,8 +642,11 @@ export function DataProvider({ children }) {
       biayaLain,
       siswa,
       siswaLain,
+      siswaKeluar,
+      /** siswa yang ditagih tahun ini: aktif + yang keluar di tengah tahun (untuk laporan per bulan) */
+      siswaTahunIni: siswaKeluar.length ? [...siswa, ...siswaKeluar] : siswa,
       /** siswa aktif atau (kalau tidak ada) siswa lulus/keluar yang termuat — untuk nama di riwayat */
-      cariSiswa: (id) => siswa.find((x) => x.id === id) || siswaLain.find((x) => x.id === id) || null,
+      cariSiswa: (id) => siswa.find((x) => x.id === id) || siswaKeluar.find((x) => x.id === id) || siswaLain.find((x) => x.id === id) || null,
       pembayaran,
       paket,
       wali,
@@ -682,7 +693,7 @@ export function DataProvider({ children }) {
       aturTarifSpp,
       salinKegiatan,
     }),
-    [siap, galat, gerbang, pengaturan, biaya, biayaLain, siswa, siswaLain, pembayaran, paket, wali, petugas, peran, akses, pinAktif, avatarSaya, pesan, muat, segarkan]
+    [siap, galat, gerbang, pengaturan, biaya, biayaLain, siswa, siswaLain, siswaKeluar, pembayaran, paket, wali, petugas, peran, akses, pinAktif, avatarSaya, pesan, muat, segarkan]
   )
 
   return <Ctx.Provider value={nilai}>{children}</Ctx.Provider>

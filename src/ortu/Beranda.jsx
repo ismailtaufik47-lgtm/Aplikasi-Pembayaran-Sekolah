@@ -89,7 +89,7 @@ export default function Beranda({ akar, anak, aktif, pilihAnak, bukaStruk, bukaC
               <span className="block text-[12px] font-bold leading-snug text-muted">
                 {nonaktif ? 'Tidak ada lagi tagihan untuk ananda. Terima kasih!'
                   : iBerikut >= 0
-                  ? `Berikutnya: SPP ${BULAN[iBerikut]} ${rp(spp - (a.spp[iBerikut] || 0))} · jatuh tempo ${labelJatuhTempoPeriode(pengaturan.tanggalJatuhTempo, iBerikut)}`
+                  ? `Berikutnya: SPP ${BULAN[iBerikut]} ${rp(targetSpp(a, iBerikut, spp) - (a.spp[iBerikut] || 0))} · jatuh tempo ${labelJatuhTempoPeriode(pengaturan.tanggalJatuhTempo, iBerikut)}`
                   : 'SPP satu tahun ajaran ini sudah lunas semua. Terima kasih!'}
               </span>
             </span>

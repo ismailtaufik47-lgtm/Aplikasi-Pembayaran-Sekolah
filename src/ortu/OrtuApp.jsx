@@ -12,9 +12,11 @@ import Riwayat from './Riwayat.jsx'
 import Bantuan from './Bantuan.jsx'
 import Kegiatan from './Kegiatan.jsx'
 import GerbangNis from './GerbangNis.jsx'
+import Tumbuh from './Tumbuh.jsx'
+import { portalTumbuh } from '../tumbuh/api.js'
 import { SheetStruk, SheetCaraBayar, SheetPengumuman, SheetKegiatan, TombolLonceng } from './sheets.jsx'
 
-const HALAMAN = ['tagihan', 'riwayat', 'kegiatan', 'bantuan']
+const HALAMAN = ['tagihan', 'tumbuh', 'riwayat', 'kegiatan', 'bantuan']
 
 /* ---------- NIS yang diingat di perangkat ini (per tautan) ---------- */
 const kunciNis = (token) => `kasceria-nis:${token || 'demo'}`
@@ -82,6 +84,16 @@ export default function OrtuApp() {
   const [caraBayar, setCaraBayar] = useState(false)
   const [pengumuman, setPengumuman] = useState(false)
   const [kegiatan, setKegiatan] = useState(null) // id biaya kegiatan yang infonya sedang dibuka
+  const [tumbuh, setTumbuh] = useState(undefined) // tumbuh kembang (0052): undefined = memuat, null = tidak ada
+
+  // Tumbuh kembang dimuat terpisah — kalau gagal / belum ada, portal tetap jalan tanpa tab Tumbuh.
+  useEffect(() => {
+    if (!siap || gerbang || !nis) return
+    let batal = false
+    const anakDemo = modeDemo ? siswa.filter((s) => wali?.anak?.includes(s.id)) : []
+    portalTumbuh(token, nis, anakDemo).then((d) => !batal && setTumbuh(d || null), () => !batal && setTumbuh(null))
+    return () => { batal = true }
+  }, [siap, gerbang, nis, token]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (nis && !tokenLama) muat({ mode: 'ortu', token, nis })
@@ -135,7 +147,10 @@ export default function OrtuApp() {
   const aktif = anak.find((a) => a.id === anakId) || anak[0]
   if (!aktif) return <Muat>Tautan ini belum terhubung ke data siswa mana pun. Hubungi pihak sekolah.</Muat>
   const ujung = pathname.replace(/\/+$/, '').split('/').pop()
-  const tab = HALAMAN.includes(ujung) ? ujung : 'beranda'
+  // tab Tumbuh hanya tampil kalau sekolah memakainya (ada guru kelas atau isi untuk anak-anak ini)
+  const adaTumbuh = !!tumbuh?.anak?.some((a) => a.guru || a.periode.length || a.catatan.length || a.kabar.length)
+  const menu = menuPortal(adaTumbuh)
+  const tab = HALAMAN.includes(ujung) && (ujung !== 'tumbuh' || adaTumbuh) ? ujung : 'beranda'
 
   const akar = token ? `/ortu/${token}` : '/ortu'
   const layar = {
@@ -148,8 +163,8 @@ export default function OrtuApp() {
     <div className="teks-jelas panel-ceria">
     <Shell
       ceria
-      topbar={<NavAtas aktif={tab} nav={nav} akar={akar} wali={wali} anak={aktif} pengaturan={pengaturan} bukaPengumuman={() => setPengumuman(true)} />}
-      tabbar={<TabBar aktif={tab} nav={nav} akar={akar} />}
+      topbar={<NavAtas menu={menu} aktif={tab} nav={nav} akar={akar} wali={wali} anak={aktif} pengaturan={pengaturan} bukaPengumuman={() => setPengumuman(true)} />}
+      tabbar={<TabBar menu={menu} aktif={tab} nav={nav} akar={akar} />}
       fab={tab === 'bantuan' ? null : <TombolWa anak={aktif} />}
     >
       <div ref={gulir} className="langit-gulir noscroll flex-1 overflow-y-auto overscroll-contain lg:!bg-transparent lg:!bg-none">
@@ -160,6 +175,7 @@ export default function OrtuApp() {
             {/* Halaman dipilih dari URL (bukan <Routes> bersarang): /ortu/tagihan di mode
                 demo juga cocok dengan pola /ortu/:token/*. */}
             {tab === 'tagihan' ? <Tagihan {...layar} />
+              : tab === 'tumbuh' ? <Tumbuh {...layar} tumbuh={tumbuh} />
               : tab === 'riwayat' ? <Riwayat {...layar} />
               : tab === 'kegiatan' ? <Kegiatan {...layar} />
               : tab === 'bantuan' ? <Bantuan {...layar} />
@@ -187,6 +203,7 @@ const JALUR = {
   nota: <><path d="M6 3h8l4 4v14l-2.5-1.5L13 21l-2.5-1.5L8 21l-2-1.5z" /><path d="M9 10h6M9 14h4" /></>,
   riwayat: <><path d="M4 12a8 8 0 1 0 2.4-5.7" /><path d="M4 4.5V9h4.5" /><path d="M12 8v4.5l3 2" /></>,
   kalender: <><rect x="3.5" y="5" width="17" height="16" rx="3" /><path d="M8 3v4M16 3v4M3.5 10h17" /></>,
+  tunas: <><path d="M12 21v-9" /><path d="M12 12c0-4 2.5-6.5 7-6.5 0 4.2-2.6 6.5-7 6.5z" /><path d="M12 14.5c0-3.2-2-5.3-5.8-5.3 0 3.4 2.2 5.3 5.8 5.3z" /><path d="M7.5 21h9" /></>,
   tanya: <><circle cx="12" cy="12" r="8.5" /><path d="M9.6 9.5a2.5 2.5 0 1 1 3.4 2.3c-.7.3-1 .8-1 1.7" /><path d="M12 16.8h.01" strokeWidth="2.8" /></>,
 }
 const MENU = [
@@ -196,6 +213,12 @@ const MENU = [
   { id: 'kegiatan', label: 'Kegiatan', ikon: 'kalender', warna: 'kuning', ke: '/kegiatan' },
   { id: 'bantuan', label: 'Bantuan', ikon: 'tanya', warna: 'ungu', ke: '/bantuan' },
 ]
+/** Tab Tumbuh (0052) disisipkan setelah Tagihan; di HP Riwayat pindah ke ubin Beranda (tetap 5 tab). */
+function menuPortal(adaTumbuh) {
+  if (!adaTumbuh) return MENU
+  const tumbuh = { id: 'tumbuh', label: 'Tumbuh', ikon: 'tunas', warna: 'tosca', ke: '/tumbuh' }
+  return MENU.flatMap((m) => (m.id === 'tagihan' ? [m, tumbuh] : m.id === 'riwayat' ? [{ ...m, hp: false }] : [m]))
+}
 const IkonMenu = ({ nama, size = 20, sw = 2.2 }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="shrink-0">
     {JALUR[nama]}
@@ -224,7 +247,7 @@ function BilahAtasHp({ pengaturan, anak, bukaPengumuman }) {
 }
 
 /** Navigasi atas untuk layar lebar (kartu putih melayang); di HP diganti tab bawah. */
-function NavAtas({ aktif, nav, akar, wali, anak, pengaturan, bukaPengumuman }) {
+function NavAtas({ menu, aktif, nav, akar, wali, anak, pengaturan, bukaPengumuman }) {
   return (
     <div className="hidden shrink-0 px-6 pt-4 lg:block">
       <header className="sidebar-ceria mx-auto flex h-[68px] max-w-[1392px] items-center gap-5 rounded-[24px] bg-kartu px-4">
@@ -236,7 +259,7 @@ function NavAtas({ aktif, nav, akar, wali, anak, pengaturan, bukaPengumuman }) {
           </span>
         </div>
         <nav className="flex min-w-0 flex-1 gap-1.5">
-          {MENU.map((m) => {
+          {menu.map((m) => {
             const on = aktif === m.id
             return (
               <button
@@ -304,10 +327,10 @@ function TombolWa({ anak }) {
 }
 
 /** Tab bawah (HP): 5 menu; tab aktif jadi ubin permen berwarna. */
-function TabBar({ aktif, nav, akar }) {
+function TabBar({ menu, aktif, nav, akar }) {
   return (
     <nav className="bilah-tab relative z-10 -mt-5 flex shrink-0 items-stretch rounded-t-[22px] px-2 pb-[calc(10px+env(safe-area-inset-bottom))] pt-2 lg:hidden">
-      {MENU.map((m) => {
+      {menu.filter((m) => m.hp !== false).map((m) => {
         const on = aktif === m.id
         return (
           <button key={m.id} onClick={() => nav(akar + m.ke)} aria-current={on ? 'page' : undefined} className="flex min-w-0 flex-1 flex-col items-center justify-center gap-[3px] py-0.5">

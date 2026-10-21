@@ -35,7 +35,7 @@ import {
 } from '../lib/format.js'
 import { kegiatanLewat } from '../lib/statusSiswa.js'
 import {
-  BADGE_PAKET, EMOJI_JENIS, LABEL_JENIS, WARNA_JENIS, dibayarPaket, keteranganPaket, kurangSekarangPaket, paketSiswa, statusPaket, tahapPaket, tglPendek, urutPaket,
+  BADGE_PAKET, EMOJI_JENIS, LABEL_JENIS, WARNA_JENIS, dibayarPaket, keteranganPaket, kurangSekarangPaket, paketSiswa, paketSiswaKini, statusPaket, tahapPaket, tglPendek, urutPaket,
 } from '../lib/paket.js'
 
 export default function DetailSiswa({ onCatat, onUbah }) {
@@ -71,7 +71,9 @@ export default function DetailSiswa({ onCatat, onUbah }) {
   const taLewat = (s.keanggotaan || []).map((k) => k.ta).filter((t) => t < pengaturan.tahunAjaran).sort().reverse()
 
   // PMB & daftar ulang yang ditagihkan ke siswa ini (0033)
-  const paketS = paketSiswa(paket, s.id).sort(urutPaket)
+  // PMB / DU tahun lalu yang sudah lunas tidak ikut "tahun ini" — tampil di Tahun lalu ▾ (v32)
+  const paketS = paketSiswaKini(paket, s).sort(urutPaket)
+  const segKini = seg === 'paket' && !paketS.length ? 'spp' : seg
   const bayarPaket = paketS.reduce((t, p) => t + Math.min(p.total, dibayarPaket(s, p.id)), 0)
   const dibayar = totalDibayar(s) + bayarPaket
   // target tahun ini = bulan-bulan saat terdaftar × tarif kelasnya + kegiatan yang ditagihkan (0042)
@@ -246,16 +248,16 @@ export default function DetailSiswa({ onCatat, onUbah }) {
                 className={`shrink-0 rounded-pill px-3.5 py-2 text-[12.5px] font-extrabold ${!lamaDilihat ? 'permen permen-kecil permen-biru' : 'border-[1.5px] border-[#DCE6F4] bg-kartu text-muted dark:border-line'}`}>
                 Tahun ini <span className="font-bold opacity-75">{taPendek(pengaturan.tahunAjaran)}</span>
               </button>
-              <PilihTa on={lamaDilihat} nilai={lamaDilihat ? taLihat : ''} ubah={(t) => { setTaLihat(t); if (seg === 'paket') setSeg('spp') }} daftar={taLewat} label="Tahun lalu" className="!py-[7px] !text-[12.5px]" />
+              <PilihTa on={lamaDilihat} nilai={lamaDilihat ? taLihat : ''} ubah={setTaLihat} daftar={taLewat} label="Tahun lalu" className="!py-[7px] !text-[12.5px]" />
             </div>
           )}
           {lamaDilihat ? (
-            <TahunLalu s={s} ta={taLihat} seg={seg} setSeg={setSeg} biayaLain={biayaLain} buka={setPeriode} />
+            <TahunLalu s={s} ta={taLihat} seg={seg} setSeg={setSeg} biayaLain={biayaLain} paket={paket} buka={setPeriode} />
           ) : (
           <>
           <div className="lg:max-w-[420px]">
             <Segment
-              nilai={seg}
+              nilai={segKini}
               ubah={setSeg}
               opsi={[
                 { nilai: 'spp', label: 'Iuran SPP' },
@@ -265,8 +267,8 @@ export default function DetailSiswa({ onCatat, onUbah }) {
             />
           </div>
 
-          {seg === 'paket' && (
-            <div className="grid gap-3.5 lg:grid-cols-2">
+          {segKini === 'paket' && (
+            <div className="grid gap-3.5 xl:grid-cols-2">
               {paketS.map((p) => (
                 <KartuPaket
                   key={p.id}
@@ -289,7 +291,7 @@ export default function DetailSiswa({ onCatat, onUbah }) {
             </div>
           )}
 
-          {seg !== 'paket' && taLalu.map((t) => {
+          {segKini !== 'paket' && taLalu.map((t) => {
             const g = lalu.find((x) => x.ta === t) || { items: [], total: 0 }
             const kl = kegLalu.filter((k) => k.ta === t)
             const jml = g.total + kl.reduce((a, k) => a + k.kurang, 0)
@@ -330,8 +332,8 @@ export default function DetailSiswa({ onCatat, onUbah }) {
             )
           })}
 
-          <div className={`lg:grid lg:grid-cols-2 lg:gap-3.5 2xl:grid-cols-3 ${seg === 'paket' || s.daftarDepan ? '!hidden' : ''}`}>
-            {seg === 'spp'
+          <div className={`lg:grid lg:gap-3.5 xl:grid-cols-2 2xl:grid-cols-3 ${segKini === 'paket' || s.daftarDepan ? '!hidden' : ''}`}>
+            {segKini === 'spp'
               ? BULAN.map((b, i) => {
                   const jml = dibayarSpp(s, i)
                   const t = targetSpp(s, i, pengaturan.sppNominal)
@@ -423,7 +425,7 @@ export default function DetailSiswa({ onCatat, onUbah }) {
  * Angkanya dari ringkasan tunggakan (sudah ada di HP); rincian transaksinya dibaca saat
  * kartu bulan/kegiatan diketuk.
  */
-function TahunLalu({ s, ta, seg, setSeg, biayaLain, buka }) {
+function TahunLalu({ s, ta, seg, setSeg, biayaLain, paket = [], buka }) {
   const k = (s.keanggotaan || []).find((x) => x.ta === ta)
   const target = s.sppTargetLalu?.[ta] || Array(12).fill(0)
   const bayar = s.sppLalu?.[ta] || Array(12).fill(0)
@@ -433,7 +435,12 @@ function TahunLalu({ s, ta, seg, setSeg, biayaLain, buka }) {
   const masukSpp = target.reduce((t, v, i) => t + (v > 0 ? Math.min(v, bayar[i] || 0) : 0), 0)
   const targetKeg = kl.reduce((t, x) => t + x.nominal, 0)
   const masukKeg = kl.reduce((t, x) => t + Math.min(x.nominal, x.dibayar), 0)
-  const sisa = targetSpp - masukSpp + targetKeg - masukKeg
+  // PMB / daftar ulang tahun itu (v32)
+  const pk = paketSiswa(paket, s.id).filter((p) => p.tahunAjaran === ta).sort(urutPaket)
+  const targetPk = pk.reduce((t, p) => t + p.total, 0)
+  const masukPk = pk.reduce((t, p) => t + Math.min(p.total, dibayarPaket(s, p.id)), 0)
+  const sisa = targetSpp - masukSpp + targetKeg - masukKeg + targetPk - masukPk
+  const sg = seg === 'paket' && pk.length ? 'paket' : seg === 'keg' ? 'keg' : 'spp'
   const status = (dibayar, tg) => (!(tg > 0) ? { warna: 'grey', label: 'Tidak terdaftar', bebas: true }
     : dibayar >= tg ? { warna: 'green', label: 'Lunas' } : { warna: 'red', label: dibayar > 0 ? 'Kurang' : 'Nunggak' })
   return (
@@ -445,14 +452,19 @@ function TahunLalu({ s, ta, seg, setSeg, biayaLain, buka }) {
         </div>
         <p className="mt-0.5 text-[12.5px] font-semibold text-muted">
           {k ? `Kelas ${k.kelas} · ${teksMasa(k) || 'Juli – Juni'}${k.akhir ? ` · ${LABEL_AKHIR[k.akhir]}` : ''}` : 'Tidak terdaftar di tahun ini'}
-          {' · '}SPP {rp(masukSpp)} dari {rp(targetSpp)}{targetKeg ? ` · kegiatan ${rp(masukKeg)} dari ${rp(targetKeg)}` : ''}
+          {' · '}SPP {rp(masukSpp)} dari {rp(targetSpp)}{targetKeg ? ` · kegiatan ${rp(masukKeg)} dari ${rp(targetKeg)}` : ''}{targetPk ? ` · PMB/DU ${rp(masukPk)} dari ${rp(targetPk)}` : ''}
         </p>
       </div>
       <div className="lg:max-w-[420px]">
-        <Segment nilai={seg === 'keg' ? 'keg' : 'spp'} ubah={setSeg} opsi={[{ nilai: 'spp', label: 'Iuran SPP' }, { nilai: 'keg', label: 'Kegiatan' }]} />
+        <Segment nilai={sg} ubah={setSeg} opsi={[{ nilai: 'spp', label: 'Iuran SPP' }, { nilai: 'keg', label: 'Kegiatan' }, ...(pk.length ? [{ nilai: 'paket', label: 'PMB & DU' }] : [])]} />
       </div>
-      <div className="lg:grid lg:grid-cols-2 lg:gap-3.5 2xl:grid-cols-3">
-        {seg !== 'keg'
+      {sg === 'paket' ? (
+        <div className="grid gap-3.5 xl:grid-cols-2">
+          {pk.map((p) => <KartuPaket key={p.id} p={p} dibayar={dibayarPaket(s, p.id)} bisaCatat={false} buka={() => buka({ jenis: 'paket', indeks: p.id })} />)}
+        </div>
+      ) : (
+      <div className="lg:grid lg:gap-3.5 xl:grid-cols-2 2xl:grid-cols-3">
+        {sg !== 'keg'
           ? BULAN.map((b, i) => (
               <Kartu key={b} nomor={i + 1} judul={namaBulanTa(ta, i)} dibayar={bayar[i] || 0} target={target[i]}
                 status={status(bayar[i] || 0, target[i])}
@@ -469,6 +481,7 @@ function TahunLalu({ s, ta, seg, setSeg, biayaLain, buka }) {
               )
             })}
       </div>
+      )}
     </>
   )
 }

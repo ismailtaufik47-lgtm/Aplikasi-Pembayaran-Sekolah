@@ -6,8 +6,9 @@
  */
 import {
   BULAN, bulanBerjalan, bulanTertunggak, kegiatanLaluBelum, namaBulanTa, perluDitagihSekarang, rp, sppPerluSekarang, sudahLewatJatuhTempo,
-  tahunAjaranBerjalan, tanggalISO, targetSpp, tunggakanLalu as tunggakanLaluSpp,
+  kegiatanWajib, tahunAjaranBerjalan, tanggalISO, targetSpp, tunggakanLalu as tunggakanLaluSpp,
 } from './format.js'
+import { bayarTahunIni, sppBulan } from './rekapPembayaran.js'
 
 const CATATAN = '\n\n*(Mode demo — ini contoh jawaban dari data demo, bukan AI sungguhan.)*'
 
@@ -72,7 +73,7 @@ function perKelas({ siswa, pengaturan }) {
       total_bulan_nunggak: ss.reduce((t, s) => t + bulanTertunggak(s, n), 0),
       kurang_spp_rupiah: ss.reduce((t, s) => t + sppPerluSekarang(s, n, jt), 0),
       kurang_kegiatan_rupiah: 0,
-      lunas_spp_bulan_berjalan: ss.filter((s) => (s.spp[bulanBerjalan()] || 0) >= targetSpp(s, bulanBerjalan(), n)).length,
+      lunas_spp_bulan_berjalan: ss.filter((s) => targetSpp(s, bulanBerjalan(), n) > 0 && (s.spp[bulanBerjalan()] || 0) >= targetSpp(s, bulanBerjalan(), n)).length,
       spp_terkumpul_tahun_ajaran: ss.reduce((t, s) => t + s.spp.reduce((a, v) => a + (v || 0), 0), 0),
     }
   }).sort((a, b) => b.kurang_spp_rupiah - a.kurang_spp_rupiah)
@@ -87,13 +88,13 @@ function perKelas({ siswa, pengaturan }) {
 function rekap({ siswa, pembayaran, pengaturan }) {
   const n = pengaturan.sppNominal
   const i = bulanBerjalan()
-  const lunas = siswa.filter((s) => (s.spp[i] || 0) >= targetSpp(s, i, n)).length
-  const sebagian = siswa.filter((s) => (s.spp[i] || 0) > 0 && (s.spp[i] || 0) < targetSpp(s, i, n)).length
-  const masuk = pembayaran.filter((p) => bulanBerjalan(new Date(p.tanggal)) === i && new Date(p.tanggal).getFullYear() === new Date().getFullYear())
+  const sp = sppBulan(siswa, i, n) // hanya siswa yang ditagih bulan ini (sama dengan Laporan)
+  const { lunas, sebagian } = sp
+  const masuk = bayarTahunIni(pembayaran).filter((p) => bulanBerjalan(new Date(p.tanggal)) === i)
   const total = masuk.reduce((t, p) => t + p.nominal, 0)
   const jawaban =
     `Rekap **${BULAN[i]}** sampai hari ini:\n\n` +
-    `- SPP lunas: **${lunas}** dari ${siswa.length} siswa\n- Bayar sebagian: **${sebagian}** siswa\n- Belum bayar: **${siswa.length - lunas - sebagian}** siswa\n` +
+    `- SPP lunas: **${lunas}** dari ${sp.ditagih} siswa\n- Bayar sebagian: **${sebagian}** siswa\n- Belum bayar: **${sp.belum}** siswa\n` +
     `- Uang masuk bulan ini: **${rp(total)}** dari ${masuk.length} transaksi`
   return { jawaban, data: [] }
 }
@@ -187,7 +188,7 @@ function statusKegiatan({ siswa, biaya }, p) {
   const daftar = dipilih.length ? dipilih : biaya.map((b, i) => ({ b, i }))
   const urut = (a, b) => a.kelas.localeCompare(b.kelas) || a.nama.localeCompare(b.nama)
   const kegiatan = daftar.map(({ b, i }) => {
-    const baris = siswa.map((s) => ({ nama: s.nama, kelas: s.kelas, dibayar: s.kegiatan[i] || 0 })).sort(urut)
+    const baris = siswa.filter((s) => kegiatanWajib(s, i)).map((s) => ({ nama: s.nama, kelas: s.kelas, dibayar: s.kegiatan[i] || 0 })).sort(urut)
     const lunas = baris.filter((x) => x.dibayar >= b.nominal)
     const sebagian = baris.filter((x) => x.dibayar > 0 && x.dibayar < b.nominal)
     const belum = baris.filter((x) => !x.dibayar)
@@ -202,9 +203,9 @@ function statusKegiatan({ siswa, biaya }, p) {
     }
   })
   const perSiswa = [...siswa].sort(urut).map((s) => {
-    const kurang = daftar.filter(({ b, i }) => (s.kegiatan[i] || 0) < b.nominal)
+    const kurang = daftar.filter(({ b, i }) => kegiatanWajib(s, i) && (s.kegiatan[i] || 0) < b.nominal)
     return {
-      nama: s.nama, kelas: s.kelas, lunas: `${daftar.length - kurang.length} dari ${daftar.length} kegiatan`,
+      nama: s.nama, kelas: s.kelas, lunas: `${daftar.filter(({ i }) => kegiatanWajib(s, i)).length - kurang.length} dari ${daftar.filter(({ i }) => kegiatanWajib(s, i)).length} kegiatan`,
       total_kurang: kurang.reduce((t, { b, i }) => t + b.nominal - (s.kegiatan[i] || 0), 0),
       belum_lunas: kurang.map(({ b, i }) => ({ kegiatan: b.nama, kurang: b.nominal - (s.kegiatan[i] || 0), status: s.kegiatan[i] ? 'sebagian' : 'belum bayar' })),
     }

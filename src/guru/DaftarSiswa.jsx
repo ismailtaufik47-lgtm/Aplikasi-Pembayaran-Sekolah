@@ -6,7 +6,7 @@ import { useData } from '../lib/store.jsx'
 import SheetImportSiswa from './SheetImportSiswa.jsx'
 import SheetKenaikanKelas from './SheetKenaikanKelas.jsx'
 import * as api from '../lib/api.js'
-import { paketSiswa } from '../lib/paket.js'
+import { paketSiswaKini } from '../lib/paket.js'
 import { pesanKunci } from '../lib/langganan.js'
 import { bulanBerjalan, rp, taPendek, tahunAjaranBerjalan, targetSppTahun, totalKegiatanSiswa } from '../lib/format.js'
 import { geserTa } from '../lib/bentukData.js'
@@ -258,7 +258,7 @@ export default function DaftarSiswa({ onTambah, onUbah, terkunci = false }) {
                 // kegiatan yang tanggalnya lewat, tahap PMB/DU yang lewat)
                 const x = st(s)
                 const tunggakan = x.tunggakan
-                const pkSiswa = paketSiswa(paket, s.id)
+                const pkSiswa = paketSiswaKini(paket, s)
                 const totalSiswa = tagihanTotal(s) + pkSiswa.reduce((t, p) => t + p.total, 0)
                 return (
                   <tr key={s.id} className={`border-b border-line last:border-b-0 hover:bg-[#FAFBFF] dark:hover:bg-white/5 ${x.status === 'nunggak' ? 'shadow-[inset_4px_0_0_#EF4444]' : ''}`}>

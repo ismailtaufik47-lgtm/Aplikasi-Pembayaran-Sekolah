@@ -50,7 +50,7 @@ export default function LaporanKeuangan() {
     setGalat('')
     api.kasRingkasan(demo.current).then((d) => aktif && setInfo(d)).catch((e) => aktif && setGalat(e.message))
     return () => { aktif = false }
-  }, [ulang])
+  }, [ulang, pembayaran]) // eslint-disable-line react-hooks/exhaustive-deps -- pembayaran: muat ulang sesudah transaksi dicatat / dibatalkan
   useEffect(() => {
     let aktif = true
     setLap(null)
@@ -59,7 +59,7 @@ export default function LaporanKeuangan() {
       .then(([l, a]) => { if (aktif) { setLap(l); setArus(a) } })
       .catch((e) => aktif && setGalat(e.message))
     return () => { aktif = false }
-  }, [bulan, rentang, ulang])
+  }, [bulan, rentang, ulang, pembayaran]) // eslint-disable-line react-hooks/exhaustive-deps -- pembayaran: muat ulang sesudah transaksi dicatat / dibatalkan
   const muat = () => setUlang((u) => u + 1)
 
   const data = info && lap && arus ? info : null

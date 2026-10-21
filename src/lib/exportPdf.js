@@ -14,7 +14,6 @@ import {
   bulanTertunggak,
   dibayarKegiatan,
   dibayarSpp,
-  kegiatanBelum,
   perluDitagihSekarang,
   rp,
   sppPerluSekarang,
@@ -22,6 +21,7 @@ import {
   statusSpp,
   tanggalISO,
   tanggalPanjang, kegiatanWajib, targetSpp } from './format.js'
+import { namaLaporan, siswaBertagihan } from './rekapPembayaran.js'
 
 const WARNA = {
   brand: [59, 110, 246], brandDeep: [42, 85, 204],
@@ -43,6 +43,7 @@ const WARNA_STATUS = {
 }
 
 export function unduhPdf({ siswa, biaya, pembayaran, pengaturan }) {
+  // siswa = siswa yang ditagih tahun ini (aktif + yang keluar di tengah tahun); pembayaran = tahun ajaran ini (v32)
   const kini = bulanBerjalan()
   const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' })
   const lebar = doc.internal.pageSize.getWidth()
@@ -73,17 +74,19 @@ export function unduhPdf({ siswa, biaya, pembayaran, pengaturan }) {
 
   // ---------- ringkasan angka ----------
   const masuk = pembayaran.reduce((t, p) => t + p.nominal, 0)
-  const totalTunggakan = siswa.reduce((t, s) => t + sppPerluSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini) + kegiatanBelum(s, biaya), 0)
+  // "SPP perlu dibayar" = jumlah kolom "Perlu dibayar" di tabel (tunggakan + bulan ini kalau lewat jatuh tempo)
+  const totalTunggakan = siswa.reduce((t, s) => t + sppPerluSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini), 0)
   const menunggak = siswa.filter((s) => perluDitagihSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)).length
+  const ikut = siswaBertagihan(siswa, pengaturan.sppNominal)
   const hitung = { lunas: 0, sebagian: 0, belum: 0 }
-  siswa.forEach((s) => hitung[statusRingkasSiswa(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)]++)
+  ikut.forEach((s) => hitung[statusRingkasSiswa(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)]++)
 
   let y = 32
   const kartu = [
-    ['Total Siswa', String(siswa.length)],
-    ['Total Pemasukan', rp(masuk)],
-    ['Total Tunggakan', rp(totalTunggakan)],
-    ['Siswa Menunggak', `${menunggak} siswa`],
+    ['Siswa ditagih tahun ini', String(siswa.filter((s) => s.terdaftar).length)],
+    ['Pemasukan tahun ajaran ini', rp(masuk)],
+    ['SPP perlu dibayar', rp(totalTunggakan)],
+    ['Siswa perlu ditagih', `${menunggak} siswa`],
   ]
   const lebarKartu = (lebar - 2 * M - 3 * 4) / 4
   kartu.forEach(([label, nilai], i) => {
@@ -100,7 +103,7 @@ export function unduhPdf({ siswa, biaya, pembayaran, pengaturan }) {
   y += 24
   const tinggiGrafik = 38
   const lebarGrafik = (lebar - 2 * M - 6) / 2
-  const donutImg = gambarDonut(hitung, siswa.length)
+  const donutImg = gambarDonut(hitung, ikut.length)
   const barImg = gambarBar(siswa, pengaturan, kini)
   doc.addImage(donutImg, 'PNG', M, y, lebarGrafik, tinggiGrafik)
   doc.addImage(barImg, 'PNG', M + lebarGrafik + 6, y, lebarGrafik, tinggiGrafik)
@@ -115,8 +118,8 @@ export function unduhPdf({ siswa, biaya, pembayaran, pengaturan }) {
   autoTable(doc, {
     startY: y + 3,
     margin: { left: M, right: M },
-    head: [['Nama Siswa', 'Kelas', ...kolomBulan.map((k) => k.header), 'Tunggakan', 'Status']],
-    body: siswa.map((s) => {
+    head: [['Nama Siswa', 'Kelas', ...kolomBulan.map((k) => k.header), 'Perlu dibayar', 'Status']],
+    body: ikut.map((s) => {
       const baris = BULAN.map((_, i) => {
         const dibayar = dibayarSpp(s, i)
         const status = statusSpp(dibayar, targetSpp(s, i, pengaturan.sppNominal), i, kini, pengaturan.tanggalJatuhTempo)
@@ -133,7 +136,7 @@ export function unduhPdf({ siswa, biaya, pembayaran, pengaturan }) {
       } else {
         statusAkhir = 'belum-bayar'; labelAkhir = 'Belum bayar'
       }
-      return [s.nama, s.kelas, ...baris.map((b) => b.teks), rp(tunggakanSiswa), { teks: labelAkhir, status: statusAkhir }]
+      return [namaLaporan(s), s.kelas, ...baris.map((b) => b.teks), rp(tunggakanSiswa), { teks: labelAkhir, status: statusAkhir }]
     }),
     styles: { fontSize: 7.5, cellPadding: 1.6, halign: 'center', lineColor: [238, 240, 245], lineWidth: 0.2 },
     headStyles: { fillColor: WARNA.brandDeep, textColor: WARNA.putih, fontSize: 7, halign: 'center' },
@@ -170,7 +173,7 @@ export function unduhPdf({ siswa, biaya, pembayaran, pengaturan }) {
       startY: yKeg + 3,
       margin: { left: M, right: M },
       head: [['Nama Siswa', 'Kelas', ...biaya.map((b) => b.nama), 'Total Dibayar', 'Status']],
-      body: siswa.map((s) => {
+      body: ikut.map((s) => {
         let jmlLunas = 0
         const nIkut = biaya.filter((_, i) => kegiatanWajib(s, i)).length
         const kol = biaya.map((b, i) => {
@@ -183,7 +186,7 @@ export function unduhPdf({ siswa, biaya, pembayaran, pengaturan }) {
         const totalDb = biaya.reduce((t, _, i) => t + dibayarKegiatan(s, i), 0)
         const statusAkhir = jmlLunas >= nIkut ? 'lunas' : jmlLunas === 0 ? 'belum' : 'sebagian'
         const labelAkhir = jmlLunas >= nIkut ? 'Semua lunas' : jmlLunas === 0 ? 'Belum ada' : `${jmlLunas}/${nIkut} lunas`
-        return [s.nama, s.kelas, ...kol.map((k) => k), rp(totalDb), { teks: labelAkhir, status: statusAkhir }]
+        return [namaLaporan(s), s.kelas, ...kol.map((k) => k), rp(totalDb), { teks: labelAkhir, status: statusAkhir }]
       }),
       styles: { fontSize: 7.5, cellPadding: 1.8, halign: 'center', lineColor: [238, 240, 245], lineWidth: 0.2 },
       headStyles: { fillColor: WARNA.brandDeep, textColor: WARNA.putih, fontSize: 7.5, halign: 'center' },
@@ -297,7 +300,7 @@ function gambarBar(siswa, pengaturan, kini) {
   const mulaiIdx = Math.max(0, kini - 5)
   const data = []
   for (let i = mulaiIdx; i <= kini; i++) {
-    const masuk = siswa.reduce((t, s) => t + dibayarSpp(s, i), 0)
+    const masuk = siswa.reduce((t, s) => t + (targetSpp(s, i, pengaturan.sppNominal) > 0 ? dibayarSpp(s, i) : 0), 0)
     const target = siswa.reduce((t, s) => t + targetSpp(s, i, pengaturan.sppNominal), 0)
     data.push({ label: BULAN[i].slice(0, 3), masuk, target })
   }

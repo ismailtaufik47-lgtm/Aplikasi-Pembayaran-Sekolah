@@ -11,10 +11,11 @@ import { Chip, KepalaHalaman } from '../components/ui.jsx'
 import { GambarKegiatan } from '../components/Gambar.jsx'
 import { useData } from '../lib/store.jsx'
 import { FONT_EMOJI, emojiKegiatan } from '../lib/emojiKegiatan.js'
-import { EMOJI_JENIS, dibayarPaket } from '../lib/paket.js'
+import { EMOJI_JENIS } from '../lib/paket.js'
 import {
-  BULAN, bulanBerjalan, dibayarSpp, perluDitagihSekarang, rentangTa, rp, sppPerluSekarang, statusRingkasSiswa, tanggalKunci,
+  BULAN, bulanBerjalan, rp, statusRingkasSiswa,
 } from '../lib/format.js'
+import { bayarTahunIni, masukPerBulan, pemasukanPerJenis, ringkasTahunIni, siswaBertagihan, sppBulan } from '../lib/rekapPembayaran.js'
 import {
   Banner, BarisLegenda, Donut, GrafikBatang, KartuJudul, KartuKpi, KepalaLaporan, Pilihan, PilihRentang,
   SERI, STATUS, TabLaporan, TombolAksi,
@@ -48,7 +49,7 @@ export default function Laporan() {
 }
 
 function LaporanPembayaran() {
-  const { siswa, biaya, paket, pembayaran, pengaturan, toast, boleh } = useData()
+  const { siswaTahunIni, cariSiswa, biaya, paket, pembayaran, pengaturan, toast, boleh } = useData()
   const nav = useNavigate()
   const [unduh, setUnduh] = useState(null)
   const [rentang, setRentang] = useState(6)
@@ -58,8 +59,6 @@ function LaporanPembayaran() {
   const [thAwal, thAkhir] = pengaturan.tahunAjaran.split('/')
   const namaPeriode = (i) => `${BULAN[i]} ${i > 5 ? thAkhir : thAwal}`
 
-  // laporan tahun ajaran berjalan: pembayaran sejak 1 Juli (pembayaran lama yang ikut dimuat karena tunggakan tidak ikut)
-  const bayarTahunIni = () => pembayaran.filter((p) => tanggalKunci(p.tanggal) >= rentangTa(pengaturan.tahunAjaran).dari)
   // exceljs & jspdf berat — dimuat saat tombol diklik saja.
   const ekspor = async (jenis) => {
     if (unduh) return
@@ -67,10 +66,10 @@ function LaporanPembayaran() {
     try {
       if (jenis === 'pdf') {
         const { unduhPdf } = await import('../lib/exportPdf.js')
-        unduhPdf({ siswa, biaya, pembayaran: bayarTahunIni(), pengaturan })
+        unduhPdf({ siswa: siswaTahunIni, biaya, paket, pembayaran: bayarTahunIni(pembayaran), pengaturan })
       } else {
         const { unduhExcel } = await import('../lib/exportExcel.js')
-        await unduhExcel({ siswa, biaya, pembayaran: bayarTahunIni(), pengaturan })
+        await unduhExcel({ siswa: siswaTahunIni, biaya, paket, pembayaran: bayarTahunIni(pembayaran), pengaturan, cariSiswa })
       }
       toast(`Laporan ${jenis === 'pdf' ? 'PDF' : 'Excel'} berhasil diunduh`)
     } catch (e) {
@@ -80,62 +79,54 @@ function LaporanPembayaran() {
     }
   }
 
-  /** Rekap SPP satu periode. Kegiatan masuk ke pendapatan menurut TANGGAL transaksinya. */
+  // v32: satu sumber hitungan (lib/rekapPembayaran.js) — sama dengan PDF/Excel & Laporan › Tahunan
+  const masukBulan = useMemo(() => masukPerBulan(pembayaran), [pembayaran])
+  /** Rekap satu periode: SPP bulan itu (siswa yang ditagih) + uang masuk bulan kalender itu. */
   const rekap = (i) => {
-    const masukSpp = siswa.reduce((t, s) => t + dibayarSpp(s, i), 0)
-    // kegiatan + PMB/daftar ulang: masuk menurut tanggal transaksinya
-    const masukKegiatan = pembayaran.reduce((t, p) => (p.jenis !== 'spp' && bulanBerjalan(new Date(p.tanggal)) === i ? t + p.nominal : t), 0)
-    const lunas = siswa.filter((s) => dibayarSpp(s, i) >= spp).length
-    const sebagian = siswa.filter((s) => dibayarSpp(s, i) > 0 && dibayarSpp(s, i) < spp).length
+    const sp = sppBulan(siswaTahunIni, i, spp)
+    const m = masukBulan[i]
     return {
-      masuk: masukSpp + masukKegiatan, masukSpp, masukKegiatan, lunas, sebagian,
-      belum: siswa.length - lunas - sebagian,
-      tunggakan: Math.max(0, siswa.length * spp - masukSpp),
-      tingkat: siswa.length ? Math.round((lunas / siswa.length) * 1000) / 10 : 0,
+      ...sp,
+      masuk: m.total, masukSpp: sp.masuk, uangSpp: m.spp, masukKegiatan: m.kegiatan + m.paket,
+      tunggakan: sp.kurang,
     }
   }
 
   const r = rekap(periode)
   const rLalu = periode > 0 ? rekap(periode - 1) : null
-  const target = siswa.length * spp
+  const target = r.target
   const trenMasuk = rLalu && rLalu.masuk > 0 ? Math.round(((r.masuk - rLalu.masuk) / rLalu.masuk) * 100) : null
   const trenTingkat = rLalu ? Math.round((r.tingkat - rLalu.tingkat) * 10) / 10 : null
-  const totalTunggakan = siswa.reduce((t, s) => t + sppPerluSekarang(s, spp, pengaturan.tanggalJatuhTempo, kini), 0)
-  const menunggak = siswa.filter((s) => perluDitagihSekarang(s, spp, pengaturan.tanggalJatuhTempo, kini)).length
+  const ring = ringkasTahunIni({ siswa: siswaTahunIni, pembayaran, sppNominal: spp, kini })
+  const totalTunggakan = ring.tunggakanSpp
+  const menunggak = ring.menunggak
   const persenTarget = target ? Math.round((r.masukSpp / target) * 100) : 0
 
-  const bulanan = useMemo(() => Array.from({ length: kini + 1 }, (_, i) => ({ i, ...rekap(i) })).reverse(), [siswa, pembayaran, pengaturan, kini]) // eslint-disable-line react-hooks/exhaustive-deps
+  const bulanan = useMemo(() => Array.from({ length: kini + 1 }, (_, i) => ({ i, ...rekap(i) })).reverse(), [siswaTahunIni, masukBulan, pengaturan, kini]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // grafik: SPP & kegiatan per bulan tahun ajaran
+  // grafik: uang masuk per bulan (menurut tanggal transaksi, tahun ajaran ini saja)
   const dataGrafik = useMemo(() => {
-    const s = Array(12).fill(0)
-    const k = Array(12).fill(0)
-    pembayaran.forEach((p) => {
-      if (p.jenis === 'spp' && p.indeks >= 0 && p.indeks < 12) s[p.indeks] += p.nominal
-      else if (p.jenis !== 'spp') k[bulanBerjalan(new Date(p.tanggal))] += p.nominal
-    })
     const mulai = rentang === 12 ? 0 : Math.max(0, kini - 5)
     const akhir = rentang === 12 ? 11 : kini
     const out = []
-    for (let i = mulai; i <= akhir; i++) out.push({ label: BULAN[i].slice(0, 3), judul: namaPeriode(i), nilai: [s[i], k[i]] })
+    for (let i = mulai; i <= akhir; i++) out.push({ label: BULAN[i].slice(0, 3), judul: namaPeriode(i), nilai: [masukBulan[i].spp, masukBulan[i].kegiatan + masukBulan[i].paket] })
     return out
-  }, [pembayaran, rentang, kini]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [masukBulan, rentang, kini]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // status menyeluruh (semua bulan yang sudah jatuh tempo)
+  // status menyeluruh (semua bulan yang sudah jatuh tempo) — hanya siswa yang punya tagihan tahun ini
+  const ikut = useMemo(() => siswaBertagihan(siswaTahunIni, spp), [siswaTahunIni, spp])
   const status = useMemo(() => {
     const h = { lunas: 0, sebagian: 0, belum: 0 }
-    siswa.forEach((s) => h[statusRingkasSiswa(s, spp, pengaturan.tanggalJatuhTempo, kini)]++)
+    ikut.forEach((s) => h[statusRingkasSiswa(s, spp, pengaturan.tanggalJatuhTempo, kini)]++)
     return h
-  }, [siswa, spp, pengaturan, kini])
+  }, [ikut, spp, pengaturan, kini])
 
-  // pemasukan per jenis biaya (tahun ini)
-  const jenis = useMemo(() => {
-    const totalSpp = siswa.reduce((t, s) => t + s.spp.reduce((x, v) => x + (v || 0), 0), 0)
-    const keg = biaya.map((b, i) => ({ nama: b.nama, e: emojiKegiatan(b), nilai: siswa.reduce((t, s) => t + (s.kegiatan[i] || 0), 0) }))
-    const pk = paket.map((p) => ({ nama: p.nama, e: EMOJI_JENIS[p.jenis], nilai: siswa.reduce((t, s) => t + dibayarPaket(s, p.id), 0) }))
-    return [{ nama: 'Iuran SPP', e: '📅', nilai: totalSpp }, ...pk, ...keg].filter((x) => x.nilai > 0).sort((a, b) => b.nilai - a.nilai)
-  }, [siswa, biaya, paket])
+  // pemasukan per jenis biaya (uang yang masuk di tahun ajaran ini)
+  const jenis = useMemo(() => pemasukanPerJenis(pembayaran, biaya, paket, { emojiKegiatan, emojiPaket: EMOJI_JENIS }), [pembayaran, biaya, paket])
   const totalJenis = jenis.reduce((t, x) => t + x.nilai, 0)
+  // 6 terbesar + "Pelunasan SPP tahun lalu" selalu tampil (selisih dengan SPP terkumpul di Laporan › Tahunan)
+  const jenisTampil = jenis.filter((x, i) => i < 6 || x.kunci === 'spp-lalu')
+  const jenisLain = jenis.filter((x) => !jenisTampil.includes(x))
   const persen = (n, t) => (t ? Math.round((n / t) * 100) : 0)
 
   return (
@@ -166,17 +157,17 @@ function LaporanPembayaran() {
             <KartuKpi
               warna="blue" e="💵" label="Total pendapatan" nilai={rp(r.masuk)}
               tren={trenMasuk === null ? null : { teks: `${Math.abs(trenMasuk)}% dari bulan lalu`, arah: trenMasuk > 0 ? 'naik' : trenMasuk < 0 ? 'turun' : 'datar', baik: trenMasuk === 0 ? null : trenMasuk > 0 }}
-              kaki={`SPP ${rp(r.masukSpp)} · kegiatan ${rp(r.masukKegiatan)}`}
+              kaki={`SPP ${rp(r.uangSpp)} · kegiatan & PMB/DU ${rp(r.masukKegiatan)}`}
             />
             <KartuKpi
-              warna="amber" e="⏰" label="Total tunggakan SPP" nilai={rp(totalTunggakan)}
-              tren={{ teks: `${menunggak} siswa belum lunas`, arah: 'datar', baik: menunggak ? false : true }}
-              kaki="Semua bulan yang sudah jatuh tempo"
+              warna="amber" e="⏰" label="Tunggakan SPP tahun ini" nilai={rp(totalTunggakan)}
+              tren={{ teks: `${menunggak} siswa menunggak`, arah: 'datar', baik: menunggak ? false : true }}
+              kaki={ring.tunggakanLalu > 0 ? `Bulan yang sudah lewat · tahun lalu ${rp(ring.tunggakanLalu)}` : 'Bulan yang sudah lewat & belum lunas'}
             />
             <KartuKpi
               warna="grape" e="📈" label="Tingkat bayar SPP" nilai={`${r.tingkat}%`}
               tren={trenTingkat === null ? null : { teks: `${Math.abs(trenTingkat)} poin dari bulan lalu`, arah: trenTingkat > 0 ? 'naik' : trenTingkat < 0 ? 'turun' : 'datar', baik: trenTingkat === 0 ? null : trenTingkat > 0 }}
-              kaki={`${r.lunas} dari ${siswa.length} siswa lunas ${BULAN[periode]}`}
+              kaki={`${r.lunas} dari ${r.ditagih} siswa lunas ${BULAN[periode]}`}
             />
             <KartuKpi
               warna="green" e="🎯" label="Target SPP periode ini" nilai={rp(target)}
@@ -217,7 +208,7 @@ function LaporanPembayaran() {
               <div className="h-full rounded-full" style={{ width: `${r.tingkat}%`, background: STATUS.lunas }} />
             </div>
             <div className="mt-2 text-[12px] font-semibold text-muted">
-              👪 {r.lunas} dari {siswa.length} siswa sudah melunasi SPP {BULAN[periode]}
+              👪 {r.lunas} dari {r.ditagih} siswa sudah melunasi SPP {BULAN[periode]}
             </div>
           </div>
         </div>
@@ -229,18 +220,18 @@ function LaporanPembayaran() {
           e="⚠️"
           aksi={<button className="shrink-0 text-[13px] font-extrabold" onClick={() => nav(boleh('pembayaran', 'lihat') ? '/guru/tagihan' : '/guru/siswa')}>Lihat detail →</button>}
         >
-          Ada <b>{menunggak} siswa</b> dengan tagihan SPP yang sudah melewati jatuh tempo (total {rp(totalTunggakan)}). Segera konfirmasi ke orang tua/wali.
+          Ada <b>{menunggak} siswa</b> dengan SPP bulan lalu yang belum lunas (total {rp(totalTunggakan)}). Segera konfirmasi ke orang tua/wali.
         </Banner>
       ) : (
-        <Banner nada="ok" e="🎉">Semua tagihan SPP yang sudah jatuh tempo sudah lunas. Terima kasih!</Banner>
+        <Banner nada="ok" e="🎉">Tidak ada tunggakan SPP bulan lalu tahun ajaran ini. Terima kasih!</Banner>
       )}
 
       <div className="mt-4 grid gap-4 lg:grid-cols-2 xl:grid-cols-[1.3fr_1fr_1fr]">
-        <KartuJudul e="📊" judul="Grafik pembayaran" sub="Pemasukan SPP & biaya kegiatan per bulan" kanan={<PilihRentang nilai={rentang} ubah={setRentang} />} className="lg:col-span-2 xl:col-span-1">
-          <GrafikBatang data={dataGrafik} seri={[{ nama: 'SPP', warna: SERI.spp }, { nama: 'Biaya kegiatan', warna: SERI.kegiatan }]} />
+        <KartuJudul e="📊" judul="Grafik pembayaran" sub="Uang masuk per bulan menurut tanggal bayar" kanan={<PilihRentang nilai={rentang} ubah={setRentang} />} className="lg:col-span-2 xl:col-span-1">
+          <GrafikBatang data={dataGrafik} seri={[{ nama: 'SPP', warna: SERI.spp }, { nama: 'Kegiatan & PMB/DU', warna: SERI.kegiatan }]} />
         </KartuJudul>
 
-        <KartuJudul e="🧮" judul="Status pembayaran" sub="Seluruh siswa · semua bulan jatuh tempo">
+        <KartuJudul e="🧮" judul="Status pembayaran" sub={`Semua bulan jatuh tempo${ikut.some((s) => s.status === 'keluar') ? ` · termasuk ${ikut.filter((s) => s.status === 'keluar').length} siswa sudah keluar` : ''}`}>
           <div className="flex items-center gap-4">
             <Donut segmen={[
               { label: 'Lunas', nilai: status.lunas, warna: STATUS.lunas },
@@ -248,14 +239,14 @@ function LaporanPembayaran() {
               { label: 'Belum bayar', nilai: status.belum, warna: STATUS.belum },
             ]} ukuran={104} tebal={14}>
               <div>
-                <div className="text-[24px] font-extrabold leading-none">{siswa.length}</div>
-                <div className="text-[10.5px] font-semibold text-muted">Total siswa</div>
+                <div className="text-[24px] font-extrabold leading-none">{ikut.length}</div>
+                <div className="text-[10.5px] font-semibold text-muted">Siswa ditagih</div>
               </div>
             </Donut>
             <div className="min-w-0 flex-1 space-y-2">
-              <BarisLegenda warna={STATUS.lunas} label="Lunas" nilai={status.lunas} persen={persen(status.lunas, siswa.length)} />
-              <BarisLegenda warna={STATUS.sebagian} label="Mencicil" nilai={status.sebagian} persen={persen(status.sebagian, siswa.length)} />
-              <BarisLegenda warna={STATUS.belum} label="Belum bayar" nilai={status.belum} persen={persen(status.belum, siswa.length)} />
+              <BarisLegenda warna={STATUS.lunas} label="Lunas" nilai={status.lunas} persen={persen(status.lunas, ikut.length)} />
+              <BarisLegenda warna={STATUS.sebagian} label="Mencicil" nilai={status.sebagian} persen={persen(status.sebagian, ikut.length)} />
+              <BarisLegenda warna={STATUS.belum} label="Belum bayar" nilai={status.belum} persen={persen(status.belum, ikut.length)} />
             </div>
           </div>
           {status.belum + status.sebagian > 0 && (
@@ -271,21 +262,24 @@ function LaporanPembayaran() {
             <p className="py-4 text-center text-[13px] text-muted">Belum ada pemasukan tercatat.</p>
           ) : (
             <div className="space-y-2.5">
-              {jenis.slice(0, 6).map((j) => (
+              {jenisTampil.map((j) => (
                 <div key={j.nama} className="flex items-center gap-2.5">
                   <GambarKegiatan emoji={j.e} size={34} className="rounded-[11px]" />
                   <div className="min-w-0 flex-1">
                     <div className="flex items-baseline justify-between gap-2 text-[12.5px]">
-                      <span className="truncate font-semibold">{j.nama}</span>
-                      <span className="shrink-0 font-bold">{rp(j.nilai)} <span className="font-semibold text-muted">· {persen(j.nilai, totalJenis)}%</span></span>
+                      <span className="min-w-0 truncate font-semibold" title={j.nama}>{j.nama}</span>
+                      <span className="shrink-0 font-semibold text-muted">{persen(j.nilai, totalJenis)}%</span>
                     </div>
-                    <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-isi">
-                      <div className="h-full rounded-full bg-brand" style={{ width: `${persen(j.nilai, jenis[0].nilai)}%` }} />
+                    <div className="mt-1 flex items-center gap-2">
+                      <div className="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-isi">
+                        <div className="h-full rounded-full bg-brand" style={{ width: `${persen(j.nilai, jenis[0].nilai)}%` }} />
+                      </div>
+                      <b className="shrink-0 text-[12.5px] font-extrabold">{rp(j.nilai)}</b>
                     </div>
                   </div>
                 </div>
               ))}
-              {jenis.length > 6 && <p className="text-[11.5px] text-muted">+{jenis.length - 6} jenis lainnya · {rp(jenis.slice(6).reduce((t, x) => t + x.nilai, 0))}</p>}
+              {jenisLain.length > 0 && <p className="text-[11.5px] text-muted">+{jenisLain.length} jenis lainnya · {rp(jenisLain.reduce((t, x) => t + x.nilai, 0))}</p>}
             </div>
           )}
         </KartuJudul>
@@ -311,7 +305,7 @@ function LaporanPembayaran() {
                 <td className="px-5 py-3 font-bold">{namaPeriode(b.i)}</td>
                 <td className="px-3 py-3 font-semibold">{rp(b.masuk)}</td>
                 <td className="px-3 py-3 font-semibold text-warn-deep">{rp(b.tunggakan)}</td>
-                <td className="px-3 py-3 text-muted">{b.lunas}/{siswa.length}</td>
+                <td className="px-3 py-3 text-muted">{b.lunas}/{b.ditagih}</td>
                 <td className="px-3 py-3 font-bold">{b.tingkat}%</td>
                 <td className="px-5 py-3"><Chip warna={b.i === kini ? 'blue' : 'green'}>{b.i === kini ? 'Berjalan' : 'Selesai'}</Chip></td>
               </tr>
@@ -324,7 +318,7 @@ function LaporanPembayaran() {
           <div key={b.i} className={`card flex items-center justify-between gap-3 ${b.i === kini ? 'ring-2 ring-brand-soft' : ''}`}>
             <div className="min-w-0">
               <div className="text-[14.5px] font-extrabold">{namaPeriode(b.i)}</div>
-              <div className="mt-0.5 text-[12.5px] text-muted">{rp(b.masuk)} · {b.lunas}/{siswa.length} siswa lunas</div>
+              <div className="mt-0.5 text-[12.5px] text-muted">{rp(b.masuk)} · {b.lunas}/{b.ditagih} siswa lunas</div>
             </div>
             <div className="shrink-0 text-right">
               <div className="text-[14.5px] font-extrabold">{b.tingkat}%</div>

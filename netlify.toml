@@ -2,6 +2,16 @@
   command = "npm run build"
   publish = "dist"
 
+# Header keamanan (v35): tidak bisa dibingkai situs lain (clickjacking), browser tidak menebak
+# jenis file, dan alamat lengkap (termasuk token portal di /ortu/...) tidak dikirim ke situs lain.
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Frame-Options = "DENY"
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    Permissions-Policy = "geolocation=(), microphone=(), payment=()"
+
 [[redirects]]
   from = "/*"
   to = "/index.html"

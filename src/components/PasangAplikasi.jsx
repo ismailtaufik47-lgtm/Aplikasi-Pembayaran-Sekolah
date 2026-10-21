@@ -2,7 +2,7 @@
  * Popup "Pasang Kasceria" (PWA).
  *
  *  <PasangOtomatis />  — dipasang sekali di main.jsx; muncul sendiri ±1,5 detik
- *                        setelah link /guru atau /ortu dibuka, kalau perangkat
+ *                        setelah link /guru, /kelas (guru kelas) atau /ortu dibuka, kalau perangkat
  *                        bisa memasang & belum terpasang. "Nanti saja" = 7 hari.
  *  <KartuPasang />     — kartu kecil di menu Lainnya (guru) & Bantuan (wali),
  *                        untuk yang sudah menekan "Nanti saja" tapi berubah pikiran.
@@ -33,12 +33,22 @@ const TEKS = {
     hp: 'Jadikan aplikasi di HP — tidak perlu mengetik alamat lagi.',
     pc: 'Jadikan aplikasi di laptop/komputer — tidak perlu mencari tab lagi.',
     label: 'Kasceria',
+    ikon: '/icons/icon-192.png',
+  },
+  // aplikasi guru kelas (/kelas) — "Tumbuh Ceria", ikon hijau sendiri
+  kelas: {
+    judul: 'Pasang Tumbuh Ceria',
+    hp: 'Isi ceklis & catatan anak langsung dari layar utama HP — tidak perlu mengetik alamat lagi.',
+    pc: 'Buka aplikasi guru kelas langsung dari desktop — tidak perlu mencari tab lagi.',
+    label: 'Tumbuh Ceria',
+    ikon: '/icons/kelas-192.png',
   },
   wali: {
     judul: 'Simpan portal tagihan di HP',
     hp: 'Cek tagihan, riwayat bayar, dan kuitansi anak cukup sekali ketuk.',
     pc: 'Buka tagihan dan kuitansi anak langsung dari komputer.',
     label: 'Tagihan TK',
+    ikon: '/icons/icon-192.png',
   },
 }
 const MANFAAT = {
@@ -55,7 +65,7 @@ const MANFAAT = {
 }
 
 /** Ilustrasi layar utama: deretan aplikasi, ikon Kasceria yang baru dipasang. */
-function LayarUtama({ label }) {
+function LayarUtama({ label, ikon }) {
   return (
     <div className="relative mb-4 overflow-hidden rounded-[22px] bg-brand-soft px-4 pb-3 pt-4 [@media(max-height:680px)]:hidden">
       <div className="grid grid-cols-4 justify-items-center gap-2">
@@ -67,12 +77,12 @@ function LayarUtama({ label }) {
         ))}
         <span className="flex flex-col items-center gap-1">
           <span className="relative">
-            <img src="/icons/icon-192.png" alt="" width="50" height="50" className="pasang-ikon block h-[50px] w-[50px] rounded-[15px] shadow-[0_6px_14px_rgba(42,85,204,.28)]" />
+            <img src={ikon} alt="" width="50" height="50" className="pasang-ikon block h-[50px] w-[50px] rounded-[15px] shadow-[0_6px_14px_rgba(21,26,38,.22)]" />
             <span className="absolute -right-1.5 -top-1.5 grid h-[22px] w-[22px] place-items-center rounded-full bg-ok text-white ring-[3px] ring-brand-soft">
               <Ikon n="ok" size={13} />
             </span>
           </span>
-          <span className="max-w-[72px] truncate text-[12px] font-extrabold text-[#1B2559] dark:text-ink">{label}</span>
+          <span className="max-w-[88px] truncate text-[11.5px] font-extrabold text-[#1B2559] dark:text-ink">{label}</span>
         </span>
       </div>
     </div>
@@ -94,15 +104,16 @@ function Langkah({ no, ikon, judul, sub }) {
 }
 
 /**
- * Popup pasang. `wali` = portal orang tua. `tutup(alasan)`: 'nanti' | 'selesai'.
+ * Popup pasang. `bagian`: 'guru' (aplikasi kas) | 'kelas' (guru kelas) | 'wali' (portal orang tua).
+ * `wali` = cara lama menulis bagian="wali". `tutup(alasan)`: 'nanti' | 'selesai'.
  */
-export function PopupPasang({ buka, tutup, wali = false }) {
+export function PopupPasang({ buka, tutup, wali = false, bagian }) {
   const { cara, perangkat } = usePasang()
   const [tahap, setTahap] = useState('tawar') // tawar | memasang | berhasil
   const kotak = useRef(null)
   const tutupRef = useRef(tutup)
   tutupRef.current = tutup
-  const t = TEKS[wali ? 'wali' : 'guru']
+  const t = TEKS[bagian || (wali ? 'wali' : 'guru')] || TEKS.guru
   const hp = perangkat !== 'pc'
 
   useEffect(() => {
@@ -140,7 +151,7 @@ export function PopupPasang({ buka, tutup, wali = false }) {
 
         {tahap === 'berhasil' ? (
           <div className="py-2 text-center">
-            <img src="/icons/icon-192.png" alt="" width="76" height="76" className="mx-auto mb-3 h-[76px] w-[76px] rounded-[22px]" />
+            <img src={t.ikon} alt="" width="76" height="76" className="mx-auto mb-3 h-[76px] w-[76px] rounded-[22px]" />
             <h2 id="pasang-judul" className="font-display text-[23px] font-semibold text-[#1B2559] dark:text-ink">Sedang dipasang</h2>
             <p className="mx-auto mb-5 mt-1.5 max-w-[320px] text-[15px] font-semibold leading-relaxed text-muted">
               Sebentar lagi ikon <b className="text-ink">{t.label}</b> muncul di {hp ? 'layar utama HP' : 'desktop & menu Start'}. Berikutnya buka dari ikon itu saja.
@@ -149,7 +160,7 @@ export function PopupPasang({ buka, tutup, wali = false }) {
           </div>
         ) : (
           <>
-            <LayarUtama label={t.label} />
+            <LayarUtama label={t.label} ikon={t.ikon} />
             <h2 id="pasang-judul" className="font-display text-[23px] font-semibold leading-tight text-[#1B2559] dark:text-ink">{t.judul}</h2>
             <p className="mb-3 mt-1 text-[15px] font-semibold leading-relaxed text-muted">{hp ? t.hp : t.pc}</p>
 
@@ -190,7 +201,7 @@ export function PopupPasang({ buka, tutup, wali = false }) {
   )
 }
 
-const bagianDariAlamat = (p) => (p === '/ortu' || p.startsWith('/ortu/') ? 'wali' : p.startsWith('/guru') ? 'guru' : null)
+const bagianDariAlamat = (p) => (p === '/ortu' || p.startsWith('/ortu/') ? 'wali' : p.startsWith('/guru') ? 'guru' : p.startsWith('/kelas') ? 'kelas' : null)
 
 /** Muncul sendiri sekali saat link dibuka (lihat aturan di lib/pasang.js). */
 export function PasangOtomatis() {
@@ -211,25 +222,26 @@ export function PasangOtomatis() {
     setBuka(false)
     setSelesai(true)
   }
-  return <PopupPasang buka={buka && !!bagian} tutup={tutup} wali={bagian === 'wali'} />
+  return <PopupPasang buka={buka && !!bagian} tutup={tutup} bagian={bagian || 'guru'} />
 }
 
 /** Kartu "Pasang aplikasi" untuk menu Lainnya / Bantuan — hilang sendiri kalau sudah terpasang. */
-export function KartuPasang({ wali = false, className = '' }) {
+export function KartuPasang({ wali = false, bagian, className = '' }) {
+  const t = TEKS[bagian || (wali ? 'wali' : 'guru')] || TEKS.guru
   const { bisa, perangkat } = usePasang()
   const [buka, setBuka] = useState(false)
   if (!bisa && !buka) return null
   return (
     <>
       <button type="button" onClick={() => setBuka(true)} className={`card flex w-full items-center gap-3.5 text-left transition active:scale-[.99] ${className}`}>
-        <img src="/icons/icon-192.png" alt="" width="46" height="46" className="h-[46px] w-[46px] shrink-0 rounded-[14px]" />
+        <img src={t.ikon} alt="" width="46" height="46" className="h-[46px] w-[46px] shrink-0 rounded-[14px]" />
         <span className="min-w-0 flex-1">
           <span className="block text-[15px] font-extrabold">{wali ? 'Simpan portal di HP' : 'Pasang aplikasi'}</span>
           <span className="block text-xs font-semibold text-muted">{perangkat === 'pc' ? 'Buka dari desktop, tanpa cari tab' : 'Buka sekali ketuk dari layar utama'}</span>
         </span>
         <span className="shrink-0 rounded-full bg-brand px-3.5 py-2 text-[13px] font-extrabold text-white">Pasang</span>
       </button>
-      <PopupPasang buka={buka} tutup={() => setBuka(false)} wali={wali} />
+      <PopupPasang buka={buka} tutup={() => setBuka(false)} wali={wali} bagian={bagian} />
     </>
   )
 }

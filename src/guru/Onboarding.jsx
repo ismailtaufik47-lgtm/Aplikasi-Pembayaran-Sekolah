@@ -81,7 +81,7 @@ const Kartu = ({ warna, judul, sub, ikon, onClick }) => (
   </button>
 )
 
-function FormKode({ kembali, onSelesai }) {
+export function FormKode({ kembali, onSelesai, judul = 'Masukkan kode sekolah', sub = 'Minta kode aktivasi ke kepala sekolah atau admin Anda.' }) {
   const [kode, setKode] = useState(['', '', '', '', '', ''])
   const [sibuk, setSibuk] = useState(false)
   const [galat, setGalat] = useState('')
@@ -126,8 +126,8 @@ function FormKode({ kembali, onSelesai }) {
       <HeaderForm
         kembali={kembali}
         ikon="🔑"
-        judul="Masukkan kode sekolah"
-        sub="Minta kode aktivasi ke kepala sekolah atau admin Anda."
+        judul={judul}
+        sub={sub}
       />
 
       <div className="mb-1 flex justify-center gap-2.5">

@@ -217,7 +217,7 @@ export default function BerandaKepsek({ onCatat }) {
             <b className="mt-1 block font-display text-[19px] font-semibold text-[#1B2559] dark:text-ink">{rp(kes?.sppMasuk || 0)}</b>
             <span className="block text-[13.5px] font-semibold text-muted">dari {rp(kes?.sppTarget || 0)}</span>
             <span className="mt-2 flex flex-wrap gap-1.5 lg:justify-center">
-              <span className="rounded-full bg-ok-soft px-2.5 py-1 text-[13px] font-extrabold text-ok-deep">{siswa.length - (kes?.belumLunasSpp || 0)} lunas</span>
+              <span className="rounded-full bg-ok-soft px-2.5 py-1 text-[13px] font-extrabold text-ok-deep">{(kes?.ditagihSpp ?? siswa.length) - (kes?.belumLunasSpp || 0)} lunas</span>
               {kes?.belumLunasSpp > 0 && <span className="rounded-full bg-danger-soft px-2.5 py-1 text-[13px] font-extrabold text-danger">{kes.belumLunasSpp} belum</span>}
             </span>
             <span className="mt-2 flex items-center gap-1 text-[14px] font-extrabold text-brand lg:justify-center">

@@ -3,7 +3,7 @@
  * Bentuk hasilnya sama dengan fungsi laporan_tahunan() di 0043, supaya
  * layar Laporan › Tahun ajaran bisa dicoba tanpa server.
  */
-import { bulanBerjalan, sudahLewatJatuhTempo, tahunAjaranBerjalan } from './format.js'
+import { bulanBerjalan, tahunAjaranBerjalan } from './format.js'
 import { tarifKelas, targetDari, wajibKegiatan } from './bentukData.js'
 
 const jumlah = (a, f) => a.reduce((t, x) => t + (f ? f(x) : x), 0)
@@ -18,7 +18,8 @@ export function laporanTahunanDemo(d) {
   const berjalan = ta === kini
   const y = Number(ta.slice(0, 4))
   const hariIni = new Date()
-  const bln = !berjalan ? 12 : bulanBerjalan(hariIni) + (sudahLewatJatuhTempo(d.tanggalJatuhTempo, hariIni) ? 1 : 0)
+  // tunggakan tahun berjalan = bulan yang sudah lewat (sama dengan menu Tagihan & 0045)
+  const bln = !berjalan ? 12 : bulanBerjalan(hariIni)
   const t = d.tarif[ta] || d.tarif[kini] || { standar: 0, kelas: {} }
 
   // siswa yang terdaftar di tahun ini + target & bayar SPP per bulan
@@ -37,7 +38,7 @@ export function laporanTahunanDemo(d) {
     return {
       i, ditagih: di.length,
       target: jumlah(di, (x) => x.target[i]),
-      masuk: jumlah(di, (x) => x.bayar[i] || 0),
+      masuk: jumlah(di, (x) => Math.min(x.bayar[i] || 0, x.target[i])), // maksimal sebesar tagihan (0046)
       lunas: di.filter((x) => (x.bayar[i] || 0) >= x.target[i]).length,
       sebagian: di.filter((x) => (x.bayar[i] || 0) > 0 && (x.bayar[i] || 0) < x.target[i]).length,
     }
@@ -79,6 +80,7 @@ export function laporanTahunanDemo(d) {
     spp: {
       target: jumlah(perBulan, (b) => b.target),
       masuk: jumlah(perBulan, (b) => b.masuk),
+      kelebihan: jumlah(st, (x) => jumlah(x.bayar.map((v, i) => Math.max(0, (v || 0) - (x.target[i] || 0))))),
       jatuhTempo: Math.min(bln, 12),
       tunggakan: jumlah(st, kurangSpp),
       perBulan,
@@ -86,7 +88,7 @@ export function laporanTahunanDemo(d) {
         const di = st.filter((x) => x.k.kelas === k)
         return {
           kelas: k, siswa: di.length, tarif: di[0]?.tarif || 0,
-          target: jumlah(di, (x) => jumlah(x.target)), masuk: jumlah(di, (x) => jumlah(x.bayar.map((v, i) => (x.target[i] > 0 ? v || 0 : 0)))),
+          target: jumlah(di, (x) => jumlah(x.target)), masuk: jumlah(di, (x) => jumlah(x.bayar.map((v, i) => Math.min(v || 0, x.target[i] || 0)))),
           tunggakan: jumlah(di, kurangSpp),
         }
       }),

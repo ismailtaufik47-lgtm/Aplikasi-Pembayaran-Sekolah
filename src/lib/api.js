@@ -26,6 +26,22 @@ export { modeDemo }
 
 /* ===================== baca ===================== */
 
+/**
+ * Pengguna yang sedang login. Kalau sesi di browser sudah tidak berlaku
+ * (kedaluwarsa, akun dihapus, ganti akun di tab lain) → keluarkan sesi lama
+ * supaya aplikasi menampilkan layar Masuk, bukan galat "reading 'id'".
+ * Kalau hanya internet yang putus → jangan keluarkan, cukup beri pesan.
+ */
+export const SESI_HABIS = 'Sesi Anda sudah berakhir. Silakan masuk lagi.'
+export async function penggunaSaya() {
+  const { data, error } = await supabase.auth.getUser()
+  if (data?.user) return data.user
+  const putus = error && (error.name === 'AuthRetryableFetchError' || /fetch|network|jaringan/i.test(error.message || '') || (typeof navigator !== 'undefined' && navigator.onLine === false))
+  if (putus) throw new Error('Tidak bisa terhubung ke server. Periksa internet, lalu coba lagi.')
+  await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+  throw new Error(SESI_HABIS)
+}
+
 /** Dipakai panel guru. Membutuhkan sesi login yang aktif. */
 export async function muatDataGuru() {
   // Mode demo: peran bawaan 'admin' (Admin/TU). Untuk mencoba tampilan
@@ -35,7 +51,10 @@ export async function muatDataGuru() {
   if (modeDemo) {
     const peran = demoPeran()
     if (localStorageAman('tk_demo_nonaktif') === '1') throw new Error(pesanNonaktif({ sekolah: 'TK Tunas Ceria', oleh: 'Bu Kepsek' }))
-    const d = bentuk(mock.bentukDemo())
+    const dm = mock.bentukDemo()
+    const n = mock.nonaktifDemo()
+    const kel = n.siswa.filter((x) => x.status_siswa === 'keluar' && n.siswaTahun.some((r) => r.siswa_id === x.id && r.tahun_ajaran === tahunAjaranBerjalan()))
+    const d = pisahKeluar(bentuk({ ...dm, siswa: [...dm.siswa, ...kel], siswaTahun: [...dm.siswaTahun, ...n.siswaTahun.filter((r) => kel.some((x) => x.id === r.siswa_id))] }))
     if (demoHabis()) d.pengaturan = { ...d.pengaturan, trialMulai: '2025-01-01', langgananSampai: '2025-02-01' }
     d.pengaturan = { ...d.pengaturan, infoTa: { ta: tahunAjaranBerjalan(), kenaikanSudah: true, taDepan: d.pengaturan.taDepan, kenaikanDepanSudah: false } }
     return {
@@ -49,7 +68,7 @@ export async function muatDataGuru() {
     }
   }
 
-  const { data: pengguna } = await supabase.auth.getUser()
+  const pengguna = { user: await penggunaSaya() }
   const { data: profil, error: eProfil } = await supabase
     .from('profil')
     .select('nama, peran, pin_aktif, avatar, sekolah:sekolah_id (*)')
@@ -57,6 +76,8 @@ export async function muatDataGuru() {
     .single()
 
   if (eProfil) throw new Error('Akun ini belum terhubung ke sekolah mana pun')
+  // 0052: akun guru kelas memakai aplikasi /kelas, bukan aplikasi kas
+  if (profil.peran === 'guru') throw new Error(AWALAN_GURU)
   // Akun dinonaktifkan kepala sekolah (0032): baris profil masih terbaca,
   // tapi data sekolahnya tidak (RLS) → tampilkan layar "akun dinonaktifkan".
   if (!profil.sekolah) {
@@ -93,13 +114,15 @@ export async function muatDataGuru() {
 
   const gagal = [siswa, biaya, pembayaran].find((r) => r.error)
   if (gagal) throw new Error(gagal.error.message)
+  // siswa yang keluar / pindah di tengah tahun ini: tetap ikut laporan bulan-bulan sebelum ia keluar
+  const keluarKini = await muatKeluarTahunIni(siswaTahun, siswa.data)
   // nama siswa lulus / keluar yang pembayarannya ikut termuat (mis. melunasi tunggakan tahun ini)
-  const siswaLain = await muatSiswaLain(pembayaran.data, siswa.data)
+  const siswaLain = await muatSiswaLain(pembayaran.data, [...siswa.data, ...keluarKini])
 
-  const hasil = bentuk({
+  const semua = bentuk({
       sekolah: profil.sekolah,
       biaya: biaya.data,
-      siswa: siswa.data,
+      siswa: [...siswa.data, ...keluarKini],
       pembayaran: pembayaran.data,
       paket,
       paketSiswa,
@@ -107,9 +130,10 @@ export async function muatDataGuru() {
       tahunAjaran,
       ringkasLalu: pembayaran.ringkasLalu,
     })
+  const hasil = pisahKeluar(semua)
   return {
     ...hasil,
-    siswaLain,
+    siswaLain: [...siswaLain, ...hasil.siswaKeluar.map((s) => ({ ...s, wali: s.wali, hp: s.hp }))],
     pengaturan: { ...hasil.pengaturan, logo, infoTa, ringan: !!pembayaran.ringkasLalu },
     petugas: profil.nama,
     peran: profil.peran,
@@ -137,6 +161,24 @@ async function muatPembayaran(sekolahId, ada42) {
   const r = await ambilSemua(() => supabase.from('pembayaran').select('*', { count: 'exact' }).eq('sekolah_id', sekolahId)
     .order('dibayar_pada', { ascending: false }).order('id'))
   return { ...r, ringkasLalu: null }
+}
+
+/** Baris siswa yang keluar di tengah tahun ajaran berjalan (punya keanggotaan tahun ini, tapi tidak aktif). */
+async function muatKeluarTahunIni(siswaTahun, aktif) {
+  const kini = tahunAjaranBerjalan()
+  const ada = new Set((aktif || []).map((s) => s.id))
+  const ids = [...new Set((siswaTahun || []).filter((r) => r.tahun_ajaran === kini && !ada.has(r.siswa_id)).map((r) => r.siswa_id))]
+  const out = []
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data } = await supabase.from('siswa').select('*').in('id', ids.slice(i, i + 100)).then((r) => r, () => ({ data: null }))
+    out.push(...(data || []).filter((s) => s.status_siswa === 'keluar'))
+  }
+  return out
+}
+
+/** bentuk() berisi siswa aktif + yang keluar tahun ini → { siswa: aktif, siswaKeluar }. */
+export function pisahKeluar(d) {
+  return { ...d, siswa: d.siswa.filter((s) => s.status === 'aktif'), siswaKeluar: d.siswa.filter((s) => s.status === 'keluar') }
 }
 
 const KOLOM_SISWA_LAIN = 'id, nama, panggilan, kelas, nis, jenis_kelamin, avatar, foto, status_siswa, tahun_lulus, wali, hp'
@@ -328,7 +370,7 @@ export async function catatPembayaran({ sekolahId, siswaId, jenis, periode, tahu
   const dibayarPada = tanggalKeTimestamp(tanggal) // undefined kalau tanggal tidak diisi -> kolom pakai default now()
   if (modeDemo) return { id: 'demo-' + Date.now(), dibayar_pada: dibayarPada || new Date().toISOString(), tahun_ajaran: jenis === 'spp' ? tahunAjaran || tahunAjaranBerjalan() : null }
 
-  const { data: pengguna } = await supabase.auth.getUser()
+  const pengguna = { user: await penggunaSaya() }
   const baris = {
     sekolah_id: sekolahId,
     siswa_id: siswaId,
@@ -840,34 +882,59 @@ export async function cekPinAktif(email) {
   }
 }
 
+/**
+ * Login PIN (0050): PIN diperiksa di database oleh pin_masuk() — kunci 3×
+ * salah juga dicatat di sana. Kalau PIN benar, server memberi "kunci"
+ * (password akun 64 karakter) yang dipakai untuk login ke Supabase Auth.
+ * Password akun bukan lagi PIN, jadi tidak bisa ditebak langsung ke server login.
+ *
+ * Akun format lama (password = PIN, dari sebelum 0050) dipindah otomatis:
+ * login pakai PIN, lalu password diganti ke kunci baru.
+ */
 export async function masukPin(email, pin) {
   if (modeDemo) return { url: null }
   const emailBersih = email.trim()
 
-  // Cek dulu apakah sudah terkunci, sebelum buang satu percobaan
-  // sign-in yang memang pasti akan ditolak.
-  const { data: status } = await supabase.rpc('status_pin', { p_email: emailBersih })
-  if (status?.[0]?.terkunci) {
-    throw new Error('PIN dikunci setelah 3 kali salah. Minta kepala sekolah membuka kembali lewat menu Profil Sekolah.')
-  }
-
-  const { data, error } = await supabase.auth.signInWithPassword({ email: emailBersih, password: pin })
-  if (error) {
-    if (/invalid login credentials/i.test(error.message)) {
-      const { data: hasil } = await supabase.rpc('catat_pin_gagal', { p_email: emailBersih })
-      const h = hasil?.[0]
-      if (h?.terkunci) {
-        throw new Error('PIN salah 3 kali — akun dikunci. Minta kepala sekolah membuka kembali lewat menu Profil Sekolah.')
-      }
-      const sisa = 3 - (h?.percobaan ?? 0)
-      throw new Error(`Email atau PIN salah (sisa ${sisa}x percobaan sebelum terkunci)`)
+  const { data: h, error: eCek } = await supabase.rpc('pin_masuk', { p_email: emailBersih, p_pin: pin })
+  if (eCek) {
+    if (/could not find the function public\.pin_masuk/i.test(eCek.message)) {
+      throw new Error('Login PIN belum diperbarui di server. Jalankan 0050_pin_aman.sql di Supabase SQL Editor, atau masuk dengan Google dulu.')
     }
-    throw new Error(pesanAuth(error.message))
+    throw new Error(pesanAuth(eCek.message))
+  }
+  if (h?.status === 'terkunci') {
+    // 0051: kunci terbuka sendiri setelah 10 menit; `menit` = sisa waktunya
+    const menit = Number(h.menit) || 10
+    const e = new Error(h.baru
+      ? `PIN salah 3 kali — dikunci ${menit} menit. Masuk dengan Google untuk langsung membuat PIN baru.`
+      : `PIN masih dikunci (±${menit} menit lagi). Masuk dengan Google untuk langsung membuat PIN baru.`)
+    e.menit = menit
+    throw e
+  }
+  if (h?.status !== 'ok') {
+    throw new Error(`Email atau PIN salah (sisa ${h?.sisa ?? 0}x percobaan sebelum terkunci)`)
   }
 
-  // Berhasil — reset hitungan gagal supaya tidak nyangkut dari percobaan lama.
-  await supabase.rpc('reset_percobaan_pin_saya')
-  return data
+  // PIN sudah benar menurut server. Coba kunci baru dulu; kalau akun masih
+  // format lama (atau pemindahan sebelumnya terputus), pakai PIN lalu pindahkan.
+  const urutan = h.lama ? [pin, h.kunci] : [h.kunci, pin]
+  let hasil = await supabase.auth.signInWithPassword({ email: emailBersih, password: urutan[0] })
+  let pakaiPin = urutan[0] === pin
+  if (hasil.error && /invalid login credentials/i.test(hasil.error.message)) {
+    hasil = await supabase.auth.signInWithPassword({ email: emailBersih, password: urutan[1] })
+    pakaiPin = urutan[1] === pin
+  }
+  if (hasil.error) {
+    if (/invalid login credentials/i.test(hasil.error.message)) {
+      throw new Error('PIN benar, tapi akun perlu diatur ulang. Masuk dengan Google, lalu atur PIN lagi di Profil Akun.')
+    }
+    throw new Error(pesanAuth(hasil.error.message))
+  }
+  if (pakaiPin) {
+    // pindah ke format baru; kalau gagal, dicoba lagi otomatis di login berikutnya
+    try { await supabase.auth.updateUser({ password: h.kunci }) } catch { /* abaikan */ }
+  }
+  return hasil.data
 }
 
 /**
@@ -900,19 +967,28 @@ function berurutanSiklis(pin) {
 }
 
 /**
- * Aktifkan/ubah PIN — dipanggil saat SUDAH login (lewat Google). Set
- * password akun ini jadi PIN yang diketik, lalu tandai `pin_aktif` di
- * tabel profil (cuma penanda UI, PIN aslinya tetap di Supabase Auth).
+ * Aktifkan/ubah PIN — dipanggil saat SUDAH login. PIN disimpan sebagai hash
+ * di server (pin_atur, 0050), yang mengembalikan password akun baru
+ * (64 karakter, bukan PIN). Password itu lalu dipasang ke Supabase Auth.
  */
 export async function aturPin(pin) {
   if (pinLemah(pin)) {
     throw new Error('PIN terlalu mudah ditebak — hindari angka sama semua atau berurutan (contoh: 111111, 123456).')
   }
   if (modeDemo) return true
-  const { error: eUpdate } = await supabase.auth.updateUser({ password: pin })
-  if (eUpdate) throw new Error(pesanAuth(eUpdate.message))
-  const { error: eRpc } = await supabase.rpc('tandai_pin_aktif')
-  if (eRpc) throw new Error(eRpc.message)
+  const { data: kunci, error: eRpc } = await supabase.rpc('pin_atur', { p_pin: pin })
+  if (eRpc) {
+    if (/could not find the function public\.pin_atur/i.test(eRpc.message)) {
+      throw new Error('Pengaturan PIN belum diperbarui di server. Jalankan 0050_pin_aman.sql di Supabase SQL Editor.')
+    }
+    throw new Error(eRpc.message)
+  }
+  const { error: eUpdate } = await supabase.auth.updateUser({ password: kunci })
+  if (eUpdate) {
+    // jangan biarkan setengah jadi: PIN baru di server tapi password akun belum berubah
+    try { await supabase.rpc('matikan_pin') } catch { /* abaikan */ }
+    throw new Error(pesanAuth(eUpdate.message))
+  }
   return true
 }
 
@@ -936,7 +1012,7 @@ export async function daftarStafTerkunci() {
   if (modeDemo) return []
   const { data, error } = await supabase.rpc('daftar_staf_terkunci')
   if (error) throw new Error(error.message)
-  return data.map((s) => ({ id: s.id, nama: s.nama, peran: s.peran }))
+  return data.map((s) => ({ id: s.id, nama: s.nama, peran: s.peran, menit: s.menit ?? null }))
 }
 
 /** Khusus kepala sekolah — buka kunci PIN satu staf di sekolahnya. */
@@ -978,6 +1054,8 @@ export async function aktivasiKode(kode) {
     p_kode: (kode || '').trim().toUpperCase(),
   })
   if (error) throw new Error(pesanOnboarding(error.message))
+  // 0049: kode salah dikembalikan sebagai { galat } (bukan error) supaya hitungan salah tersimpan
+  if (data?.galat) throw new Error(pesanOnboarding(data.galat))
   return data
 }
 
@@ -1155,7 +1233,7 @@ function pesanOnboarding(pesan) {
   if (/sudah terhubung ke sekolah lain/i.test(pesan))
     return 'Akun ini sudah terdaftar di sekolah lain. Hubungi admin kalau ini keliru.'
   if (/tidak ditemukan atau sudah dipakai/i.test(pesan))
-    return 'Kode salah atau sudah dipakai. Cek lagi dengan kepala sekolah.'
+    return 'Kode salah, sudah dipakai, atau sudah lewat 7 hari. Cek lagi / minta kode baru ke kepala sekolah.'
   if (/nama sekolah belum diisi/i.test(pesan)) return 'Isi nama sekolah dulu.'
   return pesan
 }
@@ -1673,6 +1751,7 @@ function demoHabis() {
 
 /** Pesan layar "akun dinonaktifkan". GuruApp mengenalinya dari awalan kalimatnya. */
 export const AWALAN_NONAKTIF = 'Akun Anda dinonaktifkan'
+export const AWALAN_GURU = 'Akun guru kelas'
 function pesanNonaktif(st = {}) {
   return `${AWALAN_NONAKTIF} oleh ${st.oleh || 'kepala sekolah'}${st.sekolah ? ` (${st.sekolah})` : ''}.`
 }

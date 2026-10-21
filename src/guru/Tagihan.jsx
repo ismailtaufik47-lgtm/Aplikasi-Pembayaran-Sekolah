@@ -25,9 +25,11 @@ import { STATUS_TAGIHAN, URUTAN_STATUS, kegiatanLewat } from '../lib/statusSiswa
 import UbinStatus from '../components/UbinStatus.jsx'
 import { BULAN, bulanBerjalan, dibayarKegiatan, dibayarSpp, kegiatanLaluBelum, kegiatanWajib, labelJatuhTempoPeriode, persenBayar, rp, statusSpp, taPendek, targetSpp, tunggakanLalu } from '../lib/format.js'
 import {
-  EMOJI_JENIS, dibayarPaket, keteranganPaket, kurangSekarangPaket, statusPaket, tahapPaket, tglPendek, urutPaket,
+  EMOJI_JENIS, dibayarPaket, keteranganPaket, kurangSekarangPaket, paketSiswaKini, statusPaket, tahapPaket, tglPendek, urutPaket,
 } from '../lib/paket.js'
+import { paketBerjalan } from '../lib/kegiatanKas.js'
 import SheetPaket from './SheetPaket.jsx'
+import { wajibKegiatan } from '../lib/bentukData.js'
 import TunggakanNonaktif from './TunggakanNonaktif.jsx'
 
 const JENIS_PAKET = ['pmb', 'du']
@@ -203,8 +205,8 @@ export default function Tagihan() {
           badge: labelStatusSpp(status, i, kini),
         })
       }
-      paket.forEach((p) => {
-        if (!p.siswaIds.includes(s.id)) return
+      // PMB / DU tahun lalu yang sudah lunas tidak ditampilkan lagi (v32)
+      paketSiswaKini(paket, s).forEach((p) => {
         urut++
         const dibayar = dibayarPaket(s, p.id)
         const st = statusPaket(p, dibayar)
@@ -247,7 +249,12 @@ export default function Tagihan() {
   }, [siswa, biaya, paket, pengaturan, kini])
 
   // paket yang tampil saat filter PMB / Daftar ulang
-  const paketJenis = useMemo(() => paket.filter((p) => p.jenis === jenisFilter).sort(urutPaket), [paket, jenisFilter])
+  // = paket tahun ini / depan + paket tahun lalu yang masih ada baris belum lunasnya
+  const paketJenis = useMemo(() => {
+    const ada = new Set(semuaTagihan.map((t) => t.paketId).filter(Boolean))
+    const kini = new Set(paketBerjalan(paket).map((p) => p.id))
+    return paket.filter((p) => p.jenis === jenisFilter && (kini.has(p.id) || ada.has(p.id))).sort(urutPaket)
+  }, [paket, jenisFilter, semuaTagihan])
   const paketAktif = JENIS_PAKET.includes(jenisFilter) ? paketJenis.find((p) => p.id === paketPilih) || paketJenis[0] || null : null
   const cocokJenis = (t) =>
     jenisFilter === 'semua' || (t.jenis === jenisFilter && (!paketAktif || t.paketId === paketAktif.id))
@@ -464,7 +471,7 @@ export default function Tagihan() {
       <SheetBuatTagihan
         buka={formBiaya}
         tutup={() => setFormBiaya(false)}
-        jumlahSiswa={siswa.length}
+        hitungSiswa={(tgl) => siswa.filter((s) => wajibKegiatan(s.terdaftar, { tanggal: tgl || null })).length}
         selesai={(nama) => {
           // langsung tunjukkan hasilnya: filter Kegiatan + cari nama tagihan baru
           setJenisFilter('kegiatan'); setPaketPilih(null); setFilter('semua'); setFilterKelas(''); setCari(nama)
@@ -597,11 +604,13 @@ function SheetTagihanMassal({ buka, tutup, tagihan, kirimWa }) {
  * Jenis biaya, versi ringkas. Setelah dibuat, daftar langsung disaring ke
  * tagihan baru itu supaya hasilnya terlihat (dulu tenggelam di antara SPP).
  */
-function SheetBuatTagihan({ buka, tutup, jumlahSiswa, selesai, keJenisBiaya }) {
+function SheetBuatTagihan({ buka, tutup, hitungSiswa, selesai, keJenisBiaya }) {
   const { tambahBiaya, toast } = useData()
   const [nama, setNama] = useState('')
   const [nominal, setNominal] = useState('')
   const [tanggal, setTanggal] = useState('')
+  // siswa yang ditagih: terdaftar tahun ini di bulan kegiatan (pendaftar tahun depan / sudah keluar tidak ikut)
+  const jumlahSiswa = hitungSiswa(tanggal)
   const [sibuk, setSibuk] = useState(false)
   const n = Number(nominal) || 0
 

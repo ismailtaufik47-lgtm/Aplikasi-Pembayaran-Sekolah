@@ -1,0 +1,152 @@
+PANDUAN UJI KASCERIA — data dummy 100 sekolah, sekolah contoh 3 tahun, cek konsistensi laporan,
+uji isolasi, uji beban, uji indikator
+==================================================================================================
+
+PENTING: SEMUA UJI DI PROJECT SUPABASE TERPISAH, JANGAN DI PROJECT YANG DIPAKAI SEKOLAH.
+Skrip isi data menolak jalan kalau di databasenya ada sekolah yang namanya tidak
+diawali "UJI ", dan skrip Node hanya membaca file .env.uji (bukan .env aplikasi).
+
+
+ISI FOLDER uji/
+---------------
+  sql/01_isi_data_uji.sql   100 sekolah, ±10.000 siswa, ±78.000 pembayaran, ±13.000 transaksi kas
+  sql/02_uji_isolasi.sql    data sekolah A tidak terlihat / tidak bisa diubah sekolah B (±8.900 cek)
+  sql/03_uji_beban.sql      waktu baca & catat di sekolah terbesar (300 siswa) dan terkecil
+  sql/04_uji_alur.sql       satu transaksi ikut berubah di semua menu; batal mengembalikan semuanya
+  sql/05_uji_tahun_ajaran.sql  tarif per kelas, siswa pindahan/keluar, kenaikan kelas, ganti tahun 1 Juli
+  sql/06_uji_tahun_lama.sql    data tahun lama tidak ikut dimuat, tunggakan lulus/keluar, portal alumni, SAKU tahun lalu
+  sql/07_sekolah_contoh_3_tahun.sql   1 sekolah contoh berisi transaksi 3 tahun ajaran (2 tahun lalu + tahun ini)
+  sql/07b_hapus_sekolah_contoh.sql    hapus sekolah contoh itu saja
+  sql/08_cek_konsistensi.sql   cek otomatis: semua angka laporan = hitung ulang dari tabel (BACA SAJA, boleh di data asli)
+  sql/09_hapus_data_uji.sql hapus semua data uji
+  sql/10_uji_lebih_bayar.sql   pengaman 0046: perubahan tarif / kelas / masa / kegiatan yang membuat pembayaran berlebih ditolak
+  js/kesehatan.test.mjs     52 uji otomatis indikator kesehatan + status tagihan + laporan pembayaran (tanpa internet)
+  js/uji-api.mjs            uji beban lewat API: 100 kepala sekolah membuka dasbor bersamaan
+  js/indikator-100.mjs      hitung indikator kesehatan ke-100 sekolah uji + cek konsistensi
+  hasil/                    laporan CSV dari skrip Node (otomatis dibuat, tidak ikut git)
+
+
+LANGKAH 1 — Uji indikator (paling cepat, tidak butuh database)
+-------------------------------------------------------------
+  Di folder proyek:   npm run uji
+  Hasil yang benar:   "pass 52  fail 0"
+  Jalankan lagi setiap kali mengubah src/lib/kesehatan.js atau statusSiswa.js.
+
+
+LANGKAH 2 — Siapkan project Supabase UJI (sekali saja)
+------------------------------------------------------
+  a. supabase.com › New project, mis. "kasceria-uji" (gratis cukup).
+  b. SQL Editor › jalankan SEMUA file supabase/migrations/ berurutan 0001 … 0046
+     (persis seperti saat memasang project asli).
+  c. Settings › API › salin "Project URL" dan "anon public key".
+  d. Di folder proyek buat file  .env.uji  (sudah di-.gitignore):
+         SUPABASE_URL=https://xxxxxxxx.supabase.co
+         SUPABASE_ANON_KEY=eyJhbGciOi...
+     Opsional: UJI_SEKOLAH=25 (pakai sebagian sekolah saja supaya lebih cepat).
+
+
+LANGKAH 3 — Isi data dummy & uji di database (SQL Editor project UJI)
+--------------------------------------------------------------------
+  Jalankan satu per satu, tunggu selesai, baca tabel hasil di bawah editor:
+    01_isi_data_uji.sql   ±1–3 menit. Baris terakhir: 100 sekolah, ±10.150 siswa, ±78.000 pembayaran
+    02_uji_isolasi.sql    kesimpulan harus: "LULUS — tidak ada data sekolah yang bocor …"
+    03_uji_beban.sql      kolom status semua "OK" (baca < 150 ms, catat < 50 ms)
+    04_uji_alur.sql       "LULUS — semua alur antar-menu konsisten (22 pemeriksaan)"
+    05_uji_tahun_ajaran.sql  "SEMUA LULUS (12 kelompok uji)" di tab Messages/Notices (semua di-rollback)
+    06_uji_tahun_lama.sql    "LULUS — 10 kelompok uji tahun lama" (semua di-rollback)
+    10_uji_lebih_bayar.sql   "LULUS — 9 kelompok uji lebih bayar" (butuh 07 dulu; semua di-rollback)
+  Kalau 01 berhenti karena batas waktu SQL Editor: jalankan per bagian, satu per satu:
+      select uji.isi(1, 25);    select uji.isi(26, 50);
+      select uji.isi(51, 75);   select uji.isi(76, 100);
+  (sekolah yang sudah terisi dilewati — aman diulang). File 02–04 aman dijalankan ulang.
+
+
+LANGKAH 3b — Sekolah contoh 3 tahun + cek konsistensi laporan (tanpa transaksi manual)
+-------------------------------------------------------------------------------------
+  Supaya tidak perlu mencoba transaksi di bulan & tahun yang berbeda satu per satu.
+    07_sekolah_contoh_3_tahun.sql  ±1 detik. Membuat "UJI CONTOH TK Pelangi": 3 tahun ajaran
+        (tanggalnya mengikuti hari ini), tarif SPP naik tiap tahun + tarif khusus kelas B,
+        siswa masuk tengah tahun, keluar / pindah, tinggal kelas, lulus, siswa tahun depan,
+        tunggakan yang sengaja dibiarkan, pelunasan tahun lalu, pembayaran yang dibatalkan,
+        kegiatan yang nombok, buku kas sejak 2 tahun lalu.
+        Akun: uji-contoh-kepala@contoh.test / uji-contoh-admin@contoh.test · PIN 123456
+        Tabel hasil berisi tautan portal orang tua (1 anak aktif + 1 alumni yang menunggak) + NIS-nya.
+    08_cek_konsistensi.sql  ±1 detik per sekolah. Hasil: "LULUS" + jumlah pemeriksaan.
+        Sekolah yang belum punya akun kepala/TU ditulis "DILEWATI" (bukan kesalahan).
+        Tabel kedua: satu baris per pemeriksaan (Laporan Tahunan tiap tahun, laporan bulanan,
+        saldo berantai, Tagihan, Tanya SAKU, data yang dimuat HP, portal, kuitansi).
+        Semua di-rollback — BOLEH dijalankan di project ASLI kapan saja (misalnya tiap awal
+        bulan atau setelah tutup tahun ajaran). Satu sekolah saja: ubah baris v_saring.
+    07b_hapus_sekolah_contoh.sql  hapus sekolah contoh (07 boleh dijalankan lagi sesudahnya).
+
+  Lalu buka aplikasi (Langkah 5a) dengan akun contoh dan cocokkan:
+       [ ] Laporan › Pembayaran: Total pendapatan bulan ini = Laporan › Keuangan › Pemasukan
+       [ ] Jenis biaya "Iuran SPP" = Laporan › Tahunan (tahun ini) › SPP terkumpul
+       [ ] Tunggakan SPP tahun ini = jumlah kolom "Kekurangan SPP" bulan-bulan yang sudah lewat
+       [ ] Laporan › Tahunan › pilih tiap tahun: saldo akhir tahun lalu = saldo awal tahun berikutnya
+       [ ] Kartu siswa › Tahun lalu ▾ › SPP / Kegiatan / PMB & DU sesuai tahun itu
+       [ ] Tagihan › "Sudah lulus / keluar, masih menunggak" = daftar "Masih menunggak" di Tahunan
+       [ ] Catat 1 pembayaran lalu batalkan → semua angka di atas naik lalu kembali
+
+
+LANGKAH 4 — Uji beban lewat API (dari komputer, seperti HP sungguhan)
+--------------------------------------------------------------------
+    npm run uji:api         100 kepala sekolah login & membuka dasbor, 20 sekolah bersamaan
+    npm run uji:indikator   indikator kesehatan ke-100 sekolah dari data asli database uji
+
+  Yang harus terlihat:
+    Isolasi antar sekolah : LULUS
+    Data terpotong 1.000  : tidak ada
+    Galat                 : tidak ada
+    indikator: "LULUS — 100 sekolah dinilai tanpa galat … angka SPP dasbor = Tanya SAKU"
+  Angka waktu (ms) di sini sudah termasuk internet Anda — wajar 300–1.500 ms untuk
+  "TOTAL buka dasbor". Kalau jauh di atas itu, kirimkan file CSV di uji/hasil/.
+
+  Kalau login berhenti dengan "rate limit": Supabase membatasi jumlah login per menit.
+  Pilih salah satu:
+    • Authentication › Rate Limits › naikkan sementara batas sign-in, atau
+    • isi UJI_SEKOLAH=25 di .env.uji, atau
+    • (jika project masih punya "Legacy JWT secret" di Settings › API › JWT)
+      tambahkan UJI_JWT_SECRET=… di .env.uji → skrip tidak perlu login.
+
+
+LANGKAH 5 — Coba sendiri di aplikasi dengan akun dummy (opsional)
+-----------------------------------------------------------------
+  a. Sementara, buat file .env.development.local berisi
+         VITE_SUPABASE_URL=<URL project UJI>
+         VITE_SUPABASE_ANON_KEY=<anon key project UJI>
+     lalu npm run dev. (HAPUS file itu setelah selesai supaya kembali ke project asli.)
+  b. Layar masuk › pakai PIN:
+         Kepala sekolah : uji-kepala-001@contoh.test … uji-kepala-100@contoh.test
+         Admin / TU     : uji-admin-001@contoh.test  … uji-admin-100@contoh.test
+         PIN            : 123456
+     Sekolah terbesar (300 siswa): 020, 040, 060, 080, 100. Indikator "Ketat" + biaya rutin
+     dirinci: 003, 013, 023, … 093.
+  c. Tautan portal wali (jalankan di SQL Editor project UJI):
+         select s.nama, s.nis, '/ortu/' || w.token as tautan
+           from siswa s join wali_siswa ws on ws.siswa_id = s.id join wali w on w.id = ws.wali_id
+          where s.sekolah_id = (select id from sekolah where nama like 'UJI 001%')
+          order by s.nis limit 5;
+     Buka http://localhost:5173/ortu/<token>, masukkan NIS-nya.
+  d. Daftar periksa singkat (sebagai Admin/TU lalu Kepala):
+       [ ] Catat SPP siswa yang "Nunggak" → status berubah di Siswa, Tagihan, dasbor kepsek, portal wali
+       [ ] Batalkan pembayaran itu → semua kembali; muncul di Riwayat pembatalan
+       [ ] Catat pengeluaran kas berlabel kegiatan → Laporan › Kegiatan berubah
+       [ ] Pembayaran melebihi tagihan / yang sudah lunas → tombol terkunci & ditolak
+       [ ] Kuitansi → QR → halaman verifikasi terbuka
+       [ ] Tanya SAKU: "siapa saja yang nunggak?" → jawaban < 5 detik
+       [ ] Kepala: Atur indikator › ubah ke Ketat → skor & zona berubah, riwayat mencatat
+       [ ] Login sebagai uji-admin-001 → tidak ada satu pun data milik UJI 002
+
+
+LANGKAH 6 — Bersihkan
+---------------------
+  SQL Editor project UJI › 09_hapus_data_uji.sql. Atau hapus saja project UJI-nya.
+
+
+KAPAN DIULANG
+-------------
+  • npm run uji                       → setiap mengubah indikator / status tagihan
+  • 02_uji_isolasi + 04_uji_alur + 05 + 06 + 08 + 10 → setiap ada file migrasi SQL baru
+  • 08_cek_konsistensi (project ASLI)  → kapan saja ingin memastikan laporan benar
+  • 03_uji_beban + npm run uji:api    → sebelum menambah banyak sekolah sekaligus

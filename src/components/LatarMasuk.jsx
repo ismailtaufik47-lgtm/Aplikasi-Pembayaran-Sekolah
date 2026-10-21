@@ -16,6 +16,7 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import { useAuth } from '../lib/auth.jsx'
+import { useMerek } from '../lib/merek.js'
 import { LogoKasceria, Tagline, TulisanKasceria } from './Kasceria.jsx'
 import {
   AnakLaki, AnakPerempuan, Awan, Bintang, BintangWajah, BukuPensil, Bukit, BukitLebar,
@@ -73,6 +74,8 @@ export function IkonGoogle({ size = 20 }) {
 
 /** Logo + tulisan Kasceria + tagline (kepala layar masuk di HP). */
 export function KepalaMerek() {
+  const merek = useMerek() // aplikasi guru kelas memakai identitasnya sendiri
+  if (merek?.kepala) return merek.kepala
   return (
     <>
       <LogoKasceria className="masuk-logo" />
@@ -368,6 +371,8 @@ function ChipFitur({ ikon, children, warna }) {
 }
 
 export function SambutanPc() {
+  const merek = useMerek()
+  if (merek?.sambutan) return merek.sambutan
   return (
     <div className="sambutan-pc relative flex h-full min-h-[600px] flex-col pb-6 pt-14">
       <div className="relative z-[2] flex flex-col gap-5">

@@ -21,7 +21,9 @@ export default {
         ink: v('ink'),
         muted: v('muted'),
         line: v('line'),
-        brand: { DEFAULT: '#3B6EF6', soft: v('brand-soft'), deep: '#2A55CC' },
+        // brand: biru Kasceria; aplikasi guru kelas (html.tema-kelas, src/kelas/kelas.css)
+        // mengganti --brand/--brand-deep jadi hijau. Tanpa variabel → biru seperti dulu.
+        brand: { DEFAULT: 'rgb(var(--brand, 59 110 246) / <alpha-value>)', soft: v('brand-soft'), deep: 'rgb(var(--brand-deep, 42 85 204) / <alpha-value>)' },
         ok: { DEFAULT: '#22C55E', soft: v('ok-soft'), deep: v('ok-deep') },
         warn: { DEFAULT: '#F5A524', soft: v('warn-soft'), deep: v('warn-deep') },
         danger: { DEFAULT: '#EF4444', soft: v('danger-soft') },

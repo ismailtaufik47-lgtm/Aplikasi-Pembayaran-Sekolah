@@ -11,13 +11,15 @@
  */
 import { useState } from 'react'
 import { useAuth } from '../lib/auth.jsx'
+import { useMerek } from '../lib/merek.js'
 import MasukPin from './MasukPin.jsx'
 import LatarMasuk, {
   IkonGoogle, JudulKartu, KartuMasuk, KepalaMerek, KotakInfo, PemisahAtau, SambutanPc, TautanTeks, TombolHantu,
 } from './LatarMasuk.jsx'
 
-export default function Masuk({ onDaftar }) {
+export default function Masuk({ onDaftar, tujuan = '/guru', judulGoogle = 'Untuk masuk pertama kali, atau kalau Anda lupa PIN.' }) {
   const { masukGoogle, masukPin, modeDemo } = useAuth()
+  const merek = useMerek()
   const [pakaiGoogle, setPakaiGoogle] = useState(false)
   const [galat, setGalat] = useState('')
   const [sibuk, setSibuk] = useState(false)
@@ -25,7 +27,7 @@ export default function Masuk({ onDaftar }) {
   const klikGoogle = async () => {
     setGalat(''); setSibuk(true)
     try {
-      await masukGoogle()
+      await masukGoogle(tujuan)
     } catch (e) {
       setGalat(e.message); setSibuk(false)
     }
@@ -36,7 +38,7 @@ export default function Masuk({ onDaftar }) {
     return (
       <LatarMasuk kepala={<KepalaMerek />} kembali={() => setPakaiGoogle(false)}>
         <KartuMasuk>
-          <JudulKartu judul="Masuk dengan Google" sub="Untuk masuk pertama kali, atau kalau Anda lupa PIN." />
+          <JudulKartu judul="Masuk dengan Google" sub={judulGoogle} />
 
           <button
             type="button"
@@ -53,7 +55,7 @@ export default function Masuk({ onDaftar }) {
           )}
 
           <KotakInfo ikon="perisai" nada="aman">
-            Aman tanpa perlu mengingat password. Setelah masuk, buat <b>PIN 6 digit</b> di Profil Akun supaya lain kali bisa masuk lebih cepat.
+            Aman tanpa perlu mengingat password. Setelah masuk, buat <b>PIN 6 digit</b> di {merek?.tempatPin || 'Profil Akun'} supaya lain kali bisa masuk lebih cepat.
           </KotakInfo>
 
           <PemisahAtau />

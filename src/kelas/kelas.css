@@ -1,0 +1,106 @@
+/*
+ * Tema aplikasi guru kelas "Tumbuh Ceria" (/kelas): hijau daun & langit mint,
+ * supaya jelas berbeda dari aplikasi kas (biru).
+ *
+ * Kelas `tema-kelas` dipasang di <html> oleh index.html (sebelum aplikasi
+ * dimuat, jadi tidak berkedip biru) dan dijaga KelasApp.jsx. Semua aturan di
+ * bawah diawali `html.tema-kelas` sehingga aplikasi kas & portal orang tua
+ * tidak ikut berubah. File ini di-import di main.jsx SESUDAH index.css,
+ * jadi menang atas aturan biru di sana.
+ */
+
+html.tema-kelas {
+  --brand: 12 148 115;      /* #0C9473 */
+  --brand-deep: 10 114 89;  /* #0A7259 */
+  --brand-soft: 222 246 237;
+}
+html.tema-kelas.dark {
+  --brand: 18 158 122;
+  --brand-deep: 10 104 81;
+  --brand-soft: 20 54 47;
+}
+html.tema-kelas .panel-ceria { --canvas: 240 250 245; --line: 228 240 234; }
+html.tema-kelas.dark .panel-ceria { --canvas: 13 25 24; --line: 38 56 52; }
+
+/* teks berwarna brand: sedikit lebih gelap supaya terbaca di atas putih */
+html.tema-kelas .text-brand { color: #0A7F62; }
+html.tema-kelas.dark .text-brand { color: #5FDDB5; }
+html.tema-kelas.dark .border-brand { border-color: #2FBF93; }
+
+/* judul: hijau tua, bukan biru dongker */
+html.tema-kelas .judul-halaman,
+html.tema-kelas .panel-ceria :is(.seghead h2, .judul-kartu),
+html.tema-kelas .panel-ceria [role="dialog"] > h3,
+html.tema-kelas:not(.dark) .text-\[\#1B2559\] { color: #123D33; }
+html.tema-kelas .sub-halaman { color: #2E4A42; }
+html.tema-kelas.dark .judul-halaman { color: #EFFFF8; }
+html.tema-kelas.dark .sub-halaman { color: #A9CFC3; }
+html.tema-kelas.dark .panel-ceria :is(.seghead h2, .judul-kartu),
+html.tema-kelas.dark .panel-ceria [role="dialog"] > h3 { color: rgb(var(--ink)); }
+
+/* tombol "permen" */
+html.tema-kelas .tombol-utama {
+  background: #0C9473;
+  box-shadow: inset 0 -4px 0 #0A7259, 0 10px 20px rgba(12, 148, 115, .28);
+}
+html.tema-kelas .tombol-utama:active:not(:disabled) { box-shadow: inset 0 -2px 0 #0A7259, 0 6px 14px rgba(12, 148, 115, .24); }
+html.tema-kelas.dark .tombol-utama { box-shadow: inset 0 -4px 0 #0A6851, 0 10px 20px rgba(0, 0, 0, .35); }
+html.tema-kelas .panel-ceria :is(button, a):is(.bg-brand, .bigbtn) { box-shadow: inset 0 -3px 0 #0A7259, 0 6px 14px rgba(12, 148, 115, .2); }
+html.tema-kelas .panel-ceria .bigbtn,
+html.tema-kelas .bigbtn { box-shadow: inset 0 -4px 0 #0A7259, 0 8px 18px rgba(12, 148, 115, .22); border-radius: 18px; }
+html.tema-kelas.dark .panel-ceria :is(button, a):is(.bg-brand, .bigbtn),
+html.tema-kelas.dark .bigbtn { box-shadow: inset 0 -3px 0 #0A6851, 0 6px 14px rgba(0, 0, 0, .3); }
+html.tema-kelas .tombol-bagikan { box-shadow: inset 0 -3px 0 #0A7259; }
+html.tema-kelas.dark .tombol-bagikan { box-shadow: inset 0 -3px 0 #0A6851; }
+
+html.tema-kelas .permen-email { --p-isi: #16A884; --p-bayang: #0A7259; --p-teks: #FFFFFF; }
+
+/* ubin ikon brand */
+html.tema-kelas .panel-ceria .tile.bg-brand-soft { background: #BFEEDD; color: #0B5A47; --tile-bayang: #8ED8BE; }
+html.tema-kelas.dark .panel-ceria .tile.bg-brand-soft { background: rgba(90, 220, 180, .18); color: #A9F0DA; --tile-bayang: rgba(90, 220, 180, .32); }
+
+/* langit: mint di atas, makin pucat ke bawah */
+html.tema-kelas .langit-masuk { background: linear-gradient(180deg, #A9E8D3 0%, #C9F2E2 34%, #E5FAF1 62%, #F4FDF8 100%); }
+html.tema-kelas.dark .langit-masuk { background: linear-gradient(180deg, #071917 0%, #0D2A26 40%, #12352F 70%, #153B34 100%); }
+html.tema-kelas .langit-app,
+html.tema-kelas .langit-gulir {
+  background-color: #F2FBF7;
+  background-image: linear-gradient(180deg, #A9E8D3 0px, #C9F2E2 240px, #E2F8EE 480px, #ECFAF4 760px, #F2FBF7 1100px);
+}
+html.tema-kelas.dark .langit-app,
+html.tema-kelas.dark .langit-gulir {
+  background-color: #0E1817;
+  background-image: linear-gradient(180deg, #071917 0px, #0D2A26 260px, #102521 560px, #0F1D1B 900px, #0E1817 1200px);
+}
+/* di tablet/PC: latar di luar bingkai "HP" ikut hijau muda */
+@media (min-width: 640px) {
+  html.tema-kelas .latar-luar-ceria { background: linear-gradient(160deg, #D3F2E5 0%, #E6F8F0 60%, #F1FBF6 100%); }
+  html.tema-kelas.dark .latar-luar-ceria { background: #081311; }
+}
+
+/* bayangan kartu & bilah: hijau lembut, bukan biru */
+html.tema-kelas .kartu-masuk { box-shadow: 0 18px 40px rgba(14, 90, 70, .16); }
+html.tema-kelas.dark .kartu-masuk { box-shadow: 0 18px 40px rgba(0, 8, 6, .5); }
+html.tema-kelas .panel-ceria .card { box-shadow: 0 8px 24px rgba(14, 90, 70, .08); }
+html.tema-kelas .bilah-tab { box-shadow: 0 -6px 20px rgba(14, 90, 70, .10); }
+html.tema-kelas.dark .bilah-tab { box-shadow: 0 -6px 20px rgba(0, 0, 0, .35); }
+html.tema-kelas .nav-aktif { background: #E2F7EF; color: #123D33; box-shadow: inset 3px 0 0 #0C9473; }
+html.tema-kelas.dark .nav-aktif { background: rgb(var(--brand-soft)); color: rgb(var(--ink)); box-shadow: inset 3px 0 0 #2FBF93; }
+
+/* kolom kode undangan (layar "Gabung ke kelas") */
+.kotak-kode {
+  background: #F6FAF8; border: 1.5px solid #D5E6DE; box-shadow: inset 0 -3px 0 #E2EEE8;
+  transition: border-color .12s, box-shadow .12s, background .12s;
+}
+.kotak-kode.terisi { background: #fff; border-color: #0C9473; box-shadow: inset 0 -3px 0 #BFEEDD; }
+.kotak-kode:focus { border-color: #0C9473; background: #fff; box-shadow: inset 0 -3px 0 #BFEEDD, 0 0 0 4px rgba(12, 148, 115, .16); }
+.kotak-kode.salah { border-color: #EF4444; background: #FFF5F5; box-shadow: inset 0 -3px 0 #F8CDCD; }
+.dark .kotak-kode { background: rgb(var(--isi)); border-color: rgb(var(--line)); box-shadow: inset 0 -3px 0 rgb(255 255 255 / .04); }
+.dark .kotak-kode.terisi, .dark .kotak-kode:focus { border-color: #2FBF93; background: rgb(var(--kartu)); box-shadow: inset 0 -3px 0 rgba(90, 220, 180, .18); }
+.dark .kotak-kode.salah { border-color: #F87171; background: rgb(var(--danger-soft)); }
+@keyframes goyang { 0%, 100% { transform: none } 20% { transform: translateX(-6px) } 40% { transform: translateX(6px) } 60% { transform: translateX(-4px) } 80% { transform: translateX(3px) } }
+.goyang { animation: goyang .38s ease; }
+
+/* kotak info (nada brand) di layar masuk: teks hijau tua, bukan biru */
+html.tema-kelas:not(.dark) .text-\[\#1F3F99\] { color: #0B5A47; }
+html.tema-kelas.dark .dark\:text-\[\#B9CCFF\] { color: #A9F0DA; }

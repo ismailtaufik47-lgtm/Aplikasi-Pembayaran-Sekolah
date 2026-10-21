@@ -11,7 +11,8 @@
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
 import * as api from '../lib/api.js'
-import LatarMasuk, { Garis, JudulKartu, KartuMasuk, KepalaMerek, TautanTeks, TombolUtama } from './LatarMasuk.jsx'
+import { useMerek } from '../lib/merek.js'
+import LatarMasuk, { Garis, IkonGoogle, JudulKartu, KartuMasuk, KepalaMerek, TautanTeks, TombolHantu, TombolUtama } from './LatarMasuk.jsx'
 
 const TATA_KEYPAD = [
   [['1', 'kuning'], ['2', 'biru'], ['3', 'pink']],
@@ -21,11 +22,13 @@ const TATA_KEYPAD = [
 ]
 
 export default function MasukPin({ onMasuk, onPakaiGoogle, footer, sisiKiri = null }) {
+  const merek = useMerek()
   const [email, setEmail]       = useState('')
   const [pin, setPin]           = useState('')
   const [galat, setGalat]       = useState('')
   const [sibuk, setSibuk]       = useState(false)
   const [terkunci, setTerkunci] = useState(false)
+  const [bukaPada, setBukaPada] = useState(0) // waktu (ms) kunci terbuka sendiri
   const [statusPin, setStatusPin] = useState('belum-cek')
   const timerRef = useRef(null)
 
@@ -59,7 +62,10 @@ export default function MasukPin({ onMasuk, onPakaiGoogle, footer, sisiKiri = nu
       await onMasuk(email.trim(), pin)
     } catch (e) {
       setGalat(e.message); setPin(''); setSibuk(false)
-      if (/dikunci/i.test(e.message)) setTerkunci(true)
+      if (/dikunci/i.test(e.message)) {
+        setBukaPada(Date.now() + (e.menit || 10) * 60000)
+        setTerkunci(true)
+      }
     }
   }, [sibuk, email, pin, onMasuk])
 
@@ -85,7 +91,8 @@ export default function MasukPin({ onMasuk, onPakaiGoogle, footer, sisiKiri = nu
   if (terkunci) {
     return (
       <LayarTerkunci
-        onCobaLagi={() => { setTerkunci(false); setGalat(''); setEmail(''); setPin('') }}
+        bukaPada={bukaPada}
+        onCobaLagi={() => { setTerkunci(false); setGalat(''); setPin('') }}
         onPakaiGoogle={onPakaiGoogle}
         sisiKiri={sisiKiri}
       />
@@ -96,7 +103,7 @@ export default function MasukPin({ onMasuk, onPakaiGoogle, footer, sisiKiri = nu
     <LatarMasuk kepala={<KepalaMerek />} sisiKiri={sisiKiri}>
       <KartuMasuk>
         {sisiKiri && (
-          <JudulKartu tengah judul="Selamat datang kembali" sub="Masuk untuk mengelola keuangan sekolah" className="judul-kartu-pc hidden lg:flex" />
+          <JudulKartu tengah judul="Selamat datang kembali" sub={merek?.subMasuk || 'Masuk untuk mengelola keuangan sekolah'} className="judul-kartu-pc hidden lg:flex" />
         )}
 
         {/* email */}
@@ -134,7 +141,7 @@ export default function MasukPin({ onMasuk, onPakaiGoogle, footer, sisiKiri = nu
                   Masuk dengan Google
                 </button>
               )}{' '}
-              dulu, lalu aktifkan PIN lewat Profil Akun.
+              dulu, lalu aktifkan PIN lewat {merek?.tempatPin || 'Profil Akun'}.
             </span>
           </div>
         )}
@@ -230,8 +237,17 @@ function KotakPin({ keadaan }) {
   )
 }
 
-/* ─── PIN dikunci ─────────────────────────── */
-function LayarTerkunci({ onCobaLagi, onPakaiGoogle, sisiKiri }) {
+/* ─── PIN dikunci (0051: terbuka sendiri setelah 10 menit) ─────────── */
+function LayarTerkunci({ bukaPada, onCobaLagi, onPakaiGoogle, sisiKiri }) {
+  const merek = useMerek()
+  const sisaMenit = () => Math.max(0, Math.ceil((bukaPada - Date.now()) / 60000))
+  const [menit, setMenit] = useState(sisaMenit)
+  useEffect(() => {
+    const t = setInterval(() => setMenit(sisaMenit()), 15000)
+    return () => clearInterval(t)
+  }, [bukaPada]) // eslint-disable-line react-hooks/exhaustive-deps
+  const terbuka = menit === 0
+
   return (
     <LatarMasuk kepala={<KepalaMerek />} sisiKiri={sisiKiri}>
       <KartuMasuk>
@@ -239,26 +255,51 @@ function LayarTerkunci({ onCobaLagi, onPakaiGoogle, sisiKiri }) {
           <span className="grid h-[58px] w-[58px] shrink-0 place-items-center rounded-[18px] bg-danger-soft text-danger shadow-[inset_0_-4px_0_#F8CDCD] dark:shadow-none">
             <Garis nama="gembok" size={28} />
           </span>
-          <JudulKartu judul="PIN dikunci sementara" sub="Salah 3 kali berturut-turut, demi keamanan." />
+          <JudulKartu
+            judul={terbuka ? 'Kunci PIN sudah terbuka' : 'PIN dikunci sementara'}
+            sub={terbuka ? 'Silakan coba lagi dengan PIN yang benar.' : `Salah 3 kali. Terbuka sendiri dalam ±${menit}\u00a0menit.`}
+          />
         </div>
-        <div className="flex flex-col gap-2.5 rounded-[18px] border-[1.5px] border-[#FBDADA] bg-[#FFF4F4] p-3.5 dark:border-danger/30 dark:bg-danger-soft">
-          <span className="text-[12px] font-extrabold uppercase tracking-[.4px] text-[#C62828] dark:text-[#FF9C9C]">Cara membukanya</span>
-          {[
-            <>Minta kepala sekolah membuka kunci lewat menu <b>Profil Sekolah</b>.</>,
-            'Setelah dibuka, masuk lagi dengan PIN yang benar.',
-          ].map((t, i) => (
-            <div key={i} className="flex items-start gap-2.5">
-              <span className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full bg-white text-[12px] font-extrabold text-[#C62828] shadow-[0_1px_0_#F6C9C9] dark:bg-kartu dark:shadow-none">
-                {i + 1}
-              </span>
-              <span className="text-[12.5px] font-semibold leading-relaxed text-[#5A2323] dark:text-[#FFD0D0]">{t}</span>
-            </div>
-          ))}
-        </div>
-        <TombolUtama ikon="surat" onClick={onCobaLagi}>Coba email lain</TombolUtama>
-        {onPakaiGoogle && (
+
+        {onPakaiGoogle && !terbuka && (
+          <div className="flex flex-col gap-2">
+            <button
+              type="button"
+              onClick={onPakaiGoogle}
+              className="flex h-14 w-full items-center justify-center gap-3 rounded-[18px] border-[1.5px] border-[#DCE3EF] bg-white pb-[3px] font-display text-[16px] font-semibold text-ink shadow-[inset_0_-4px_0_#E9EEF6,0_6px_14px_rgba(27,37,89,.06)] active:translate-y-0.5 dark:border-line dark:bg-isi dark:shadow-none"
+            >
+              <IkonGoogle />
+              Masuk dengan Google
+            </button>
+            <p className="text-center text-[12.5px] font-semibold leading-snug text-[#4A5570] dark:text-muted">
+              Cara tercepat. Setelah masuk, buat PIN baru di <b className="text-ink">{merek?.tempatPin || 'Profil Akun'}</b> — kuncinya ikut terbuka.
+            </p>
+          </div>
+        )}
+
+        {terbuka ? (
+          <TombolUtama onClick={onCobaLagi}>Coba PIN lagi</TombolUtama>
+        ) : (
+          <div className="flex flex-col gap-2.5 rounded-[18px] border-[1.5px] border-[#E3E8F2] bg-[#F7F9FE] p-3.5 dark:border-line dark:bg-isi">
+            <span className="text-[12px] font-extrabold uppercase tracking-[.4px] text-[#5B6478] dark:text-muted">Atau</span>
+            {[
+              <>Tunggu <b>±{menit}&nbsp;menit</b>, lalu masuk lagi dengan PIN yang benar.</>,
+              <>Minta kepala sekolah membuka kunci lewat menu <b>Profil Sekolah</b>.</>,
+            ].map((t, i) => (
+              <div key={i} className="flex items-start gap-2.5">
+                <span className="grid h-[22px] w-[22px] shrink-0 place-items-center rounded-full bg-white text-[12px] font-extrabold text-[#5B6478] shadow-[0_1px_0_#DCE3EF] dark:bg-kartu dark:text-muted dark:shadow-none">
+                  {i + 1}
+                </span>
+                <span className="text-[12.5px] font-semibold leading-relaxed text-[#3B4560] dark:text-[#D5DBEA]">{t}</span>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!terbuka && <TombolHantu ikon="kiri" onClick={onCobaLagi}>Kembali ke layar PIN</TombolHantu>}
+        {terbuka && onPakaiGoogle && (
           <p className="text-center text-[12.5px] font-semibold text-[#4A5570] dark:text-muted">
-            Perlu masuk sekarang? <TautanTeks onClick={onPakaiGoogle}>Masuk dengan Google</TautanTeks>
+            Lupa PIN? <TautanTeks onClick={onPakaiGoogle}>Masuk dengan Google</TautanTeks>
           </p>
         )}
       </KartuMasuk>

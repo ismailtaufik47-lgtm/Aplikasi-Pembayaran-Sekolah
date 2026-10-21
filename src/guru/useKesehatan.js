@@ -15,7 +15,7 @@ import { statusSiswa } from '../lib/statusSiswa.js'
 import { hitungKesehatan } from '../lib/kesehatan.js'
 
 export function useKesehatan() {
-  const { pengaturan, siswa, biaya, paket, pembayaran } = useData()
+  const { pengaturan, siswa, siswaTahunIni, biaya, paket, pembayaran } = useData()
   const kini = bulanBerjalan()
   const bulanIni = kunciBulan(tanggalISO())
   const demo = useRef({})
@@ -50,8 +50,8 @@ export function useKesehatan() {
   }, [siswa, biaya, paket, pengaturan.sppNominal, kini])
 
   const rekap = useMemo(
-    () => (d.siap && !d.galat ? hitungRekapKegiatan({ biaya, paket, siswa, pengeluaran: d.keg || [] }) : []),
-    [d, biaya, paket, siswa],
+    () => (d.siap && !d.galat ? hitungRekapKegiatan({ biaya, paket, siswa: siswaTahunIni, pengeluaran: d.keg || [], pembayaran }) : []),
+    [d, biaya, paket, siswaTahunIni, pembayaran],
   )
 
   const nota = useMemo(() => {

@@ -5,7 +5,7 @@ import { useData } from '../lib/store.jsx'
 import { emojiKegiatan } from '../lib/emojiKegiatan.js'
 import { labelKelasSiswa, sudahNonaktif, BULAN, bulanBerjalan, dibayarKegiatan, kegiatanLaluBelum, kegiatanWajib, ketBebas, labelJatuhTempoPeriode, dibayarSpp, namaBulanTa, persenBayar, rp, statusSpp, tanggalKegiatan, targetSpp, tunggakanLaluPerTa } from '../lib/format.js'
 import { IkonBank, JudulAnak } from './Beranda.jsx'
-import { EMOJI_JENIS, LABEL_PANJANG, dibayarPaket, keteranganPaket, kurangSekarangPaket, paketSiswa, statusPaket, tahapPaket, tglPendek, urutPaket } from '../lib/paket.js'
+import { EMOJI_JENIS, LABEL_PANJANG, dibayarPaket, keteranganPaket, kurangSekarangPaket, paketSiswaKini, statusPaket, tahapPaket, tglPendek, urutPaket } from '../lib/paket.js'
 
 /** Warna ubin bulan & chip per status SPP. */
 const GAYA = {
@@ -26,7 +26,7 @@ export default function Tagihan({ aktif, bukaCaraBayar, bukaKegiatan }) {
   })
   const kini = bulanBerjalan()
   const a = aktif
-  const paketAnak = paketSiswa(paket, a.id).sort(urutPaket)
+  const paketAnak = paketSiswaKini(paket, a).sort(urutPaket)
   const tab = seg === 'paket' && !paketAnak.length ? 'spp' : seg
   const lalu = tunggakanLaluPerTa(a, pengaturan.sppNominal)
   const kegLalu = kegiatanLaluBelum(a)

@@ -247,6 +247,7 @@ export function hitungKesehatan(d, aturanMentah) {
   const sppMasuk = (d.siswa || []).reduce((s, x) => s + Math.min(tgt(x), x.spp?.[d.kini] || 0), 0)
   const sppPersen = sppTarget ? Math.round((sppMasuk / sppTarget) * 100) : 0
   const belumLunasSpp = (d.siswa || []).filter((x) => (x.spp?.[d.kini] || 0) < tgt(x)).length
+  const ditagihSpp = (d.siswa || []).filter((x) => tgt(x) > 0).length // siswa yang ditagih SPP bulan ini
   if (!sppTarget) k.spp = { status: 'kosong', nilai: '—', ket: 'Belum ada siswa / nominal SPP.' }
   else if (hariIni.getDate() < aturan.sppTanggal) {
     k.spp = { status: 'belum', nilai: `${sppPersen}% masuk`, ket: `Dinilai mulai tanggal ${aturan.sppTanggal}. Target ${t.spp}% per tanggal ${aturan.sppTanggal}.` }
@@ -300,8 +301,10 @@ export function hitungKesehatan(d, aturanMentah) {
   const rasio = (() => {
     const bulanLalu = [1, 2, 3].map((x) => d.kini - x).filter((i) => i >= 0)
     if (!bulanLalu.length || !sppTarget) return null
-    const masuk = bulanLalu.reduce((s, i) => s + (d.siswa || []).reduce((a, x) => a + Math.min(nominal, x.spp?.[i] || 0), 0), 0)
-    return masuk / (sppTarget * bulanLalu.length)
+    // tingkat bayar 3 bulan terakhir: per siswa, tarif kelasnya & bulan yang benar-benar ditagih (v32)
+    const masuk = bulanLalu.reduce((s, i) => s + (d.siswa || []).reduce((a, x) => a + Math.min(targetSpp(x, i, nominal), x.spp?.[i] || 0), 0), 0)
+    const target = bulanLalu.reduce((s, i) => s + (d.siswa || []).reduce((a, x) => a + targetSpp(x, i, nominal), 0), 0)
+    return target ? masuk / target : null
   })()
   const rasioPakai = rasio ?? 0.85
   const proyeksi = []
@@ -357,7 +360,7 @@ export function hitungKesehatan(d, aturanMentah) {
   return {
     aturan, skor, zona, rem, kriteria, perlu, kalimat,
     rutin, rutinOtomatis, rutinSumber, kasBebas, danaTerikat, totalTerikat, bulanCukup,
-    sppMasuk, sppTarget, sppPersen, belumLunasSpp, tunggakan, tunggPersen, anakNunggak,
+    sppMasuk, sppTarget, sppPersen, belumLunasSpp, ditagihSpp, tunggakan, tunggPersen, anakNunggak,
     nombok, notaPersen, nota: { ada: nAda, total: nTotal }, proyeksi, rasioTertagih: rasioPakai,
   }
 }

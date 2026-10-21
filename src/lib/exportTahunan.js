@@ -27,6 +27,7 @@ function ringkasan(lap) {
     ['Tarif SPP standar', `${rp(lap.tarif?.standar)} per bulan${Object.keys(lap.tarif?.kelas || {}).length ? ' · khusus: ' + Object.entries(lap.tarif.kelas).map(([k, v]) => `${k} ${rp(v)}`).join(', ') : ''}`],
     ['Target SPP setahun', rp(lap.spp.target)],
     ['SPP terkumpul', `${rp(lap.spp.masuk)} (${persen(lap.spp.masuk, lap.spp.target)})`],
+    ...(lap.spp.kelebihan > 0 ? [['Kelebihan bayar SPP (di luar tagihan)', rp(lap.spp.kelebihan)]] : []),
     ['Tunggakan SPP', rp(lap.tunggakan.spp)],
     ['Tunggakan biaya kegiatan', rp(lap.tunggakan.kegiatan)],
     ['Siswa masih menunggak', `${lap.tunggakan.siswa} siswa`],

@@ -73,7 +73,7 @@ const Robot = ({ size = 32, tampil = 'grid' }) => (
 )
 
 export default function TanyaAI() {
-  const { siswa, biaya, pembayaran, pengaturan, petugas, modeDemo, toast, boleh } = useData()
+  const { siswaTahunIni, biaya, pembayaran, pengaturan, petugas, modeDemo, toast, boleh } = useData()
   const bolehKas = boleh('kas', 'lihat') || boleh('lap_keuangan', 'lihat')
   const [kas, setKas] = useState(null) // ringkasan kas untuk kartu sapaan
   const [pesan, setPesan] = useState(() => (simpanan.pemilik === petugas ? simpanan.pesan : []))
@@ -121,7 +121,7 @@ export default function TanyaAI() {
     setSibuk(true)
     try {
       const h = modeDemo
-        ? await (await import('../lib/TanyaDemo.js')).jawabDemo(q, { siswa, biaya, pembayaran, pengaturan })
+        ? await (await import('../lib/TanyaDemo.js')).jawabDemo(q, { siswa: siswaTahunIni, biaya, pembayaran, pengaturan })
         : await api.tanyaAI(q, riwayat)
       setPesan((p) => [...p, { id: Date.now() + 1, peran: 'assistant', teks: h.jawaban, data: h.data || [] }])
       if (h.kuota) setKuota(h.kuota)

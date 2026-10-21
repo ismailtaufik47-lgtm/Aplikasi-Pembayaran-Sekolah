@@ -13,13 +13,22 @@
          Logikanya sama dengan src/lib/tema.js (kunci localStorage 'tema'). -->
     <script>
       (function () {
+        // Aplikasi guru kelas "Tumbuh Ceria" (/kelas, nanti guru.kasceria.pro):
+        // warna hijau & identitas sendiri — dipasang sebelum aplikasi dimuat
+        // supaya tidak sempat tampil biru Kasceria.
+        var p = location.pathname
+        var kelas = p === '/kelas' || p.indexOf('/kelas/') === 0 || /^guru\./.test(location.hostname)
+        if (kelas) {
+          document.documentElement.classList.add('tema-kelas')
+          document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0C9473')
+        }
         try {
           var t = localStorage.getItem('tema') || 'terang'
           var gelap = t === 'gelap' || (t === 'otomatis' && window.matchMedia('(prefers-color-scheme: dark)').matches)
           if (gelap) {
             document.documentElement.classList.add('dark')
             document.querySelector('meta[name="color-scheme"]').setAttribute('content', 'dark')
-            document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0F131B')
+            document.querySelector('meta[name="theme-color"]').setAttribute('content', kelas ? '#0D1A18' : '#0F131B')
           }
         } catch (e) {}
       })()
@@ -28,8 +37,9 @@
     <meta name="description" content="Kasceria: catat SPP, biaya kegiatan, dan buku kas TK dalam satu aplikasi." />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
-    <!-- PWA: dua aplikasi terpisah dari satu situs —
+    <!-- PWA: tiga aplikasi terpisah dari satu situs —
          /guru  → "Kasceria" (kepala sekolah & TU)
+         /kelas → "Tumbuh Ceria" (guru kelas: tumbuh kembang anak), ikon hijau sendiri
          /ortu  → "Kasceria Wali Murid" (portal orang tua)
          Di iPhone, portal orang tua sengaja TANPA manifest: iPhone lalu memakai
          alamat yang sedang dibuka (lengkap dengan token wali) sebagai alamat
@@ -42,15 +52,22 @@
       (function () {
         var p = location.pathname
         var wali = p === '/ortu' || p.indexOf('/ortu/') === 0
+        var kelas = document.documentElement.classList.contains('tema-kelas')
         var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
         var judul = document.createElement('meta')
         judul.name = 'apple-mobile-web-app-title'
-        judul.content = wali ? 'Tagihan TK' : 'Kasceria'
+        judul.content = wali ? 'Tagihan TK' : kelas ? 'Tumbuh Ceria' : 'Kasceria'
         document.head.appendChild(judul)
+        if (kelas) {
+          document.title = 'Tumbuh Ceria — Catatan Tumbuh Kembang Anak'
+          document.querySelector('meta[name="description"]').setAttribute('content', 'Tumbuh Ceria: ceklis perkembangan, catatan anak, dan kabar kelas untuk guru TK.')
+          document.querySelector('link[rel="icon"]').setAttribute('href', '/favicon-kelas.svg')
+          document.querySelector('link[rel="apple-touch-icon"]').setAttribute('href', '/icons/kelas-apple-touch-icon.png')
+        }
         if (p.indexOf('/admin') === 0 || p.indexOf('/verifikasi') === 0 || (wali && ios)) return
         var m = document.createElement('link')
         m.rel = 'manifest'
-        m.href = wali ? '/manifest-wali.webmanifest' : '/manifest.webmanifest'
+        m.href = wali ? '/manifest-wali.webmanifest' : kelas ? '/manifest-kelas.webmanifest' : '/manifest.webmanifest'
         document.head.appendChild(m)
       })()
     </script>

@@ -76,7 +76,7 @@ function sheetRekap(wb, { tagihan, siswa, pengaturan, kini }) {
   baposHeader(ws, r, ['Bulan', 'Target', 'Terkumpul', 'Tunggakan', 'Siswa Belum Lunas'])
   r += 1
   for (let i = 0; i <= kini; i++) {
-    const baris = tagihan.filter((t) => t.jenis === 'spp' && t.indeks === i)
+    const baris = tagihan.filter((t) => t.jenis === 'spp' && !t.ta && t.indeks === i) // tahun ini saja (tahun lalu di bawah)
     const target = baris.reduce((t, x) => t + x.target, 0)
     const terkumpul = baris.reduce((t, x) => t + x.dibayar, 0)
     const tunggakan = baris.reduce((t, x) => t + x.sisa, 0)
@@ -96,6 +96,19 @@ function sheetRekap(wb, { tagihan, siswa, pengaturan, kini }) {
     ws.getRow(r).eachCell((c) => { c.border = { bottom: { style: 'hair', color: { argb: WARNA.abuSoft } } } })
     r += 1
   }
+  // tunggakan SPP tahun ajaran lalu: satu baris per tahun ajaran
+  ;[...new Set(tagihan.filter((t) => t.jenis === 'spp' && t.ta).map((t) => t.ta))].sort().forEach((ta) => {
+    const baris = tagihan.filter((t) => t.jenis === 'spp' && t.ta === ta)
+    ws.getCell(r, 1).value = `Tunggakan ${ta}`
+    ws.getCell(r, 1).font = { bold: true, color: { argb: WARNA.danger } }
+    ws.getCell(r, 2).value = baris.reduce((t, x) => t + x.target, 0); ws.getCell(r, 2).numFmt = '"Rp "#,##0'
+    ws.getCell(r, 3).value = baris.reduce((t, x) => t + x.dibayar, 0); ws.getCell(r, 3).numFmt = '"Rp "#,##0'
+    ws.getCell(r, 4).value = baris.reduce((t, x) => t + x.sisa, 0); ws.getCell(r, 4).numFmt = '"Rp "#,##0'
+    ws.getCell(r, 4).font = { bold: true, color: { argb: WARNA.danger } }
+    ws.getCell(r, 5).value = new Set(baris.map((x) => x.siswaId)).size
+    ws.getCell(r, 5).alignment = { horizontal: 'center' }
+    r += 1
+  })
   // baris total SPP
   const spTotalTarget = tagihan.filter((t) => t.jenis === 'spp').reduce((t, x) => t + x.target, 0)
   const spTotalMasuk = tagihan.filter((t) => t.jenis === 'spp').reduce((t, x) => t + x.dibayar, 0)

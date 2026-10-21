@@ -323,7 +323,8 @@ export default function RincianKepsek({ buka, d, tutup, ganti }) {
       .filter((x) => x.jml > 0)
       .sort((a, b) => b.jml - a.jml)
     const per = { spp: 0, kegiatan: 0, paket: 0 }
-    baris.forEach((x) => x.it.forEach((i) => { per[i.jenis] += i.kurang }))
+    let lalu = 0
+    baris.forEach((x) => x.it.forEach((i) => { per[i.jenis] += i.kurang; if (i.ta) lalu += i.kurang }))
     const total = baris.reduce((t, x) => t + x.jml, 0)
     return (
       <div>
@@ -341,6 +342,7 @@ export default function RincianKepsek({ buka, d, tutup, ganti }) {
         )}
         <p className="mt-3 rounded-[16px] bg-brand-soft px-3.5 py-3 text-[14px] font-semibold leading-relaxed text-brand dark:text-ink">
           SPP {BULAN[kini]} belum dihitung tunggakan karena bulannya belum lewat. Kegiatan dihitung nunggak setelah tanggal kegiatannya lewat.
+          {lalu > 0 && <> Sudah termasuk tunggakan tahun ajaran lalu {rp(lalu)}.</>} Siswa yang sudah lulus / keluar tidak dihitung di sini — lihat Tagihan › Sudah lulus / keluar.
         </p>
         <Judul>{baris.length ? `Semua · ${baris.length} anak` : 'Tidak ada tunggakan'}</Judul>
         {baris.slice(0, 40).map((x) => (

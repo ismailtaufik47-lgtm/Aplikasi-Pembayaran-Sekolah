@@ -1,6 +1,7 @@
 /** Komponen tampilan yang dipakai bersama panel guru dan portal orang tua. */
 import { useEffect, useRef } from 'react'
 import { useTema } from '../lib/tema.js'
+import { useMerek } from '../lib/merek.js'
 import { LogoKasceria, TulisanKasceria } from './Kasceria.jsx'
 import { Awan, BintangWajah, BukuPensil, Bukit, BukitLebar, Bulan, Bintang, GedungTK, Pelangi } from './IlustrasiMasuk.jsx'
 import { AnakUtuhLaki, AnakUtuhPerempuan, KoinMaskot, KoinSaku, PapanGrafik, TumpukanKoin } from './Gambar.jsx'
@@ -120,6 +121,7 @@ const JALUR_MENU = {
   gerigi: <><circle cx="12" cy="12" r="3" /><path d="M12 2.8v2.4M12 18.8v2.4M4.2 7.5l2 1.2M17.8 15.3l2 1.2M4.2 16.5l2-1.2M17.8 8.7l2-1.2" /><circle cx="12" cy="12" r="6.6" /></>,
   folder: <><path d="M3.5 7a2 2 0 0 1 2-2h4l2 2.5h7a2 2 0 0 1 2 2V18a2 2 0 0 1-2 2h-13a2 2 0 0 1-2-2z" /></>,
   orangPerisai: <><circle cx="9.5" cy="8" r="3.3" /><path d="M3.5 19.5c.9-3.4 3.3-5 6-5 1.2 0 2.3.3 3.2.8" /><path d="M17.5 12.5l3.5 1.4v2.6c0 2.3-1.5 3.9-3.5 4.5-2-.6-3.5-2.2-3.5-4.5v-2.6z" /></>,
+  tunas: <><path d="M12 21v-9" /><path d="M12 12c0-4 2.5-6.5 7-6.5 0 4.2-2.6 6.5-7 6.5z" /><path d="M12 14.5c0-3.2-2-5.3-5.8-5.3 0 3.4 2.2 5.3 5.8 5.3z" /><path d="M7.5 21h9" /></>,
   meter: <><path d="M3.5 17a8.5 8.5 0 0 1 17 0" /><path d="M12 17l4-5.5" /><circle cx="12" cy="17" r="1.6" /><path d="M6.2 11.2l1.2 1M12 8.5v1.5M17.8 11.2l-1.2 1" /></>,
 }
 
@@ -144,6 +146,7 @@ export const EMOJI_MENU = {
   ai: { ikon: 'robot', warna: 'biru', e: '🤖' },
   kas: { ikon: 'dompet', warna: 'kuning', e: '💰' },
   pengaturan: { ikon: 'gerigi', warna: 'abu', e: '⚙️' },
+  tumbuh: { ikon: 'tunas', warna: 'tosca', e: '🌱' },
 }
 
 const FONT_EMOJI = { fontFamily: '"Apple Color Emoji","Segoe UI Emoji","Noto Color Emoji",sans-serif', lineHeight: 1 }
@@ -441,19 +444,22 @@ export const Track = ({ persen, warna = '#22C55E', tinggi = 6 }) => (
 )
 
 /** Layar penuh untuk keadaan memuat / gagal, dengan tombol coba lagi. */
-export const Muat = ({ children, aksi }) => (
+export const Muat = ({ children, aksi, label = 'Coba lagi' }) => {
+  const Logo = useMerek()?.logo || LogoKasceria // aplikasi guru kelas: logo Tumbuh Ceria
+  return (
   <div className="langit-masuk grid min-h-dvh place-items-center px-8 text-center">
     <div>
-      <LogoKasceria size={64} className={`mx-auto mb-3.5 ${aksi ? '' : 'animate-pulse'}`} />
+      <Logo size={64} className={`mx-auto mb-3.5 ${aksi ? '' : 'animate-pulse'}`} />
       <p className="text-sm font-semibold text-[#34405C] dark:text-[#B8C3DC]">{children}</p>
       {aksi && (
         <button className="tombol-putih mt-4 rounded-2xl px-5 py-2.5 text-[13px] font-extrabold" onClick={aksi}>
-          Coba lagi
+          {label}
         </button>
       )}
     </div>
   </div>
-)
+  )
+}
 
 export const Kosong = ({ children }) => (
   <div className="px-5 py-8 text-center text-[13.5px] text-muted">{children}</div>

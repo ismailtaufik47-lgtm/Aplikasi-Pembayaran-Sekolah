@@ -21,7 +21,7 @@ const persen = (a, b) => (b > 0 ? Math.round((a / b) * 100) : 0)
 const tglPanjang = (iso) => new Date(iso + 'T00:00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
 
 export default function LaporanTahunan() {
-  const { siswa, biaya, biayaLain, paket, pembayaran, pengaturan, toast, boleh } = useData()
+  const { siswaTahunIni: siswa, biaya, biayaLain, paket, pembayaran, pengaturan, toast, boleh } = useData()
   const nav = useNavigate()
   const demo = useRef({})
   demo.current = { siswa, biaya, biayaLain, paket, pembayaran, pengaturan } // hanya untuk mode demo
@@ -36,14 +36,14 @@ export default function LaporanTahunan() {
     let aktif = true
     api.daftarTahunAjaran(demo.current).then((d) => aktif && setDaftar(d)).catch((e) => aktif && setGalat(e.message))
     return () => { aktif = false }
-  }, [])
+  }, [pembayaran]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     let aktif = true
     setLap(null)
     setGalat('')
     api.laporanTahunan(ta, demo.current).then((d) => aktif && setLap(d)).catch((e) => aktif && setGalat(e.message))
     return () => { aktif = false }
-  }, [ta])
+  }, [ta, pembayaran]) // eslint-disable-line react-hooks/exhaustive-deps -- pembayaran: muat ulang sesudah transaksi dicatat / dibatalkan
 
   const sebelumnya = useMemo(() => (daftar || []).find((x) => x.kode < ta) || null, [daftar, ta])
   const banding = useMemo(() => [...(daftar || [])].reverse().slice(-5), [daftar])
@@ -120,7 +120,7 @@ function Isi({ lap, sebelumnya, banding, nav, boleh }) {
           kaki={[lap.siswa.masukTengah && `${lap.siswa.masukTengah} masuk tengah tahun`, lap.siswa.keluar && `${lap.siswa.keluar} keluar/pindah`].filter(Boolean).join(' · ') || `${lap.siswa.perKelas.length} kelas`} />
         <KartuKpi warna="green" e="📅" label="SPP terkumpul" nilai={rp(s.masuk)}
           tren={{ teks: `${sppPersen}% dari target setahun`, arah: 'datar', baik: sppPersen >= 100 ? true : null }}
-          kaki={`Target ${rp(s.target)}`} />
+          kaki={`Target ${rp(s.target)}${s.kelebihan > 0 ? ` · kelebihan bayar ${rp(s.kelebihan)}` : ''}`} />
         <KartuKpi warna={tunggak ? 'red' : 'green'} e="⏰" label={lap.berjalan ? 'Tunggakan tahun ini' : 'Sisa tunggakan'} nilai={rp(tunggak)}
           tren={{ teks: tunggak ? `${lap.tunggakan.siswa} siswa belum lunas` : 'Semua lunas', arah: 'datar', baik: tunggak ? false : true }}
           kaki={`SPP ${rp(lap.tunggakan.spp)} · kegiatan ${rp(lap.tunggakan.kegiatan)}`} />

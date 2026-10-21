@@ -336,7 +336,10 @@ export async function siapkanNota(file) {
  *     nominal, siswa, target, masuk, lunas, sebagian, belum, belumBayar: [{ nama, kelas, kurang }],
  *     terpakai, sisa, perKategori: [{ kategori, nominal }], rincian: [baris kas], nota: [path unik] }
  */
-export function rekapKegiatan({ biaya = [], paket = [], siswa = [], pengeluaran = [], emojiKegiatan, emojiPaket = {} }) {
+export function rekapKegiatan({ biaya = [], paket = [], siswa = [], pengeluaran = [], pembayaran = null, emojiKegiatan, emojiPaket = {} }) {
+  // uang masuk = SEMUA pembayaran untuk kegiatan/paket itu (termasuk dari siswa yang sudah keluar / lulus) —
+  // sama dengan buku kas & Laporan › Tahunan (v32). Tanpa `pembayaran` → dijumlah dari daftar siswa seperti dulu.
+  const masukBayar = (pred) => (pembayaran ? pembayaran.filter(pred).reduce((t, p) => t + Number(p.nominal), 0) : null)
   const keluar = new Map()
   pengeluaran.forEach((k) => {
     const kunci = k.biayaId ? 'b:' + k.biayaId : k.paketId ? 'p:' + k.paketId : null
@@ -344,7 +347,7 @@ export function rekapKegiatan({ biaya = [], paket = [], siswa = [], pengeluaran 
     if (!keluar.has(kunci)) keluar.set(kunci, [])
     keluar.get(kunci).push(k)
   })
-  const isi = (dasar, daftarSiswa, dibayar) => {
+  const isi = (dasar, daftarSiswa, dibayar, masukLangsung = null) => {
     let masuk = 0, lunas = 0, sebagian = 0, belum = 0
     const belumBayar = []
     daftarSiswa.forEach((s) => {
@@ -363,9 +366,9 @@ export function rekapKegiatan({ biaya = [], paket = [], siswa = [], pengeluaran 
     rincian.forEach((k) => per.set(k.kategori, (per.get(k.kategori) || 0) + Number(k.nominal)))
     const nota = [...new Set(rincian.flatMap((k) => k.notaFile || []))]
     return {
-      ...dasar, siswa: daftarSiswa.length, target: dasar.nominal * daftarSiswa.length, masuk, lunas, sebagian, belum,
+      ...dasar, siswa: daftarSiswa.length, target: dasar.nominal * daftarSiswa.length, masuk: masukLangsung ?? masuk, lunas, sebagian, belum,
       belumBayar: belumBayar.sort((a, b) => a.kelas.localeCompare(b.kelas) || a.nama.localeCompare(b.nama)),
-      terpakai, sisa: masuk - terpakai,
+      terpakai, sisa: (masukLangsung ?? masuk) - terpakai,
       perKategori: [...per.entries()].map(([kategori, nominal]) => ({ kategori, nominal })).sort((a, b) => b.nominal - a.nominal),
       rincian, nota, notaLama: rincian.filter((k) => k.notaLama).length,
     }
@@ -375,11 +378,13 @@ export function rekapKegiatan({ biaya = [], paket = [], siswa = [], pengeluaran 
       nominal: Number(b.nominal) || 0, tanggal: b.tanggal || null, urut: i },
     // hanya siswa yang ditagih kegiatan ini (0042: masuk / keluar di tengah tahun tidak ikut)
     siswa.filter((s) => !s.kegiatanWajib || s.kegiatanWajib[i] !== false || (Number(s.kegiatan?.[i]) || 0) > 0), (s) => Number(s.kegiatan?.[i]) || 0,
+    masukBayar((x) => x.jenis === 'kegiatan' && x.biayaId === b.id),
   ))
   const dariPaket = paket.map((p, i) => isi(
     { kunci: 'p:' + p.id, id: p.id, jenis: p.jenis, nama: p.nama, emoji: emojiPaket[p.jenis] || null, paket: p,
       nominal: Number(p.total) || 0, tanggal: null, urut: 1000 + i },
     siswa.filter((s) => p.siswaIds.includes(s.id)), (s) => Number(s.paket?.[p.id]) || 0,
+    masukBayar((x) => x.jenis === 'paket' && x.paketId === p.id),
   ))
   return [...dariBiaya, ...dariPaket]
 }

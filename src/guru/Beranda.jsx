@@ -32,6 +32,7 @@ import {
   BULAN, bulanBerjalan, labelTunggakan, perluDitagihSekarang, rp, sppPerluSekarang, tanggalISO, tanggalJatuhTempoDi, targetSpp } from '../lib/format.js'
 import { NAMA_BULAN, geserBulan, hariLalu, kunciBulan } from '../lib/kas.js'
 import { LABEL_JENIS, paketTerlambat } from '../lib/paket.js'
+import { statusSiswa } from '../lib/statusSiswa.js'
 
 const HARI = ['Minggu', 'Senin', 'Selasa', 'Rabu', 'Kamis', "Jum'at", 'Sabtu']
 
@@ -96,7 +97,7 @@ function susunLebar(kartu, kolom, kunci) {
 }
 
 export default function Beranda({ onCatat, onTambahSiswa }) {
-  const { pengaturan, siswa, paket, pembayaran, petugas, segarkan, toast, boleh } = useData()
+  const { pengaturan, siswa, siswaTahunIni, biaya, paket, pembayaran, petugas, segarkan, toast, boleh } = useData()
   const nav = useNavigate()
   const kini = bulanBerjalan()
 
@@ -162,6 +163,7 @@ export default function Beranda({ onCatat, onTambahSiswa }) {
   }, [arus, kas.info])
 
   // ---------- data pembayaran (dari store) ----------
+  const ditagihBulanIni = siswa.filter((s) => targetSpp(s, kini, pengaturan.sppNominal) > 0).length
   const lunasBulanIni = siswa.filter((s) => targetSpp(s, kini, pengaturan.sppNominal) > 0 && (s.spp[kini] || 0) >= targetSpp(s, kini, pengaturan.sppNominal)).length
   const sekarang = new Date()
   const masukBayar = pembayaran
@@ -171,7 +173,7 @@ export default function Beranda({ onCatat, onTambahSiswa }) {
     })
     .reduce((t, p) => t + p.nominal, 0)
   const jt = jatuhTempoBerikut(pengaturan.tanggalJatuhTempo)
-  const segeraJt = jt.sisaHari <= 7 ? siswa.filter((s) => (s.spp[jt.indeks] || 0) < targetSpp(s, jt.indeks, pengaturan.sppNominal)).length : 0
+  const segeraJt = jt.sisaHari <= 7 && !(jt.indeks === 0 && kini === 11) ? siswa.filter((s) => (s.spp[jt.indeks] || 0) < targetSpp(s, jt.indeks, pengaturan.sppNominal)).length : 0
   const tglJt = `${jt.tanggal} ${BULAN[jt.indeks].slice(0, 3)}`
   const teksJt = jt.sisaHari === 0
     ? `Jatuh tempo SPP hari ini, ${tglJt}`
@@ -188,12 +190,19 @@ export default function Beranda({ onCatat, onTambahSiswa }) {
           s,
           nominal: sppPerluSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini) + telat.reduce((t, x) => t + x.kurang, 0),
           label: labelTunggakan(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)
-            || { teks: `${LABEL_JENIS[telat[0].p.jenis]} terlambat`, warna: 'red' },
+            || { teks: `${telat[0].p.jenis === 'du' ? 'DU' : LABEL_JENIS[telat[0].p.jenis]} terlambat`, warna: 'red' }, // pendek: muat di kolom sempit
         }))
         .sort((a, b) => b.nominal - a.nominal),
     [siswa, paket, pengaturan, kini],
   )
-  const nilaiTunggakan = menunggak.reduce((t, m) => t + m.nominal, 0)
+  // angka "Tunggakan" = aturan yang sama dengan menu Tagihan, Siswa & dasbor kepala sekolah (lewat jatuh tempo:
+  // SPP bulan lalu, kegiatan yang tanggalnya lewat, cicilan PMB/DU terlambat, tunggakan tahun lalu) — v32
+  const tunggakanResmi = useMemo(() => {
+    const ctx = { biaya, paket, sppNominal: pengaturan.sppNominal, kini }
+    const per = siswa.map((s) => statusSiswa(s, ctx).tunggakan)
+    return { nilai: per.reduce((t, x) => t + x, 0), anak: per.filter((x) => x > 0).length }
+  }, [siswa, biaya, paket, pengaturan, kini])
+  const nilaiTunggakan = tunggakanResmi.nilai
   const jumlahKelas = new Set(siswa.map((s) => s.kelas).filter(Boolean)).size
 
   // ---------- transaksi terbaru: pembayaran siswa + buku kas ----------
@@ -331,8 +340,8 @@ export default function Beranda({ onCatat, onTambahSiswa }) {
       ]
     : [
         <KartuAngka key="siswa" warna="blue" ikon={<Garis.siswa size={21} />} label="Total siswa" nilai={siswa.length} kaki={`Siswa aktif${jumlahKelas ? ` · ${jumlahKelas} kelas` : ''}`} />,
-        <KartuAngka key="bayar" warna="green" ikon={<Garis.masuk size={21} />} label="Pembayaran bulan ini" nilai={rp(masukBayar)} kaki={`${lunasBulanIni} dari ${siswa.length} siswa lunas SPP ${BULAN[kini]}`} />,
-        <KartuAngka key="tunggak" warna="amber" ikon={<Garis.jam size={21} />} label={paket.length ? 'Tunggakan' : 'Tunggakan SPP'} nilai={rp(nilaiTunggakan)} kaki={`${menunggak.length} siswa perlu ditagih`} />,
+        <KartuAngka key="bayar" warna="green" ikon={<Garis.masuk size={21} />} label="Pembayaran bulan ini" nilai={rp(masukBayar)} kaki={`${lunasBulanIni} dari ${ditagihBulanIni} siswa lunas SPP ${BULAN[kini]}`} />,
+        <KartuAngka key="tunggak" warna="amber" ikon={<Garis.jam size={21} />} label="Tunggakan" nilai={rp(nilaiTunggakan)} kaki={`${tunggakanResmi.anak} siswa menunggak`} />,
         <KartuAngka key="jt" warna="grape" ikon={<Garis.kalender size={21} />} label="Jatuh tempo ≤ 7 hari" nilai={`${segeraJt} siswa`} kaki={kakiJt} />,
       ]
 
@@ -346,7 +355,7 @@ export default function Beranda({ onCatat, onTambahSiswa }) {
     isi: (
       <PerluDitagih
         daftar={menunggak}
-        total={nilaiTunggakan}
+        total={menunggak.reduce((t, m) => t + m.nominal, 0)}
         onBuka={lihatSiswa ? (id) => nav(`/guru/siswa/${id}`) : undefined}
         onSemua={halamanTagihan ? () => nav('/guru/tagihan') : lihatSiswa ? () => nav('/guru/siswa') : undefined}
       />
@@ -396,7 +405,7 @@ export default function Beranda({ onCatat, onTambahSiswa }) {
     : [
         bolehBayar && {
           k: 'grafik', lg: 2, xl: 2, judulHp: 'Ringkasan pembayaran',
-          isi: <GrafikPembayaran pembayaran={pembayaran} siswa={siswa} pengaturan={pengaturan} />,
+          isi: <GrafikPembayaran siswa={siswaTahunIni} pengaturan={pengaturan} />,
         },
         kartuStatus,
         kartuTagih,

@@ -26,20 +26,24 @@ import {
   tanggalISO,
   tanggalPanjang,
   totalDibayar,
+  bulanTertunggak, tunggakanLalu,
   kegiatanWajib, targetSpp, targetSppTahun, totalKegiatanSiswa } from './format.js'
+import { namaLaporan, pemasukanPerJenis, ringkasTahunIni, siswaBertagihan, teksTarif } from './rekapPembayaran.js'
 import { WARNA, isiSel, FONT_HEADER, FONT_JUDUL, gayaStatus, LABEL_STATUS, judulLembar, baposHeader } from './exportHelpers.js'
 
-export async function unduhExcel({ siswa, biaya, pembayaran, pengaturan }) {
+export async function unduhExcel({ siswa, biaya, paket = [], pembayaran, pengaturan, cariSiswa = null }) {
   const kini = bulanBerjalan()
   const wb = new ExcelJS.Workbook()
   wb.creator = pengaturan.namaSekolah
   wb.created = new Date()
 
-  sheetRingkasan(wb, { siswa, biaya, pembayaran, pengaturan, kini })
-  sheetSpp(wb, { siswa, pembayaran, pengaturan, kini })
-  sheetKegiatan(wb, { siswa, biaya })
-  sheetPrioritas(wb, { siswa, biaya, pengaturan, kini })
-  sheetRiwayat(wb, { pembayaran, siswa })
+  sheetRingkasan(wb, { siswa, biaya, paket, pembayaran, pengaturan, kini })
+  // baris per siswa: hanya yang punya tagihan (pendaftar tahun depan tidak ikut)
+  const ikut = siswaBertagihan(siswa, pengaturan.sppNominal)
+  sheetSpp(wb, { siswa: ikut, pembayaran, pengaturan, kini })
+  sheetKegiatan(wb, { siswa: ikut, biaya })
+  sheetPrioritas(wb, { siswa: ikut, biaya, pengaturan, kini })
+  sheetRiwayat(wb, { pembayaran, cari: cariSiswa || ((id) => siswa.find((x) => x.id === id)) })
 
   const buf = await wb.xlsx.writeBuffer()
   const nama = `Laporan-${pengaturan.namaSekolah.replace(/[^a-z0-9]+/gi, '-')}-${tanggalISO()}.xlsx`
@@ -50,7 +54,7 @@ export async function unduhExcel({ siswa, biaya, pembayaran, pengaturan }) {
 
 /* ---------------- Sheet 1: Ringkasan ---------------- */
 
-function sheetRingkasan(wb, { siswa, biaya, pembayaran, pengaturan, kini }) {
+function sheetRingkasan(wb, { siswa, biaya, paket, pembayaran, pengaturan, kini }) {
   const ws = wb.addWorksheet('Ringkasan', { views: [{ showGridLines: false }] })
   ws.pageSetup = { fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0, footer: 0 } }
   ws.columns = [{ width: 22 }, { width: 20 }, { width: 20 }, { width: 22 }, { width: 20 }]
@@ -58,7 +62,10 @@ function sheetRingkasan(wb, { siswa, biaya, pembayaran, pengaturan, kini }) {
   judulLembar(ws, 5, `Laporan Pembayaran SPP & Kegiatan — ${pengaturan.namaSekolah}`, `Tahun ajaran ${pengaturan.tahunAjaran} · Dicetak ${tanggalPanjang()}`)
 
   const masuk = pembayaran.reduce((t, p) => t + p.nominal, 0)
-  const tunggakanSpp = siswa.reduce((t, s) => t + sppPerluSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini), 0)
+  // sama dengan layar Laporan › Pembayaran (lib/rekapPembayaran.js)
+  const ring = ringkasTahunIni({ siswa, pembayaran, sppNominal: pengaturan.sppNominal, kini })
+  const tunggakanSpp = ring.tunggakanSpp
+  const ikut = siswaBertagihan(siswa, pengaturan.sppNominal)
   const kurangKegiatan = siswa.reduce((t, s) => t + kegiatanBelum(s, biaya), 0)
   const menunggak = siswa.filter((s) => perluDitagihSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)).length
   const targetTahun = siswa.reduce((t, s) => t + targetSppTahun(s, pengaturan.sppNominal) + totalKegiatanSiswa(s, biaya), 0)
@@ -71,10 +78,10 @@ function sheetRingkasan(wb, { siswa, biaya, pembayaran, pengaturan, kini }) {
   // termasuk kegiatan. Sekarang jelas: SPP itu kewajiban bulanan,
   // kegiatan itu sekali bayar per item.
   const kartu = [
-    ['Total Siswa', String(siswa.length), WARNA.brandSoft, WARNA.brandDeep],
+    ['Siswa ditagih tahun ini', String(siswa.filter((s) => s.terdaftar).length), WARNA.brandSoft, WARNA.brandDeep],
     ['Total Pemasukan', rp(masuk), WARNA.okSoft, WARNA.ok],
-    ['Tunggakan SPP', rp(tunggakanSpp), WARNA.warnSoft, WARNA.warn],
-    ['Kurang Bayar Kegiatan', rp(kurangKegiatan), WARNA.warnSoft, WARNA.warn],
+    ['Tunggakan SPP tahun ini', rp(tunggakanSpp), WARNA.warnSoft, WARNA.warn],
+    ['Kegiatan belum lunas', rp(kurangKegiatan), WARNA.warnSoft, WARNA.warn],
     ['Tingkat Pembayaran', `${tingkat}%`, WARNA.brandSoft, WARNA.brandDeep],
   ]
   const baseRow = 4
@@ -104,10 +111,10 @@ function sheetRingkasan(wb, { siswa, biaya, pembayaran, pengaturan, kini }) {
   baposHeader(ws, r, ['Status', 'Jumlah Siswa', 'Persentase', ''])
   r += 1
   const hitung = { lunas: 0, sebagian: 0, belum: 0 }
-  siswa.forEach((s) => hitung[statusRingkasSiswa(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)]++)
+  ikut.forEach((s) => hitung[statusRingkasSiswa(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)]++)
   ;[['lunas', 'Lunas'], ['sebagian', 'Mencicil'], ['belum', 'Menunggak']].forEach(([key, label]) => {
     const n = hitung[key]
-    const persen = siswa.length ? Math.round((n / siswa.length) * 1000) / 10 : 0
+    const persen = ikut.length ? Math.round((n / ikut.length) * 1000) / 10 : 0
     const gaya = gayaStatus(key)
     ws.getCell(r, 1).value = label
     ws.getCell(r, 2).value = n
@@ -125,8 +132,8 @@ function sheetRingkasan(wb, { siswa, biaya, pembayaran, pengaturan, kini }) {
   r += 1
   baposHeader(ws, r, ['Jenis Biaya', 'Total Terkumpul', '', ''])
   r += 1
-  const totalSpp = siswa.reduce((t, s) => t + s.spp.reduce((x, v) => x + (v || 0), 0), 0)
-  const barisBiaya = [['Iuran SPP', totalSpp], ...biaya.map((b, i) => [b.nama, siswa.reduce((t, s) => t + (s.kegiatan[i] || 0), 0)])]
+  // uang yang masuk tahun ajaran ini per jenis (sama dengan layar)
+  const barisBiaya = pemasukanPerJenis(pembayaran, biaya, paket).map((x) => [x.nama, x.nilai])
   barisBiaya.forEach(([nama, nilai]) => {
     ws.mergeCells(r, 1, r, 2)
     ws.getCell(r, 1).value = nama
@@ -137,7 +144,7 @@ function sheetRingkasan(wb, { siswa, biaya, pembayaran, pengaturan, kini }) {
   })
 
   ws.getCell(r + 1, 1).value = 'Menunggak sekarang:'
-  ws.getCell(r + 1, 2).value = `${menunggak} siswa`
+  ws.getCell(r + 1, 2).value = `${menunggak} siswa${ring.tunggakanLalu > 0 ? ` · tunggakan SPP tahun lalu ${rp(ring.tunggakanLalu)}` : ''}`
   ws.getCell(r + 1, 1).font = { italic: true, color: { argb: WARNA.abu }, size: 10 }
   ws.getCell(r + 1, 2).font = { italic: true, color: { argb: WARNA.abu }, size: 10 }
 }
@@ -164,16 +171,16 @@ function sheetSpp(wb, { siswa, pembayaran, pengaturan, kini }) {
     { width: 15 }, { width: 15 }, { width: 17 },
   ]
 
-  judulLembar(ws, colStatus, `SPP per Siswa — ${pengaturan.namaSekolah}`, `Tahun ajaran ${pengaturan.tahunAjaran} · Rp ${pengaturan.sppNominal.toLocaleString('id-ID')}/bulan · Posisi ${tanggalPanjang()}`)
+  judulLembar(ws, colStatus, `SPP per Siswa — ${pengaturan.namaSekolah}`, `Tahun ajaran ${pengaturan.tahunAjaran} · ${teksTarif(pengaturan)} · Posisi ${tanggalPanjang()}`)
 
   // header (baris 3) — nama bulan + tahun kalendernya di baris kecil
-  const header = ['No', 'Nama Siswa', 'Kelas', 'NIS', ...BULAN.map((b, i) => `${b} ${tahunBulan(i)}`), 'Total Dibayar', 'Kurang Bayar', 'Status']
+  const header = ['No', 'Nama Siswa', 'Kelas', 'NIS', ...BULAN.map((b, i) => `${b} ${tahunBulan(i)}`), 'Total Dibayar', 'Perlu Dibayar', 'Status']
   baposHeader(ws, 3, header)
 
   siswa.forEach((s, idx) => {
     const r = 4 + idx
     ws.getCell(r, 1).value = idx + 1
-    ws.getCell(r, 2).value = s.nama
+    ws.getCell(r, 2).value = namaLaporan(s)
     ws.getCell(r, 3).value = s.kelas
     ws.getCell(r, 4).value = s.nis
 
@@ -195,9 +202,9 @@ function sheetSpp(wb, { siswa, pembayaran, pengaturan, kini }) {
     ws.getCell(r, colTotal).font = { bold: true }
     ws.getCell(r, colTotal).alignment = { horizontal: 'right' }
 
-    // Kurang Bayar = tunggakan SPP yang perlu ditagih sekarang (bulan lalu
-    // yang belum lunas + bulan ini kalau sudah lewat jatuh tempo). TIDAK
-    // termasuk bulan mendatang yang belum jatuh tempo.
+    // Perlu Dibayar = SPP yang perlu ditagih sekarang (tunggakan tahun lalu +
+    // bulan lalu yang belum lunas + bulan ini kalau sudah lewat jatuh tempo).
+    // TIDAK termasuk bulan mendatang yang belum jatuh tempo.
     const kurang = sppPerluSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)
     ws.getCell(r, colKurang).value = kurang
     ws.getCell(r, colKurang).numFmt = '"Rp "#,##0'
@@ -226,7 +233,7 @@ function sheetSpp(wb, { siswa, pembayaran, pengaturan, kini }) {
   ws.getRow(rTotal).eachCell({ includeEmpty: true }, (c) => { c.fill = isiSel('FFE9ECF2') })
   BULAN.forEach((_, i) => {
     const c = ws.getCell(rTotal, 5 + i)
-    c.value = siswa.reduce((t, s) => t + dibayarSpp(s, i), 0) || null
+    c.value = siswa.reduce((t, s) => t + (targetSpp(s, i, pengaturan.sppNominal) > 0 ? dibayarSpp(s, i) : 0), 0) || null
     c.numFmt = '"Rp "#,##0'
     c.font = { bold: true, size: 9 }
     c.alignment = { horizontal: 'right' }
@@ -260,7 +267,7 @@ function sheetSpp(wb, { siswa, pembayaran, pengaturan, kini }) {
  */
 function statusSppSiswa(s, sppNominal, tanggalJatuhTempo, kini) {
   if (!perluDitagihSekarang(s, sppNominal, tanggalJatuhTempo, kini)) return 'lunas'
-  if (siswa_bulanTertunggak(s, sppNominal, kini) > 0) return 'nunggak'
+  if (bulanTertunggak(s, sppNominal, kini) > 0) return 'nunggak' // termasuk tunggakan tahun lalu
   for (let i = 0; i <= kini; i++) {
     const bayar = s.spp[i] || 0
     if (bayar > 0 && bayar < targetSpp(s, i, sppNominal)) return 'sebagian'
@@ -268,11 +275,6 @@ function statusSppSiswa(s, sppNominal, tanggalJatuhTempo, kini) {
   return 'belum-bayar'
 }
 
-function siswa_bulanTertunggak(s, sppNominal, kini) {
-  let n = 0
-  for (let i = 0; i < kini; i++) if ((s.spp[i] || 0) < targetSpp(s, i, sppNominal)) n++
-  return n
-}
 
 /* ---------------- Sheet 3: Biaya Kegiatan per Siswa ---------------- */
 
@@ -302,7 +304,7 @@ function sheetKegiatan(wb, { siswa, biaya }) {
   siswa.forEach((s, idx) => {
     const r = 4 + idx
     ws.getCell(r, 1).value = idx + 1
-    ws.getCell(r, 2).value = s.nama
+    ws.getCell(r, 2).value = namaLaporan(s)
     ws.getCell(r, 3).value = s.kelas
     ws.getCell(r, 4).value = s.nis
     let jmlLunas = 0
@@ -365,12 +367,12 @@ function sheetPrioritas(wb, { siswa, biaya, pengaturan, kini }) {
   // SEDANG  = cuma bulan berjalan yang lewat jatuh tempo.
   const daftar = []
   siswa.forEach((s) => {
-    const nunggak = siswa_bulanTertunggak(s, pengaturan.sppNominal, kini)
+    const nunggak = bulanTertunggak(s, pengaturan.sppNominal, kini) // termasuk tahun lalu
     const kurangSpp = sppPerluSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)
     const perlu = perluDitagihSekarang(s, pengaturan.sppNominal, pengaturan.tanggalJatuhTempo, kini)
     if (!perlu) return
     // daftar bulan bermasalah (belum lunas s.d. bulan ini)
-    const bulanMasalah = []
+    const bulanMasalah = tunggakanLalu(s, pengaturan.sppNominal).map((x) => x.label.replace(/^SPP /, ''))
     for (let i = 0; i <= kini; i++) {
       if ((s.spp[i] || 0) < targetSpp(s, i, pengaturan.sppNominal)) {
         const st = statusSpp(s.spp[i] || 0, targetSpp(s, i, pengaturan.sppNominal), i, kini, pengaturan.tanggalJatuhTempo)
@@ -384,7 +386,7 @@ function sheetPrioritas(wb, { siswa, biaya, pengaturan, kini }) {
     const catatan = nunggak > 0
       ? (bulanMasalah.length > 1 ? 'Belum ada / kurang pembayaran SPP beberapa bulan' : `${bulanMasalah[0] || ''} belum lunas`)
       : `${bulanMasalah[0] || BULAN[kini]} belum lunas`
-    daftar.push({ prioritas, nama: s.nama, kelas: s.kelas, nis: s.nis, kurang: kurangSpp, rentang, catatan, urut: nunggak })
+    daftar.push({ prioritas, nama: namaLaporan(s), kelas: s.kelas, nis: s.nis, kurang: kurangSpp, rentang, catatan, urut: nunggak })
   })
   // urutkan: prioritas tinggi dulu, lalu nominal kurang terbesar
   daftar.sort((a, b) => (b.urut - a.urut) || (b.kurang - a.kurang))
@@ -431,7 +433,7 @@ function sheetPrioritas(wb, { siswa, biaya, pengaturan, kini }) {
 
 /* ---------------- Sheet 4: Riwayat Transaksi ---------------- */
 
-function sheetRiwayat(wb, { pembayaran, siswa }) {
+function sheetRiwayat(wb, { pembayaran, cari }) {
   const ws = wb.addWorksheet('Riwayat Transaksi', { views: [{ state: 'frozen', ySplit: 3, showGridLines: false }] })
   ws.pageSetup = { fitToPage: true, fitToWidth: 1, fitToHeight: 0, margins: { left: 0.3, right: 0.3, top: 0.4, bottom: 0.4, header: 0, footer: 0 } }
   ws.columns = [{ width: 20 }, { width: 24 }, { width: 9 }, { width: 11 }, { width: 26 }, { width: 15 }, { width: 12 }]
@@ -441,10 +443,10 @@ function sheetRiwayat(wb, { pembayaran, siswa }) {
   const urut = [...pembayaran].sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal))
   urut.forEach((p, idx) => {
     const r = 4 + idx
-    const s = siswa.find((x) => x.id === p.siswaId)
+    const s = cari(p.siswaId)
     ws.getCell(r, 1).value = new Date(p.tanggal)
     ws.getCell(r, 1).numFmt = 'dd/mm/yyyy hh:mm'
-    ws.getCell(r, 2).value = s?.nama || '(siswa dihapus)'
+    ws.getCell(r, 2).value = s ? namaLaporan(s) + (s.status === 'alumni' ? ' (alumni)' : '') : '(siswa dihapus)'
     ws.getCell(r, 3).value = s?.kelas || '-'
     ws.getCell(r, 4).value = p.jenis === 'spp' ? 'SPP' : p.jenis === 'paket' ? (String(p.ket).startsWith('Daftar ulang') ? 'Daftar ulang' : 'PMB') : 'Kegiatan'
     ws.getCell(r, 5).value = p.ket

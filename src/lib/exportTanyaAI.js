@@ -247,7 +247,7 @@ function lembarStatusSpp(wb, h, sekolah) {
   const LABEL = { lunas: 'Lunas', sebagian: 'Mencicil', nunggak: 'Nunggak', belum_bayar_lewat_jatuh_tempo: 'Belum bayar', belum_jatuh_tempo: 'Belum jatuh tempo' }
   const baris = []
   Object.entries(LABEL).forEach(([k, label]) => (h.kelompok?.[k]?.siswa || []).forEach((x) => baris.push([
-    x.nama, x.kelas, label, k === 'lunas' ? h.nominal_spp : x.dibayar || 0, x.kurang || 0,
+    x.nama, x.kelas, label, k === 'lunas' ? x.dibayar ?? h.nominal_spp : x.dibayar || 0, x.kurang || 0,
   ])))
   const r = tabel(ws, 4, kolom, baris.map((b, i) => [i + 1, ...b]))
   barisTotal(ws, r + 1, 'Terkumpul', h.terkumpul, 5)

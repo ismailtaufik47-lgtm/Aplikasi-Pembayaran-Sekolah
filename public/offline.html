@@ -35,12 +35,21 @@
   </head>
   <body>
     <main class="kartu">
-      <img src="/icons/icon-192.png" alt="" />
+      <img id="ikon" src="/icons/icon-192.png" alt="" />
       <h1>Sedang tidak ada internet</h1>
-      <p>Kasceria perlu internet untuk menampilkan data tagihan dan kas terbaru. Periksa sinyal atau Wi-Fi, lalu coba lagi.</p>
+      <p id="pesan">Kasceria perlu internet untuk menampilkan data tagihan dan kas terbaru. Periksa sinyal atau Wi-Fi, lalu coba lagi.</p>
       <button type="button" onclick="location.reload()">Coba lagi</button>
     </main>
     <script>
+      // aplikasi guru kelas (/kelas, guru.kasceria.pro): ikon & kalimat Tumbuh Ceria
+      var p = location.pathname
+      if (p === '/kelas' || p.indexOf('/kelas/') === 0 || /^guru\./.test(location.hostname)) {
+        document.title = 'Tumbuh Ceria — tidak ada internet'
+        document.getElementById('ikon').src = '/icons/kelas-192.png'
+        document.getElementById('pesan').textContent = 'Tumbuh Ceria perlu internet untuk menyimpan ceklis dan catatan anak. Periksa sinyal atau Wi-Fi, lalu coba lagi.'
+        document.querySelector('button').style.background = '#0C9473'
+        document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0C9473')
+      }
       window.addEventListener('online', function () { location.reload() })
     </script>
   </body>

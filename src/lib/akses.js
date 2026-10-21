@@ -16,6 +16,7 @@
 export const PERAN = {
   kepala: { label: 'Kepala sekolah', pendek: 'Kepala' },
   admin: { label: 'Admin/TU', pendek: 'Admin/TU' },
+  guru: { label: 'Guru kelas', pendek: 'Guru kelas' },
 }
 
 export const labelPeran = (p) => PERAN[p]?.label || 'Staf sekolah'
@@ -114,6 +115,7 @@ export function menuSekolah(boleh, peran) {
     { id: 'kode-aktivasi', label: 'Kode aktivasi', emoji: 'kode', ke: '/guru/kode-aktivasi', grup: 'atur', sub: 'Undang akun Admin/TU baru', ada: boleh('sekolah') },
     // Menonaktifkan akun Admin/TU — KHUSUS kepala sekolah (dicek juga di database, 0032).
     { id: 'akun-staf', label: 'Akun staf', emoji: 'akunstaf', ke: '/guru/akun-staf', grup: 'atur', sub: 'Aktifkan / nonaktifkan akun Admin/TU', ada: peran === 'kepala' },
+    { id: 'atur-penilaian', label: 'Penilaian anak', emoji: 'tumbuh', ke: '/guru/atur-penilaian', grup: 'atur', sub: 'Tumbuh kembang: aspek, skala, periode & guru kelas', ada: boleh('sekolah') || boleh('siswa') },
     { id: 'atur-indikator', label: 'Indikator keuangan', emoji: 'indikator', ke: '/guru/atur-indikator', grup: 'atur', sub: 'Atur cara menilai kesehatan keuangan sekolah', ada: boleh('sekolah') && (boleh('kas', 'lihat') || boleh('lap_keuangan', 'lihat')) },
     { id: 'profil-sekolah', label: 'Profil sekolah', emoji: 'sekolah', ke: '/guru/profil-sekolah', grup: 'atur', sub: 'Identitas, logo & rekening sekolah', ada: boleh('sekolah') },
     { id: 'langganan', label: 'Langganan', emoji: 'langganan', ke: '/guru/langganan', grup: 'atur', sub: 'Masa aktif aplikasi & perpanjangan', ada: boleh('sekolah') },

@@ -57,7 +57,7 @@ export default function SheetPeriode({ buka, tutup, siswaId, jenis, indeks, ta =
   const target = jenis === 'spp' ? targetSpp(s, indeks, pengaturan.sppNominal, lalu ? ta : undefined) : pk ? pk.total : kl ? kl.nominal : biaya[indeks]?.nominal || 0
   const dibayar = jenis === 'spp' ? dibayarSpp(s, indeks, lalu ? ta : null) : pk ? dibayarPaket(s, pk.id) : kl ? kl.dibayar : dibayarKegiatan(s, indeks)
   // bulan sebelum masuk / sesudah keluar, atau kegiatan yang tidak ditagihkan ke siswa ini (0042)
-  const bebas = !(target > 0) && !pk && (jenis === 'spp' || (jenis === 'kegiatan' && !kl && s.kegiatanWajib?.[indeks] === false))
+  const bebas = !pk && ((jenis === 'spp' && !(target > 0)) || (jenis === 'kegiatan' && !kl && s.kegiatanWajib?.[indeks] === false))
   const ketTidak = jenis === 'spp' ? ketBebas(s, indeks) : 'Tidak ikut kegiatan ini'
   const sisa = Math.max(0, target - dibayar)
   const lunas = dibayar >= target

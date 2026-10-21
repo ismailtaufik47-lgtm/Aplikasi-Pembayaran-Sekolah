@@ -31,7 +31,7 @@ function status(k) {
 }
 
 export default function LaporanKegiatan() {
-  const { biaya, paket, siswa, pengaturan, toast, boleh } = useData()
+  const { biaya, paket, siswaTahunIni: siswa, pembayaran, pengaturan, toast, boleh } = useData()
   const [pengeluaran, setPengeluaran] = useState(null)
   const [galat, setGalat] = useState('')
   const [versi, setVersi] = useState(0)
@@ -48,8 +48,8 @@ export default function LaporanKegiatan() {
   }, [versi])
 
   const daftar = useMemo(
-    () => (pengeluaran ? hitungRekapKegiatan({ biaya, paket, siswa, pengeluaran }) : []),
-    [pengeluaran, biaya, paket, siswa],
+    () => (pengeluaran ? hitungRekapKegiatan({ biaya, paket, siswa, pengeluaran, pembayaran }) : []),
+    [pengeluaran, biaya, paket, siswa, pembayaran],
   )
   const terpilih = daftar.find((k) => k.kunci === pilih) || daftar.find((k) => k.terpakai > 0) || daftar[0] || null
   const total = daftar.reduce((t, k) => ({ masuk: t.masuk + k.masuk, terpakai: t.terpakai + k.terpakai, nota: t.nota + k.nota.length }), { masuk: 0, terpakai: 0, nota: 0 })
@@ -122,17 +122,17 @@ export default function LaporanKegiatan() {
           <h2 className="judul-kartu text-[19px]">Rekap kegiatan</h2>
           <span className="text-[12px] font-extrabold text-[#34405C] dark:text-[#B8C3DC]">Tahun ajaran {pengaturan.tahunAjaran}</span>
         </div>
-        <div className="grid grid-cols-2 gap-2 lg:grid-cols-3 lg:gap-3">
+        <div className="grid grid-cols-2 gap-2 lg:gap-3 xl:grid-cols-3">
           {[['Uang masuk', total.masuk, 'tosca'], ['Terpakai', total.terpakai, 'pink'], ['Sisa dana semua kegiatan', total.masuk - total.terpakai, 'biru']].map(([l, v, w], i) => (
-            <div key={l} className={`permen permen-${w} min-w-0 rounded-[18px] px-3 py-2.5 lg:px-4 lg:py-3 ${i === 2 ? 'col-span-2 flex items-center justify-between gap-2 lg:col-span-1 lg:block' : ''}`}>
-              <div className="text-[11.5px] font-extrabold lg:text-[12px]">{l}</div>
-              <div className="truncate font-display text-[17px] font-bold lg:text-[20px]">{rpTanda(v)}</div>
+            <div key={l} className={`permen permen-${w} min-w-0 rounded-[18px] px-3 py-2.5 lg:px-4 lg:py-3 ${i === 2 ? 'col-span-2 flex items-center justify-between gap-2' : 'lg:col-span-2 lg:flex lg:items-center lg:justify-between lg:gap-2'} xl:col-span-1 xl:block`}>
+              <div className="min-w-0 text-[11.5px] font-extrabold lg:text-[12px]">{l}</div>
+              <div className="shrink-0 truncate font-display text-[17px] font-bold lg:text-[20px] xl:shrink">{rpTanda(v)}</div>
             </div>
           ))}
         </div>
 
-        {/* HP: kartu */}
-        <div className="card mt-3 lg:hidden">
+        {/* HP & layar laptop: kartu (tabel baru muat di layar ≥1536 px karena ada panel rincian di kanan) */}
+        <div className="card mt-3 2xl:hidden">
           <div className="mb-1 flex items-start justify-between gap-2">
             <div>
               <div className="judul-kartu text-[17px]">Semua kegiatan</div>
@@ -144,8 +144,9 @@ export default function LaporanKegiatan() {
           </div>
           {daftar.map((k, i) => {
             const st = status(k)
+            const on = terpilih?.kunci === k.kunci
             return (
-              <button key={k.kunci} className={`block w-full py-3 text-left ${i ? 'border-t-[1.5px] border-dashed border-line' : ''}`} onClick={() => buka(k)}>
+              <button key={k.kunci} aria-pressed={on} className={`block w-full py-3 text-left lg:-mx-2 lg:w-[calc(100%+16px)] lg:rounded-[14px] lg:px-2 ${i ? 'border-t-[1.5px] border-dashed border-line' : ''} ${on ? 'lg:bg-brand-soft/70 dark:lg:bg-white/5' : 'lg:hover:bg-isi'}`} onClick={() => buka(k)}>
                 <span className="flex items-center gap-3">
                   <GambarKegiatan emoji={k.emoji} size={42} className="rounded-[14px]" />
                   <span className="min-w-0 flex-1">
@@ -163,8 +164,8 @@ export default function LaporanKegiatan() {
           })}
         </div>
 
-        {/* PC: tabel */}
-        <div className="card mt-4 hidden overflow-hidden !px-0 !pb-0 lg:block">
+        {/* layar lebar: tabel */}
+        <div className="card mt-4 hidden overflow-hidden !px-0 !pb-0 2xl:block">
           <div className="grid grid-cols-[minmax(0,1fr)_88px_120px_120px_130px] gap-x-3 px-5 pb-2.5 text-[11px] font-extrabold uppercase tracking-[.06em] text-muted">
             <span>Kegiatan</span><span className="text-right">Tanggal</span><span className="text-right">Uang masuk</span><span className="text-right">Terpakai</span><span className="text-right">Sisa / nombok</span>
           </div>
@@ -198,7 +199,7 @@ export default function LaporanKegiatan() {
             <span className={`text-right ${total.masuk - total.terpakai < 0 ? 'text-danger' : 'text-ok-deep'}`}>{rpTanda(total.masuk - total.terpakai)}</span>
           </div>
         </div>
-        <button className="tombol-putih mt-3 hidden h-[42px] items-center gap-2 rounded-[14px] px-4 text-[13.5px] font-extrabold disabled:opacity-60 lg:inline-flex" disabled={!!unduh} onClick={() => unduhExcel(null)}>
+        <button className="tombol-putih mt-3 hidden h-[42px] items-center gap-2 rounded-[14px] px-4 text-[13.5px] font-extrabold disabled:opacity-60 2xl:inline-flex" disabled={!!unduh} onClick={() => unduhExcel(null)}>
           <Ikon.excel size={17} />{unduh === 'excel' ? 'Menyiapkan…' : 'Unduh Excel semua kegiatan'}
         </button>
 

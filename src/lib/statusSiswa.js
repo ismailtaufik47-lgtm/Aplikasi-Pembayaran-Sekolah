@@ -13,7 +13,7 @@
  * dan hanya kalau Tunggakan > 0.
  */
 import { BULAN, kegiatanLaluBelum, kegiatanWajib, rp, taPendek, targetSpp, tunggakanLalu } from './format.js'
-import { dibayarPaket, kurangSekarangPaket, paketSiswa, statusPaket, sudahLewat, tahapPaket } from './paket.js'
+import { dibayarPaket, kurangSekarangPaket, paketSiswaKini, statusPaket, sudahLewat, tahapPaket } from './paket.js'
 
 export const STATUS_TAGIHAN = {
   nunggak: { label: 'Nunggak', chip: 'red', permen: 'pink', urut: 0 },
@@ -57,7 +57,7 @@ export function tagihanSiswa(s, { biaya = [], paket = [], sppNominal = 0, kini, 
       status: kegiatanLewat(b, hariIni) ? 'nunggak' : d > 0 ? 'mencicil' : 'belum',
     })
   })
-  paketSiswa(paket, s.id).forEach((p) => {
+  paketSiswaKini(paket, s, hariIni).forEach((p) => {
     const d = dibayarPaket(s, p.id)
     const st = statusPaket(p, d, hariIni)
     const tahap = tahapPaket(p, d, hariIni)

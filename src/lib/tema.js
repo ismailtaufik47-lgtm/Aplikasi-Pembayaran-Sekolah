@@ -37,7 +37,9 @@ function terapkan() {
   const gelap = modeAktif() === 'gelap'
   document.documentElement.classList.toggle('dark', gelap)
   document.querySelector('meta[name="color-scheme"]')?.setAttribute('content', gelap ? 'dark' : 'light')
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', gelap ? '#0F131B' : '#3B6EF6')
+  // aplikasi guru kelas (/kelas) berwarna hijau — lihat index.html & src/kelas/kelas.css
+  const kelas = document.documentElement.classList.contains('tema-kelas')
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', gelap ? (kelas ? '#0D1A18' : '#0F131B') : kelas ? '#0C9473' : '#3B6EF6')
 }
 
 function kabari() {
@@ -74,3 +76,4 @@ export function useTema() {
 }
 
 terapkan()
+export { terapkan as segarkanTema }

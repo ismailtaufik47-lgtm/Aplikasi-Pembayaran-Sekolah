@@ -1,0 +1,19 @@
+/* Warna fitur perkembangan anak — divalidasi (validate_palette.js):
+   aspek = kategorikal 6 warna (urutan tetap), skala = ordinal satu warna (hijau "tumbuh"). */
+:root {
+  --aspek-1: #7C5CE0; --aspek-2: #E0559A; --aspek-3: #2F7DE1; --aspek-4: #EB6834; --aspek-5: #1BAF7A; --aspek-6: #C98500;
+  --skala-1: #6CC79A; --skala-2: #3DAA78; --skala-3: #1B8A5B; --skala-4: #0D6643;
+  --skala-t1: #0B3A26; --skala-t2: #fff; --skala-t3: #fff; --skala-t4: #fff;
+  --grid-viz: #E6EAF2;
+}
+.dark {
+  --aspek-1: #9479EE; --aspek-2: #DE5895; --aspek-3: #4C8EEB; --aspek-4: #D95926; --aspek-5: #199E70; --aspek-6: #C98500;
+  --skala-1: #1B5E40; --skala-2: #2A8A5D; --skala-3: #4DB884; --skala-4: #8FDDB4;
+  --skala-t1: #fff; --skala-t2: #fff; --skala-t3: #0B2A1C; --skala-t4: #0B2A1C;
+  --grid-viz: #2A3346;
+}
+.skala-1 { --s: var(--skala-1); --st: var(--skala-t1); }
+.skala-2 { --s: var(--skala-2); --st: var(--skala-t2); }
+.skala-3 { --s: var(--skala-3); --st: var(--skala-t3); }
+.skala-4 { --s: var(--skala-4); --st: var(--skala-t4); }
+.pil-skala { background: var(--s); color: var(--st); box-shadow: inset 0 -3px 0 rgb(0 0 0 / .14); }

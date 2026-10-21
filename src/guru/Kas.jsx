@@ -25,7 +25,7 @@ import {
   KATEGORI_KEGIATAN, KATEGORI_KELUAR, KATEGORI_MASUK, NAMA_BULAN, daftarBulan, emojiKategori, geserBulan, hariLalu,
   kunciBulan, labelBulan, siapkanNota, tglKas, warnaKategoriKegiatan,
 } from '../lib/kas.js'
-import { dariKunci, hitungRekapKegiatan, kunciLabel, pilihanKegiatan } from '../lib/kegiatanKas.js'
+import { dariKunci, hitungRekapKegiatan, kunciLabel, paketBerjalan, pilihanKegiatan } from '../lib/kegiatanKas.js'
 
 const tglTampil = (iso) => {
   const [y, m, d] = iso.split('-').map(Number)
@@ -90,7 +90,7 @@ export default function Kas() {
     setGalat('')
     api.kasRingkasan(demo.current).then((d) => aktif && setInfo(d)).catch((e) => aktif && setGalat(e.message))
     return () => { aktif = false }
-  }, [versi])
+  }, [versi, pembayaran]) // eslint-disable-line react-hooks/exhaustive-deps -- pembayaran: muat ulang sesudah transaksi dicatat / dibatalkan
 
   // laporan bulan yang dipilih
   useEffect(() => {
@@ -98,7 +98,7 @@ export default function Kas() {
     setLap(null)
     api.kasLaporanBulan(bulan, demo.current).then((d) => aktif && setLap(d)).catch((e) => aktif && setGalat(e.message))
     return () => { aktif = false }
-  }, [bulan, versi])
+  }, [bulan, versi, pembayaran]) // eslint-disable-line react-hooks/exhaustive-deps -- pembayaran: muat ulang sesudah transaksi dicatat / dibatalkan
 
   // riwayat: halaman pertama untuk rentang tanggal
   useEffect(() => {
@@ -265,7 +265,7 @@ export default function Kas() {
             </div>
           )}
 
-          <div className="lg:mt-2 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,390px)] lg:items-start lg:gap-6">
+          <div className="lg:mt-2 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,320px)] lg:items-start lg:gap-6 xl:grid-cols-[minmax(0,1fr)_minmax(0,390px)]">
             {/* ---------- riwayat transaksi ---------- */}
             <div className="min-w-0">
               <div className="seghead"><h2>Riwayat transaksi</h2></div>
@@ -652,14 +652,14 @@ const RINCIAN_KOSONG = () => ({ kunci: Math.random().toString(36).slice(2), urai
 const KOSONG = { tanggal: '', untuk: 'operasional', kegiatan: '', kategori: '', lain: '', nominal: '', keterangan: '', nota: [], rincian: [] }
 
 function SheetCatatKas({ jenis, awalKegiatan, tutup, mulai, onUbahMulai, kategoriLain, pencatat, demo, onSimpan, toast }) {
-  const { biaya, paket, siswa, pengaturan } = useData()
+  const { biaya, paket, siswaTahunIni: siswa, pembayaran, pengaturan } = useData()
   const [f, setF] = useState(KOSONG)
   const [sibuk, setSibuk] = useState(false)
   const [olahNota, setOlahNota] = useState(false)
   const [saldo, setSaldo] = useState(null) // { tersedia, dibatasiTanggal } untuk pengeluaran
   const [galat, setGalat] = useState('') // penolakan dari database, tampil di dalam form
   const [pengeluaranKeg, setPengeluaranKeg] = useState(null) // untuk kotak "Dana kegiatan"
-  const pilihan = pilihanKegiatan(biaya, paket)
+  const pilihan = pilihanKegiatan(biaya, paketBerjalan(paket))
 
   useEffect(() => {
     if (jenis) {
@@ -679,7 +679,7 @@ function SheetCatatKas({ jenis, awalKegiatan, tutup, mulai, onUbahMulai, kategor
   }, [modeKegiatan]) // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { if (!jenis) setPengeluaranKeg(null) }, [jenis])
   const dana = modeKegiatan && f.kegiatan && pengeluaranKeg
-    ? hitungRekapKegiatan({ biaya, paket, siswa, pengeluaran: pengeluaranKeg }).find((k) => k.kunci === f.kegiatan)
+    ? hitungRekapKegiatan({ biaya, paket, siswa, pengeluaran: pengeluaranKeg, pembayaran }).find((k) => k.kunci === f.kegiatan)
     : null
 
   // Pengeluaran: tampilkan saldo yang masih bisa dipakai pada tanggal itu.

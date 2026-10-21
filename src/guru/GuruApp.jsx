@@ -14,6 +14,7 @@ import Onboarding from './Onboarding.jsx'
 import Beranda from './Beranda.jsx'
 import BerandaKepsek from './BerandaKepsek.jsx'
 import AturIndikator from './AturIndikator.jsx'
+import AturPenilaian from './AturPenilaian.jsx'
 import DaftarSiswa from './DaftarSiswa.jsx'
 import DetailSiswa from './DetailSiswa.jsx'
 import Tagihan from './Tagihan.jsx'
@@ -31,7 +32,7 @@ import TanyaAI from './TanyaAI.jsx'
 import Kas from './Kas.jsx'
 import AkunStaf from './AkunStaf.jsx'
 import AkunNonaktif from './AkunNonaktif.jsx'
-import { AWALAN_NONAKTIF } from '../lib/api.js'
+import { AWALAN_NONAKTIF, AWALAN_GURU } from '../lib/api.js'
 import SpandukLangganan from '../components/Spanduklangganan.jsx'
 import { labelPeran, menuSekolah, pilihTab } from '../lib/akses.js'
 
@@ -57,6 +58,7 @@ export default function GuruApp() {
   }
   if (galat?.includes('belum terhubung ke sekolah')) return <Onboarding onSelesai={segarkan} />
   if (galat?.startsWith(AWALAN_NONAKTIF)) return <AkunNonaktif pesan={galat} onCobaLagi={segarkan} />
+  if (galat?.startsWith(AWALAN_GURU)) return <AkunGuruKelas />
   if (galat) return <Muat aksi={segarkan}>Gagal memuat data: {galat}</Muat>
   if (!siap) return <Muat>Memuat data sekolah…</Muat>
 
@@ -152,6 +154,7 @@ export default function GuruApp() {
               {ada('kode-aktivasi') && <Route path="kode-aktivasi" element={<KodeAktivasi />} />}
               {ada('akun-staf') && <Route path="akun-staf" element={<AkunStaf />} />}
               {ada('profil-sekolah') && <Route path="profil-sekolah" element={<ProfilSekolah />} />}
+              {ada('atur-penilaian') && <Route path="atur-penilaian" element={<AturPenilaian />} />}
               {ada('atur-indikator') && <Route path="atur-indikator" element={<AturIndikator />} />}
               {ada('langganan') && <Route path="langganan" element={<Langganan />} />}
 
@@ -374,5 +377,23 @@ function TabBar({ tab, aktif, nav, buka, terkunci, tumpang }) {
       ))}
       <TabEmoji id="lainnya" label="Lainnya" aktif={aktif === 'lainnya'} onClick={() => nav('/guru/lainnya')} />
     </nav>
+  )
+}
+
+/** Akun guru kelas (0052) membuka aplikasi kas → arahkan ke aplikasi guru kelas. */
+function AkunGuruKelas() {
+  const { keluar } = useAuth()
+  return (
+    <div className="langit-masuk grid min-h-dvh place-items-center px-8 text-center">
+      <div className="max-w-[360px]">
+        <span className="permen permen-tosca mx-auto mb-3.5 grid h-16 w-16 place-items-center rounded-[22px] text-[30px]">🌱</span>
+        <h1 className="judul-halaman font-display text-[24px] font-bold leading-tight">Akun Anda akun guru kelas</h1>
+        <p className="mt-2 text-[13.5px] font-semibold leading-relaxed text-[#34405C] dark:text-[#B8C3DC]">
+          Guru kelas memakai aplikasi khusus untuk ceklis perkembangan, catatan anak & kabar kelas.
+        </p>
+        <a href="/kelas" className="bigbtn mt-5 block">Buka aplikasi guru kelas</a>
+        <button className="mt-3 text-[13px] font-extrabold text-muted" onClick={keluar}>Keluar</button>
+      </div>
+    </div>
   )
 }
