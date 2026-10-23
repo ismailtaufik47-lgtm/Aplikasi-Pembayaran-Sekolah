@@ -8,6 +8,7 @@
  */
 import { GedungTK, Pelangi, Pohon } from '../components/IlustrasiMasuk.jsx'
 import { Garis } from '../components/LatarMasuk.jsx'
+import { TontonHalaman } from '../components/Panduan.jsx'
 
 export const NAMA_APP = 'Tumbuh Ceria'
 export const TAGLINE_APP = 'Catatan Tumbuh Kembang Anak'
@@ -155,6 +156,7 @@ export function KepalaKelas({ judul, sub, kembali, polos = false, className = ''
           <h1 className="judul-halaman min-w-0 font-display text-[29px] font-bold leading-[1.1] tracking-[-.3px] lg:text-[38px]">{judul}</h1>
         </div>
         {sub && <p className="sub-halaman mt-1.5 text-[13px] font-bold leading-snug lg:max-w-[620px] lg:text-[14.5px]">{sub}</p>}
+        <TontonHalaman className="mt-2.5" />
       </div>
       {!polos && (
         <div aria-hidden="true" className="pointer-events-none absolute -right-1 top-[10px] z-[1] w-[124px] lg:right-2 lg:top-0 lg:w-[180px]">

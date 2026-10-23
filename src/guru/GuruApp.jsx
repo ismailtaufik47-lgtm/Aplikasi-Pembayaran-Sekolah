@@ -29,6 +29,7 @@ import ProfilAkun from './ProfilAkun.jsx'
 import ProfilSekolah from './ProfilSekolah.jsx'
 import Langganan from './langganan.jsx'
 import TanyaAI from './TanyaAI.jsx'
+import HalamanPanduan from './Panduan.jsx'
 import Kas from './Kas.jsx'
 import AkunStaf from './AkunStaf.jsx'
 import AkunNonaktif from './AkunNonaktif.jsx'
@@ -95,7 +96,7 @@ export default function GuruApp() {
 
   const halaman = pathname.includes('/tanya-ai') ? 'ai'
     : (menu.find((m) => m.id !== 'beranda' && pathname.startsWith(m.ke)) || {}).id
-      || (pathname.includes('/lainnya') ? 'lainnya' : pathname.includes('/profil-akun') ? 'profil-akun' : 'beranda')
+      || (pathname.includes('/lainnya') || pathname.includes('/panduan') ? 'lainnya' : pathname.includes('/profil-akun') ? 'profil-akun' : 'beranda')
   // Tab bar mobile merangkum halaman yang tidak punya tab ke "Lainnya".
   const tabAktif = tab.some((t) => t.id === halaman) ? halaman : halaman === 'beranda' ? 'beranda' : 'lainnya'
 
@@ -134,6 +135,7 @@ export default function GuruApp() {
               />
               <Route path="lainnya" element={<Lainnya />} />
               <Route path="profil-akun" element={<ProfilAkun />} />
+              <Route path="panduan" element={<HalamanPanduan />} />
 
               {/* Rute dikunci sesuai hak akses — bukan cuma disembunyikan di menu.
                   Kalau URL-nya diketik langsung, dilempar balik ke beranda. */}

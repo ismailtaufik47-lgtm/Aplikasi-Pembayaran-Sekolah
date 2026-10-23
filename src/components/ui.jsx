@@ -2,6 +2,7 @@
 import { useEffect, useRef } from 'react'
 import { useTema } from '../lib/tema.js'
 import { useMerek } from '../lib/merek.js'
+import { TontonHalaman } from './Panduan.jsx'
 import { LogoKasceria, TulisanKasceria } from './Kasceria.jsx'
 import { Awan, BintangWajah, BukuPensil, Bukit, BukitLebar, Bulan, Bintang, GedungTK, Pelangi } from './IlustrasiMasuk.jsx'
 import { AnakUtuhLaki, AnakUtuhPerempuan, KoinMaskot, KoinSaku, PapanGrafik, TumpukanKoin } from './Gambar.jsx'
@@ -347,6 +348,7 @@ export function KepalaHalaman({ judul, sub, gambar = 'anak', aksi, aksiHp, kemba
           <h1 className="judul-halaman min-w-0 font-display text-[29px] font-bold leading-[1.1] tracking-[-.3px] lg:text-[34px]">{judul}</h1>
         </div>
         {sub && <p className="sub-halaman mt-1.5 text-[13px] font-bold leading-snug lg:max-w-[560px] lg:text-[14px]">{sub}</p>}
+        <TontonHalaman className="mt-2.5" />
       </div>
       {gambar && (
         <>

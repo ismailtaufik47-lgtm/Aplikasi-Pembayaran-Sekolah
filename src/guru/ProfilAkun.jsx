@@ -218,8 +218,12 @@ function SheetAturPin({ buka, tutup, aturPinAkun, toast }) {
       {langkah === 'isi' ? (
         <>
           <input
-            type="tel"
+            type="password"
             inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={6}
+            autoComplete="new-password"
+            aria-label="PIN 6 angka"
             autoFocus
             value={pin}
             onChange={(e) => isiAngka(e.target.value, setPin)}
@@ -235,8 +239,12 @@ function SheetAturPin({ buka, tutup, aturPinAkun, toast }) {
       ) : (
         <>
           <input
-            type="tel"
+            type="password"
             inputMode="numeric"
+            pattern="[0-9]*"
+            maxLength={6}
+            autoComplete="new-password"
+            aria-label="PIN 6 angka"
             autoFocus
             value={ulang}
             onChange={(e) => isiAngka(e.target.value, setUlang)}

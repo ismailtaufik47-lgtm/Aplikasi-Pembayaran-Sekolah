@@ -10,6 +10,7 @@ import { Muat, Sheet, Toast, Track, PilihTema } from '../components/ui.jsx'
 import Avatar, { AvatarStaf } from '../components/Avatar.jsx'
 import Masuk from '../components/Masuk.jsx'
 import { KartuPasang } from '../components/PasangAplikasi.jsx'
+import { DaftarVideo } from '../components/Panduan.jsx'
 import { useAuth } from '../lib/auth.jsx'
 import { MerekCtx } from '../lib/merek.js'
 import { segarkanTema } from '../lib/tema.js'
@@ -305,6 +306,8 @@ function Lainnya({ data, setData, toast }) {
       </div>
       <div>
       <KartuPasang bagian="kelas" className="mt-5 lg:mt-0" />
+
+      <DaftarVideo untuk="kelas" judul="Video panduan" />
 
       <div className="seghead"><h2>Tampilan</h2></div>
       <PilihTema />
