@@ -59,19 +59,23 @@ export function jenisPerangkat() {
   return 'pc'
 }
 
-const ditunda = () => {
+// "Nanti saja" dicatat per aplikasi (guru | kelas | wali): menunda popup Kasceria
+// tidak ikut menyembunyikan popup portal orang tua di domain yang sama.
+const kunciTunda = (bagian) => (bagian ? `${KUNCI_TUNDA}-${bagian}` : KUNCI_TUNDA)
+
+const ditunda = (bagian) => {
   try {
-    const t = Number(localStorage.getItem(KUNCI_TUNDA) || 0)
+    const t = Number(localStorage.getItem(kunciTunda(bagian)) || 0)
     return t && Date.now() - t < TUNDA_HARI * 864e5
   } catch {
     return false
   }
 }
 
-/** "Nanti saja" → popup tidak muncul lagi selama 7 hari. */
-export function tundaPasang() {
+/** "Nanti saja" → popup aplikasi itu tidak muncul lagi selama 7 hari. */
+export function tundaPasang(bagian) {
   try {
-    localStorage.setItem(KUNCI_TUNDA, String(Date.now()))
+    localStorage.setItem(kunciTunda(bagian), String(Date.now()))
   } catch {
     /* mode privat */
   }
@@ -98,7 +102,7 @@ export async function mintaPasang() {
  *   cara    : 'tombol' (dialog bawaan) | 'ios' (langkah manual)
  *   tawarkan: popup boleh muncul sendiri (bisa && tidak sedang ditunda)
  */
-export function usePasang() {
+export function usePasang(bagian) {
   const [, setDetak] = useState(0)
   useEffect(() => {
     const f = () => setDetak((x) => x + 1)
@@ -109,5 +113,5 @@ export function usePasang() {
   const sudah = terpasang || (!paksa && modeAplikasi())
   const cara = perangkat === 'ios' ? 'ios' : tawaran || (paksa && paksa !== 'ios') ? 'tombol' : null
   const bisa = !sudah && !!cara
-  return { bisa, cara, perangkat, sudah, tawarkan: bisa && (paksa ? true : !ditunda()) }
+  return { bisa, cara, perangkat, sudah, tawarkan: bisa && (paksa ? true : !ditunda(bagian)) }
 }

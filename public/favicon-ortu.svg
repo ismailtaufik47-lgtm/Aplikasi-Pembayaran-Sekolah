@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="g" x1="0" y1="0" x2=".35" y2="1"><stop offset="0" stop-color="#6A95FF"/><stop offset=".72" stop-color="#3B6EF6"/></linearGradient></defs>
+  <rect x="1" y="1" width="62" height="62" rx="18" fill="url(#g)"/>
+  <g transform="translate(6 6) scale(.8667)">
+  <ellipse cx="30" cy="54.2" rx="17" ry="2.6" fill="#2A55CC" opacity=".35"/>
+  <rect x="8.5" y="15" width="43" height="37" rx="6.5" fill="#FFFFFF"/>
+  <path d="M14 45.6h32.5" stroke="#DCE4F5" stroke-width="1.6" stroke-linecap="round"/>
+  <rect x="14.5" y="35.5" width="8.4" height="10.1" rx="2.2" fill="#FFC94D"/>
+  <rect x="25.8" y="29.2" width="8.4" height="16.4" rx="2.2" fill="#FF8FB1"/>
+  <rect x="37.1" y="23.4" width="8.4" height="22.2" rx="2.2" fill="#2DB37B"/>
+  <path d="M41.3 23.6V15.6" stroke="#2C9A4C" stroke-width="2.3" stroke-linecap="round"/>
+  <path d="M41 17.4c-5.2.4-8.6-2.6-9.4-7 4.8-.4 8.8 2.2 9.4 7z" fill="#9BE870" stroke="#3EA650" stroke-width="1.4" stroke-linejoin="round"/>
+  <path d="M41.6 15.4c1.8-4.8 5.6-7.2 10.6-7-.6 5-4.4 7.8-10.6 7z" fill="#76D95A" stroke="#3EA650" stroke-width="1.4" stroke-linejoin="round"/>
+  <circle cx="17.4" cy="17.2" r="8.6" fill="#FFD84D" stroke="#F2B21F" stroke-width="2"/>
+  <circle cx="17.4" cy="17.2" r="5.9" fill="none" stroke="#FFE9A0" stroke-width="1.2"/>
+  <path d="M13.9 17.4l2.5 2.5 4.6-4.9" stroke="#8A5A00" stroke-width="2.3" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

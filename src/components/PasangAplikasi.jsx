@@ -43,12 +43,13 @@ const TEKS = {
     label: 'Tumbuh Ceria',
     ikon: '/icons/kelas-192.png',
   },
+  // portal orang tua — "Kabar Ananda" (kabarananda.my.id), ikon grafik bertunas + koin lunas
   wali: {
-    judul: 'Simpan portal tagihan di HP',
-    hp: 'Cek tagihan, riwayat bayar, dan kuitansi anak cukup sekali ketuk.',
-    pc: 'Buka tagihan dan kuitansi anak langsung dari komputer.',
-    label: 'Tagihan TK',
-    ikon: '/icons/icon-192.png',
+    judul: 'Pasang Kabar Ananda',
+    hp: 'Tagihan, kuitansi, dan kabar perkembangan ananda cukup sekali ketuk dari layar utama HP.',
+    pc: 'Buka tagihan, kuitansi, dan kabar perkembangan ananda langsung dari komputer.',
+    label: 'Kabar Ananda',
+    ikon: '/icons/ortu-192.png',
   },
 }
 const MANFAAT = {
@@ -206,10 +207,10 @@ const bagianDariAlamat = (p) => (p === '/ortu' || p.startsWith('/ortu/') ? 'wali
 /** Muncul sendiri sekali saat link dibuka (lihat aturan di lib/pasang.js). */
 export function PasangOtomatis() {
   const { pathname } = useLocation()
-  const { tawarkan } = usePasang()
+  const bagian = bagianDariAlamat(pathname)
+  const { tawarkan } = usePasang(bagian)
   const [buka, setBuka] = useState(false)
   const [selesai, setSelesai] = useState(false) // sudah tampil di kunjungan ini
-  const bagian = bagianDariAlamat(pathname)
 
   useEffect(() => {
     if (!bagian || !tawarkan || selesai || buka) return
@@ -218,7 +219,7 @@ export function PasangOtomatis() {
   }, [bagian, tawarkan, selesai, buka])
 
   const tutup = (alasan) => {
-    if (alasan === 'nanti') tundaPasang()
+    if (alasan === 'nanti') tundaPasang(bagian)
     setBuka(false)
     setSelesai(true)
   }
@@ -236,7 +237,7 @@ export function KartuPasang({ wali = false, bagian, className = '' }) {
       <button type="button" onClick={() => setBuka(true)} className={`card flex w-full items-center gap-3.5 text-left transition active:scale-[.99] ${className}`}>
         <img src={t.ikon} alt="" width="46" height="46" className="h-[46px] w-[46px] shrink-0 rounded-[14px]" />
         <span className="min-w-0 flex-1">
-          <span className="block text-[15px] font-extrabold">{wali ? 'Simpan portal di HP' : 'Pasang aplikasi'}</span>
+          <span className="block text-[15px] font-extrabold">{wali || bagian === 'wali' ? 'Pasang Kabar Ananda' : 'Pasang aplikasi'}</span>
           <span className="block text-xs font-semibold text-muted">{perangkat === 'pc' ? 'Buka dari desktop, tanpa cari tab' : 'Buka sekali ketuk dari layar utama'}</span>
         </span>
         <span className="shrink-0 rounded-full bg-brand px-3.5 py-2 text-[13px] font-extrabold text-white">Pasang</span>

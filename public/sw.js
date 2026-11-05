@@ -10,10 +10,10 @@
  *
  * Ganti VERSI kalau isi offline.html / ikon berubah.
  */
-const VERSI = 'kasceria-v2' // v2: ikon aplikasi guru kelas (Tumbuh Ceria)
+const VERSI = 'kasceria-v3' // v3: ikon portal orang tua (Kabar Ananda)
 const CACHE_ASET = `${VERSI}-aset`
 const CACHE_DASAR = `${VERSI}-dasar`
-const DASAR = ['/offline.html', '/icons/icon-192.png', '/favicon.svg', '/icons/kelas-192.png', '/favicon-kelas.svg']
+const DASAR = ['/offline.html', '/icons/icon-192.png', '/favicon.svg', '/icons/kelas-192.png', '/favicon-kelas.svg', '/icons/ortu-192.png', '/favicon-ortu.svg']
 const MAKS_ASET = 80
 
 self.addEventListener('install', (e) => {

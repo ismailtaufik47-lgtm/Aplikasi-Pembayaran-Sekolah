@@ -147,8 +147,9 @@ export default function OrtuApp() {
   const aktif = anak.find((a) => a.id === anakId) || anak[0]
   if (!aktif) return <Muat>Tautan ini belum terhubung ke data siswa mana pun. Hubungi pihak sekolah.</Muat>
   const ujung = pathname.replace(/\/+$/, '').split('/').pop()
-  // tab Tumbuh hanya tampil kalau sekolah memakainya (ada guru kelas atau isi untuk anak-anak ini)
-  const adaTumbuh = !!tumbuh?.anak?.some((a) => a.guru || a.periode.length || a.catatan.length || a.kabar.length)
+  // tab Tumbuh tampil begitu sekolah sudah mengatur Penilaian Anak (tumbuh.atur ada), walau kelas
+  // belum punya guru kelas — isinya kartu "Segera hadir" sampai penilaian pertama terbit.
+  const adaTumbuh = !!tumbuh?.atur || !!tumbuh?.anak?.some((a) => a.guru || a.periode.length || a.catatan.length || a.kabar.length)
   const menu = menuPortal(adaTumbuh)
   const tab = HALAMAN.includes(ujung) && (ujung !== 'tumbuh' || adaTumbuh) ? ujung : 'beranda'
 

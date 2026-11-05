@@ -49,6 +49,12 @@
         document.getElementById('pesan').textContent = 'Tumbuh Ceria perlu internet untuk menyimpan ceklis dan catatan anak. Periksa sinyal atau Wi-Fi, lalu coba lagi.'
         document.querySelector('button').style.background = '#0C9473'
         document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0C9473')
+      } else if (p === '/ortu' || p.indexOf('/ortu/') === 0 || /(^|\.)kabarananda\./.test(location.hostname)) {
+        // portal orang tua "Kabar Ananda"
+        document.title = 'Kabar Ananda — tidak ada internet'
+        document.getElementById('ikon').src = '/icons/ortu-192.png'
+        document.querySelector('link[rel="icon"]').setAttribute('href', '/favicon-ortu.svg')
+        document.getElementById('pesan').textContent = 'Kabar Ananda perlu internet untuk menampilkan tagihan dan kabar ananda terbaru. Periksa sinyal atau Wi-Fi, lalu coba lagi.'
       }
       window.addEventListener('online', function () { location.reload() })
     </script>

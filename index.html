@@ -40,7 +40,7 @@
     <!-- PWA: tiga aplikasi terpisah dari satu situs —
          /guru  → "Kasceria" (kepala sekolah & TU)
          /kelas → "Tumbuh Ceria" (guru kelas: tumbuh kembang anak), ikon hijau sendiri
-         /ortu  → "Kasceria Wali Murid" (portal orang tua)
+         /ortu  → "Kabar Ananda" (portal orang tua, kabarananda.my.id), ikon grafik bertunas sendiri
          Di iPhone, portal orang tua sengaja TANPA manifest: iPhone lalu memakai
          alamat yang sedang dibuka (lengkap dengan token wali) sebagai alamat
          aplikasinya, karena aplikasi di layar utama iPhone tidak berbagi
@@ -51,13 +51,20 @@
     <script>
       (function () {
         var p = location.pathname
-        var wali = p === '/ortu' || p.indexOf('/ortu/') === 0
+        var wali = p === '/ortu' || p.indexOf('/ortu/') === 0 ||
+          (/(^|\.)kabarananda\./.test(location.hostname) && p.indexOf('/verifikasi') !== 0)
         var kelas = document.documentElement.classList.contains('tema-kelas')
         var ios = /iPhone|iPad|iPod/.test(navigator.userAgent) || (/Macintosh/.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
         var judul = document.createElement('meta')
         judul.name = 'apple-mobile-web-app-title'
-        judul.content = wali ? 'Tagihan TK' : kelas ? 'Tumbuh Ceria' : 'Kasceria'
+        judul.content = wali ? 'Kabar Ananda' : kelas ? 'Tumbuh Ceria' : 'Kasceria'
         document.head.appendChild(judul)
+        if (wali) {
+          document.title = 'Kabar Ananda — Kabar & Tagihan Ananda'
+          document.querySelector('meta[name="description"]').setAttribute('content', 'Kabar Ananda: kabar perkembangan, tagihan, dan kuitansi ananda di TK.')
+          document.querySelector('link[rel="icon"]').setAttribute('href', '/favicon-ortu.svg')
+          document.querySelector('link[rel="apple-touch-icon"]').setAttribute('href', '/icons/ortu-apple-touch-icon.png')
+        }
         if (kelas) {
           document.title = 'Tumbuh Ceria — Catatan Tumbuh Kembang Anak'
           document.querySelector('meta[name="description"]').setAttribute('content', 'Tumbuh Ceria: ceklis perkembangan, catatan anak, dan kabar kelas untuk guru TK.')
