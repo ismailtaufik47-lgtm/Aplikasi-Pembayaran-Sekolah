@@ -140,6 +140,8 @@ function Beranda({ data, ke, bukaTulis }) {
   const p = data.periode
   const adaCeklis = pakaiSkala(data.atur.skala)
   const persen = p && p.anak ? Math.round((p.dinilai / p.anak) * 100) : 0
+  // ceklis terbit yang semua indikatornya sudah diganti sekolah (dasar penilaian diubah)
+  const diganti = !!p?.fokus.length && !p.fokus.some((id) => data.aspek.some((a) => a.indikator.some((x) => x.id === id)))
   const tutup = p?.selesai ? new Date(p.selesai).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' }) : null
   const jenis = { minggu: 'Mingguan', '2minggu': '2 mingguan', bulan: 'Bulanan', tema: 'Per tema' }[data.atur.periode]
   return (
@@ -162,11 +164,12 @@ function Beranda({ data, ke, bukaTulis }) {
               <p className="mt-0.5 text-[12.5px] font-semibold leading-snug text-muted">
                 {!p ? 'Tulis tema yang sedang berjalan untuk mulai menilai'
                   : !p.fokus.length ? 'Pilih indikator yang dinilai periode ini'
-                    : `${p.fokus.length} indikator fokus${tutup ? ` · tutup ${tutup}` : ''}`}
+                    : diganti ? 'Sekolah mengganti indikator penilaian. Nilai lama tetap tersimpan.'
+                      : `${p.fokus.length} indikator fokus${tutup ? ` · tutup ${tutup}` : ''}`}
               </p>
             </div>
           </div>
-          {p && p.fokus.length > 0 && (
+          {p && p.fokus.length > 0 && !diganti && (
             <>
               <div className="mt-3.5 flex items-center justify-between text-[12.5px] font-extrabold">
                 <span>{p.dinilai} dari {p.anak} anak sudah dinilai</span>
@@ -176,7 +179,7 @@ function Beranda({ data, ke, bukaTulis }) {
             </>
           )}
           <button className="bigbtn mt-3.5 flex items-center justify-center gap-2" onClick={() => ke('/kelas/ceklis')}>
-            {!p ? 'Mulai tema' : !p.fokus.length ? 'Pilih indikator' : p.terbit ? 'Lihat / ubah ceklis' : p.dinilai ? 'Lanjutkan ceklis' : 'Mulai ceklis'}
+            {!p ? 'Mulai tema' : !p.fokus.length ? 'Pilih indikator' : diganti ? 'Lihat & pilih indikator baru' : p.terbit ? 'Lihat / ubah ceklis' : p.dinilai ? 'Lanjutkan ceklis' : 'Mulai ceklis'}
             <IkonT.kanan size={18} sw={2.6} />
           </button>
         </section>

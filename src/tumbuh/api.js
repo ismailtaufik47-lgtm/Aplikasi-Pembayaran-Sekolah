@@ -230,6 +230,7 @@ function demo() {
     aspek: [],
     periode: [], // { id, label, pendek, fokus, terbit, nilai: {siswa: {ind: n}} }
     tulisan: [],
+    lama: [], // indikator yang diarsipkan saat dasar penilaian diganti (seperti 0052/0054)
   }
   const isi = (dasar) => {
     s.aspek = TEMPLATE[dasar].map(([nama, pendek, ind], i) => ({
@@ -276,9 +277,11 @@ function demo() {
       const nilai = []; const awal = []
       Object.entries(p.nilai).forEach(([sid, m]) => Object.entries(m).forEach(([i, n]) => nilai.push({ s: sid, i, n })))
       Object.entries(sebelum?.nilai || {}).forEach(([sid, m]) => Object.entries(m).forEach(([i, n]) => p.fokus.includes(i) && awal.push({ s: sid, i, n })))
-      return salin({ periode: periodeJson(p), nilai, awal })
+      const lama = s.lama.filter((x) => p.fokus.includes(x.id) || nilai.some((v) => v.i === x.id))
+      return salin({ periode: periodeJson(p), nilai, awal, lama })
     },
     simpanNilai: (ind, daftar) => {
+      if (s.lama.some((x) => x.id === ind)) throw new Error('Indikator ini sudah diganti sekolah. Nilainya hanya bisa dilihat.')
       const p = kini(); daftar.forEach(({ s: sid, n }) => { p.nilai[sid] = { ...(p.nilai[sid] || {}), [ind]: n } })
       return { ...periodeJson(p), tersimpan: daftar.length }
     },
@@ -301,7 +304,16 @@ function demo() {
       foto: { jumlah: 572, byte: 86 * 1048576 }, fotoLama: 0,
     }),
     aturSimpan: (u) => { Object.entries(u).forEach(([k, v]) => { if (v != null) s.atur[k] = v }); return salin(s.atur) },
-    pakaiDasar: (d) => { isi(d); s.atur.dasar = d; kini().fokus = []; return salin(s.aspek) },
+    pakaiDasar: (d) => {
+      // indikator yang pernah dinilai diarsipkan (nilainya tetap), fokus periode yang belum terbit dikosongkan
+      const dinilai = new Set(s.periode.flatMap((p) => Object.values(p.nilai).flatMap((m) => Object.keys(m))))
+      s.aspek.forEach((a) => a.indikator.forEach((x) => {
+        if (dinilai.has(x.id)) s.lama.push({ id: x.id, nama: x.nama, keterangan: x.keterangan, khas: x.khas, aspek: { id: a.id, nama: a.nama, pendek: a.pendek } })
+      }))
+      isi(d); s.atur.dasar = d
+      if (!kini().terbit) kini().fokus = []
+      return salin(s.aspek)
+    },
     aspekSimpan: ({ id, nama, pendek }) => {
       if (id) { const a = s.aspek.find((x) => x.id === id); Object.assign(a, { nama, pendek: pendek || nama.slice(0, 40) }); return id }
       if (s.aspek.length >= 6) throw new Error('Maksimal 6 aspek supaya grafik untuk orang tua tetap mudah dibaca.')
@@ -316,7 +328,12 @@ function demo() {
     },
     indikatorHapus: (id) => { s.aspek.forEach((a) => { a.indikator = a.indikator.filter((x) => x.id !== id) }) },
     portal: (anakDemo) => salin({
-      atur: s.atur, aspek: s.aspek,
+      atur: s.atur,
+      // aspek aktif + aspek lama yang punya nilai (grafik lama tidak hilang)
+      aspek: [...s.aspek, ...Object.values(s.lama.reduce((m, x) => {
+        (m[x.aspek.id] = m[x.aspek.id] || { ...x.aspek, arsip: true, indikator: [] }).indikator.push({ id: x.id, nama: x.nama, khas: x.khas, arsip: true })
+        return m
+      }, {}))],
       anak: anakDemo.map((a, k) => ({
         siswaId: a.id, kelas: a.kelas, guru: 'Bu Sari',
         periode: s.periode.filter((p) => p.terbit || p === kini()).map((p) => ({ id: p.id, label: p.label, pendek: p.pendek, mulai: p.mulai, nilai: p.nilai[siswa[k % siswa.length].id] || {} }))
@@ -325,6 +342,12 @@ function demo() {
         kabar: s.tulisan.filter((t) => t.jenis === 'kabar' && t.terbit),
       })),
     }),
+  }
+  // uji tampilan (hanya npm run dev): /kelas?uji=ganti-dasar → ceklis bulan ini sudah terbit,
+  // lalu sekolah mengganti dasar penilaian ke STPPA
+  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('uji') === 'ganti-dasar') {
+    kini().terbit = new Date().toISOString()
+    _demo.pakaiDasar('stppa')
   }
   return _demo
 }
