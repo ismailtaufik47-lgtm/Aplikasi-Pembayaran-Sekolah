@@ -1,5 +1,5 @@
 /**
- * Aplikasi GURU KELAS — /kelas (nanti juga guru.kasceria.pro).
+ * Aplikasi GURU KELAS — /kelas (juga tumbuh.kasceria.my.id).
  * Terpisah dari aplikasi kas: guru kelas hanya melihat anak di kelasnya,
  * mengisi ceklis perkembangan, menulis catatan anak & kabar kelas.
  * Hak akses dijaga database (fungsi kelas_*, 0052) — bukan hanya tampilan.

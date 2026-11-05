@@ -7,6 +7,7 @@ import { useData } from '../lib/store.jsx'
 import * as t from '../tumbuh/api.js'
 import { IkonT, PilSkala, Sakelar } from '../tumbuh/bagian.jsx'
 import { PILIHAN_DASAR, PILIHAN_SKALA, PILIHAN_PERIODE, namaKelas } from '../tumbuh/skala.js'
+import { alamatGuru } from '../lib/domain.js'
 
 const WARNA = ['ungu', 'pink', 'biru', 'oranye', 'tosca', 'kuning']
 
@@ -283,7 +284,7 @@ function SheetEdit({ edit, tutup, selesai }) {
 /* ---------------- kode undangan guru ---------------- */
 function SheetUndang({ undang, tutup, toast }) {
   if (!undang) return null
-  const alamat = `${window.location.origin}/kelas`
+  const alamat = alamatGuru()
   const teks = `Assalamu'alaikum, berikut kode undangan guru ${namaKelas(undang.kelas)} di Kasceria: ${undang.kode}\n\n1. Buka ${alamat}\n2. Masuk dengan Google\n3. Masukkan kode ${undang.kode}\n\nKode berlaku 7 hari dan hanya bisa dipakai satu kali.`
   const salin = async () => {
     try { await navigator.clipboard.writeText(teks); toast('Pesan undangan disalin') } catch { toast('Tidak bisa menyalin otomatis') }

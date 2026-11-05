@@ -139,7 +139,7 @@ function KartuStatus({ l, pengaturan, terkunci }) {
         <div className="text-[30px] font-extrabold leading-none">{angka}</div>
         <div className="mt-1.5 text-[12.5px] font-semibold opacity-90">
           {l.status === 'trial' &&
-            `Uji coba ${TRIAL_HARI} hari berakhir ${tanggalPanjangLokal(l.trialSampai)}`}
+            `Uji coba ${l.trialHari || TRIAL_HARI} hari berakhir ${tanggalPanjangLokal(l.trialSampai)}`}
           {l.status === 'aktif' && `Aktif sampai ${tanggalPanjangLokal(l.aktifSampai)}`}
           {l.status === 'kadaluarsa' &&
             (l.nonaktifAdmin

@@ -13,6 +13,10 @@ import './kelas/kelas.css' // tema hijau aplikasi guru kelas (hanya aktif di htm
 import './lib/tema.js' // pasang mode terang/gelap sedini mungkin
 import './lib/pasang.js' // PWA: tangkap tawaran "pasang aplikasi" sedini mungkin + daftarkan service worker
 import { PasangOtomatis } from './components/PasangAplikasi.jsx'
+import { diHostGuru, diHostOrtu } from './lib/domain.js'
+
+// kabarananda.my.id hanya untuk orang tua: alamat lain (/guru, /admin, /kelas) dibelokkan ke portal.
+const hostOrtu = diHostOrtu()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
@@ -23,12 +27,12 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             {/* Dulu "/" menampilkan pemilih peran dev/demo (Pintu.jsx) —
                 sekarang langsung ke /guru supaya yang buka aplikasi langsung
                 lihat layar Masuk, bukan halaman pilih dulu. */}
-            <Route path="/" element={<Navigate to={/^guru\./.test(window.location.hostname) ? '/kelas' : '/guru'} replace />} />
-            <Route path="/guru/*" element={<GuruApp />} />
+            <Route path="/" element={<Navigate to={hostOrtu ? '/ortu' : diHostGuru() ? '/kelas' : '/guru'} replace />} />
+            {!hostOrtu && <Route path="/guru/*" element={<GuruApp />} />}
             {/* panel pemilik aplikasi: perpanjang langganan, grafik pendapatan */}
-            <Route path="/admin/*" element={<AdminApp />} />
-            {/* aplikasi guru kelas (tumbuh kembang, 0052) — nanti juga di guru.kasceria.pro */}
-            <Route path="/kelas/*" element={<KelasApp />} />
+            {!hostOrtu && <Route path="/admin/*" element={<AdminApp />} />}
+            {/* aplikasi guru kelas (tumbuh kembang, 0052) — juga di tumbuh.kasceria.my.id */}
+            {!hostOrtu && <Route path="/kelas/*" element={<KelasApp />} />}
             {/* token wali ada di URL; tanpa token hanya jalan di mode demo */}
             <Route path="/ortu/:token/*" element={<OrtuApp />} />
             <Route path="/ortu/*" element={<OrtuApp />} />

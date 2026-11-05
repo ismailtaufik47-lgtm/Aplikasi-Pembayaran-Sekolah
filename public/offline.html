@@ -41,9 +41,9 @@
       <button type="button" onclick="location.reload()">Coba lagi</button>
     </main>
     <script>
-      // aplikasi guru kelas (/kelas, guru.kasceria.pro): ikon & kalimat Tumbuh Ceria
+      // aplikasi guru kelas (/kelas, tumbuh.kasceria.my.id): ikon & kalimat Tumbuh Ceria
       var p = location.pathname
-      if (p === '/kelas' || p.indexOf('/kelas/') === 0 || /^guru\./.test(location.hostname)) {
+      if (p === '/kelas' || p.indexOf('/kelas/') === 0 || /^(tumbuh|guru)\./.test(location.hostname)) {
         document.title = 'Tumbuh Ceria — tidak ada internet'
         document.getElementById('ikon').src = '/icons/kelas-192.png'
         document.getElementById('pesan').textContent = 'Tumbuh Ceria perlu internet untuk menyimpan ceklis dan catatan anak. Periksa sinyal atau Wi-Fi, lalu coba lagi.'

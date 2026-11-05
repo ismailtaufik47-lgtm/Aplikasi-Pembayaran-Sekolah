@@ -13,11 +13,11 @@
          Logikanya sama dengan src/lib/tema.js (kunci localStorage 'tema'). -->
     <script>
       (function () {
-        // Aplikasi guru kelas "Tumbuh Ceria" (/kelas, nanti guru.kasceria.pro):
+        // Aplikasi guru kelas "Tumbuh Ceria" (/kelas, tumbuh.kasceria.my.id):
         // warna hijau & identitas sendiri — dipasang sebelum aplikasi dimuat
         // supaya tidak sempat tampil biru Kasceria.
         var p = location.pathname
-        var kelas = p === '/kelas' || p.indexOf('/kelas/') === 0 || /^guru\./.test(location.hostname)
+        var kelas = p === '/kelas' || p.indexOf('/kelas/') === 0 || /^(tumbuh|guru)\./.test(location.hostname)
         if (kelas) {
           document.documentElement.classList.add('tema-kelas')
           document.querySelector('meta[name="theme-color"]').setAttribute('content', '#0C9473')

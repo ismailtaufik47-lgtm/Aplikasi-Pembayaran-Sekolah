@@ -34,6 +34,7 @@ import {
   tunggakanLaluPerTa,
 } from '../lib/format.js'
 import { kegiatanLewat } from '../lib/statusSiswa.js'
+import { alamatPortal } from '../lib/domain.js'
 import {
   BADGE_PAKET, EMOJI_JENIS, LABEL_JENIS, WARNA_JENIS, dibayarPaket, keteranganPaket, kurangSekarangPaket, paketSiswa, paketSiswaKini, statusPaket, tahapPaket, tglPendek, urutPaket,
 } from '../lib/paket.js'
@@ -128,7 +129,7 @@ export default function DetailSiswa({ onCatat, onUbah }) {
     }
   }
 
-  const urlPortal = linkOrtu?.token ? `${window.location.origin}/ortu/${linkOrtu.token}` : ''
+  const urlPortal = linkOrtu?.token ? alamatPortal(linkOrtu.token) : ''
   const salinLink = () => {
     navigator.clipboard?.writeText(urlPortal)
     toast('Link disalin')

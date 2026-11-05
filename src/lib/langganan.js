@@ -33,8 +33,19 @@ export const REKENING_BANK = [
   { bank: 'BRI', nomor: '0987654321', atasNama: 'Nama Pemilik' },
 ]
 
-/** Lama masa uji coba (hari). Harus sama dengan di SQL (15). */
-export const TRIAL_HARI = 15
+/** Lama masa uji coba (hari) untuk sekolah yang daftar mulai TRIAL_7_SEJAK.
+ *  Harus sama dengan SQL 0053 (hitung_status_langganan). */
+export const TRIAL_HARI = 7
+
+/** Sekolah yang daftar SEBELUM tanggal ini tetap memakai uji coba lama 15 hari
+ *  (supaya uji coba yang sedang berjalan tidak tiba-tiba terpotong).
+ *  Harus sama dengan SQL 0053. */
+export const TRIAL_HARI_LAMA = 15
+export const TRIAL_7_SEJAK = new Date('2026-11-06T00:00:00+07:00')
+
+/** Lama uji coba sekolah ini (hari), dilihat dari tanggal mulai uji cobanya. */
+export const trialHariUntuk = (trialMulai) =>
+  trialMulai && new Date(trialMulai) < TRIAL_7_SEJAK ? TRIAL_HARI_LAMA : TRIAL_HARI
 
 /** Tenggang portal orang tua setelah masa aktif habis (hari). Sama dengan SQL (7). */
 export const TENGGANG_PORTAL_HARI = 7
@@ -80,7 +91,8 @@ export function hitungLangganan(pengaturan) {
   const trialMulai = keDate(pengaturan?.trialMulai) || new Date(now.getTime() - 7 * HARI)
   const bayarSampai = keDate(pengaturan?.langgananSampai)
 
-  const trialSampai = new Date(trialMulai.getTime() + TRIAL_HARI * HARI)
+  const trialHari = trialHariUntuk(trialMulai)
+  const trialSampai = new Date(trialMulai.getTime() + trialHari * HARI)
   const aktifSampai = new Date(
     Math.max(trialSampai.getTime(), bayarSampai ? bayarSampai.getTime() : trialSampai.getTime())
   )
@@ -101,6 +113,7 @@ export function hitungLangganan(pengaturan) {
     status,
     nonaktifAdmin,
     sisaHari: selisihHari(aktifSampai, now),
+    trialHari,
     trialSampai,
     langgananSampai: bayarSampai,
     aktifSampai,
