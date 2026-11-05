@@ -23,6 +23,7 @@ import SheetTulis from './SheetTulis.jsx'
 import Ceklis from './Ceklis.jsx'
 import GabungKelas from './Gabung.jsx'
 import { KepalaKelas, MEREK_KELAS, NAMA_APP } from './merek.jsx'
+import { alamatKas } from '../lib/domain.js'
 
 /** Pembungkus: identitas & warna "Tumbuh Ceria" untuk semua layar /kelas (juga layar masuk). */
 export default function KelasApp() {
@@ -68,7 +69,7 @@ function AplikasiKelas() {
   if (status === 'baru') return <GabungKelas onSelesai={muat} />
   if (status === 'staf') {
     return (
-      <Muat aksi={() => { window.location.href = '/guru' }} label="Buka aplikasi sekolah">
+      <Muat aksi={() => { window.location.href = alamatKas() }} label="Buka aplikasi sekolah">
         Akun ini akun kepala sekolah / Admin/TU, bukan akun guru kelas. {NAMA_APP} khusus untuk guru kelas.
       </Muat>
     )
