@@ -376,6 +376,15 @@ function demo() {
     kini().terbit = new Date().toISOString()
     _demo.pakaiDasar('stppa')
   }
+  // /ortu/demo?uji=dasar-bolak → Merdeka (Jul–Okt) → STPPA (2 kemampuan dinilai Okt) → Merdeka lagi
+  // /ortu/demo?uji=dasar-stppa → Merdeka (Jul–Okt) → STPPA (2 kemampuan dinilai Okt), tetap STPPA
+  if (uji === 'dasar-bolak' || uji === 'dasar-stppa') {
+    kini().terbit = new Date().toISOString()
+    _demo.pakaiDasar('stppa')
+    const stppa = [s.aspek[1].indikator[0].id, s.aspek[2].indikator[0].id]
+    siswa.forEach((x) => stppa.forEach((id, k) => { (kini().nilai[x.id] = kini().nilai[x.id] || {})[id] = 2 + k }))
+    if (uji === 'dasar-bolak') _demo.pakaiDasar('merdeka')
+  }
   // /kelas?uji=ceklis-lalu → September belum diisi, Agustus masih draf (12 dari 18 anak)
   if (uji === 'ceklis-lalu') {
     Object.assign(s.periode[2], { fokus: [], nilai: {}, terbit: null })

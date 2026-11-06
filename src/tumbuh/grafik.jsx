@@ -14,7 +14,7 @@ const rata = (xs) => (xs.length ? xs.reduce((t, x) => t + x, 0) / xs.length : nu
 /** Rata-rata nilai tiap aspek per periode (null kalau aspek itu tidak dinilai di periode tsb). */
 export function seriAspek(aspek, periode) {
   return aspek.map((a, i) => ({
-    id: a.id, i, nama: a.pendek,
+    id: a.id, i: a.warna ?? i, nama: a.pendek,
     nilai: periode.map((p) => rata(a.indikator.map((x) => p.nilai?.[x.id]).filter((n) => n != null))),
   })).filter((s) => s.nilai.some((v) => v != null))
 }
@@ -88,9 +88,14 @@ function useLebar(awal = 340) {
 
 /* ---------------- grafik per aspek ---------------- */
 export function GrafikAspek({ aspek, periode, skala }) {
-  const seri = seriAspek(aspek, periode)
-  const garis = seri.length <= 4 && periode.length >= 2
-  return garis ? <GrafikGaris seri={seri} periode={periode} skala={skala} /> : <GrafikBatang seri={seri} periode={periode} skala={skala} />
+  const semua = seriAspek(aspek, periode)
+  // hanya periode yang punya nilai untuk aspek di grafik ini (mis. bulan yang dinilai dengan dasar lama tidak ikut)
+  const ke = periode.map((_, b) => b).filter((b) => semua.some((s) => s.nilai[b] != null))
+  if (!ke.length) return null
+  const per = ke.map((b) => periode[b])
+  const seri = semua.map((s) => ({ ...s, nilai: ke.map((b) => s.nilai[b]) }))
+  const garis = seri.length <= 4 && per.length >= 2
+  return garis ? <GrafikGaris seri={seri} periode={per} skala={skala} /> : <GrafikBatang seri={seri} periode={per} skala={skala} />
 }
 
 function Legenda({ seri }) {
@@ -189,9 +194,12 @@ function Rincian({ seri, periode, pilih, skala }) {
   )
 }
 
-function GrafikBatang({ seri, periode, skala }) {
+function GrafikBatang({ seri: semua, periode, skala }) {
   const n = periode.length
   const akhir = periode[n - 1]
+  // aspek tanpa nilai di periode terakhir & sebelumnya tidak ditampilkan (tidak ada baris "—" kosong)
+  const ada = semua.filter((s) => s.nilai[n - 1] != null || (n > 1 && s.nilai[n - 2] != null))
+  const seri = ada.length ? ada : semua
   return (
     <section className="card !p-4">
       <h3 className="text-[16px] font-extrabold leading-tight">Posisi per aspek</h3>
@@ -246,7 +254,10 @@ export function KartuKemampuan({ aspek, i, periode, skala }) {
         <span className="grid h-9 w-9 shrink-0 place-items-center rounded-[12px] text-white" style={{ background: warnaAspek(i), boxShadow: 'inset 0 -3px 0 rgb(0 0 0 / .16)' }}>
           <IkonT.tunas size={19} />
         </span>
-        <b className="min-w-0 flex-1 text-[14px] font-extrabold leading-snug">{aspek.pendek}</b>
+        <span className="min-w-0 flex-1">
+          <b className="block text-[14px] font-extrabold leading-snug">{aspek.pendek}</b>
+          {aspek.arsip && <span className="block text-[11px] font-bold text-muted">Penilaian lama sekolah</span>}
+        </span>
         {n > 1 && <span className="shrink-0 text-[10.5px] font-extrabold text-muted">{akhir4[0].pendek}–{akhir4[n - 1].pendek}</span>}
       </header>
       {ind.map((x) => {

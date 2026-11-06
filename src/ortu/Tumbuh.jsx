@@ -1,12 +1,13 @@
 // Portal orang tua — tab "Tumbuh" (0052): ringkasan & grafik perkembangan, catatan guru,
 // kabar kelas, rincian per kemampuan. Bagian tanpa isi TIDAK ditampilkan (tanpa kotak kosong).
 // Tanpa peringkat / perbandingan antar-anak.
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { AvatarStaf } from '../components/Avatar.jsx'
 import { JudulAnak } from './Beranda.jsx'
 import { DeretFoto, LihatFoto, IkonT } from '../tumbuh/bagian.jsx'
 import { RingkasTumbuh, GrafikAspek, KartuKemampuan, KeteranganSkala, Tunas, seriAspek } from '../tumbuh/grafik.jsx'
 import { pakaiSkala, waktuSingkat, namaKelas } from '../tumbuh/skala.js'
+import { rapikanTumbuh } from '../tumbuh/gabung.js'
 
 const KOSONG = { periode: [], catatan: [], kabar: [], guru: null }
 const TIAP = { minggu: 'setiap minggu', '2minggu': 'setiap 2 minggu', bulan: 'sebulan sekali', tema: 'setiap tema' }
@@ -18,8 +19,8 @@ export default function Tumbuh({ aktif, tumbuh }) {
   const panggil = aktif.panggilan || aktif.nama.split(' ')[0]
   const ta = tumbuh.anak.find((a) => a.siswaId === aktif.id) || KOSONG
   const skala = tumbuh.atur.skala
-  const aspek = tumbuh.aspek
-  const periode = ta.periode
+  // aspek bernama sama (dasar penilaian diganti lalu kembali) digabung; grafik memakai dasar yang sekarang
+  const { aspek, utama, periode, cariAspek } = useMemo(() => rapikanTumbuh(tumbuh.aspek, ta.periode), [tumbuh.aspek, ta.periode])
   const adaNilai = pakaiSkala(skala) && periode.length > 0 && seriAspek(aspek, periode).length > 0
   const adaCerita = ta.catatan.length > 0 || ta.kabar.length > 0
   const baru = ta.catatan.filter((c) => Date.now() - new Date(c.waktu).getTime() < 7 * 864e5).length
@@ -34,7 +35,7 @@ export default function Tumbuh({ aktif, tumbuh }) {
             {baru > 0 && <span className="chip bg-pink-100 text-[#86154A] dark:bg-pink-500/20 dark:text-pink-200">{baru} baru</span>}
           </div>
           <div className="grid gap-3">
-            {(semuaCatatan ? ta.catatan : ta.catatan.slice(0, 3)).map((c) => <KartuCatatan key={c.id} c={c} aspek={aspek} buka={setFoto} />)}
+            {(semuaCatatan ? ta.catatan : ta.catatan.slice(0, 3)).map((c) => <KartuCatatan key={c.id} c={c} cariAspek={cariAspek} buka={setFoto} />)}
           </div>
           {ta.catatan.length > 3 && !semuaCatatan && <TombolSemua onClick={() => setSemuaCatatan(true)}>Lihat {ta.catatan.length - 3} catatan lainnya</TombolSemua>}
         </>
@@ -55,7 +56,7 @@ export default function Tumbuh({ aktif, tumbuh }) {
     <>
       <div className={`seghead relative z-[2] ${atas ? 'lg:mt-0' : 'lg:mb-0 lg:mt-2'}`}><h2>Rincian per kemampuan</h2></div>
       <div className="grid gap-3">
-        {aspek.map((a, i) => <KartuKemampuan key={a.id} aspek={a} i={i} periode={periode} skala={skala} />)}
+        {aspek.map((a, i) => <KartuKemampuan key={a.id} aspek={a} i={a.warna ?? i} periode={periode} skala={skala} />)}
         <KeteranganSkala skala={skala} />
       </div>
     </>
@@ -82,7 +83,7 @@ export default function Tumbuh({ aktif, tumbuh }) {
         <div className="grid grid-cols-[minmax(0,1fr)] gap-x-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-start">
           <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5">
             <RingkasTumbuh aspek={aspek} periode={periode} panggil={panggil} />
-            <GrafikAspek aspek={aspek} periode={periode} skala={skala} />
+            <GrafikAspek aspek={utama} periode={periode} skala={skala} />
             <div className="hidden lg:contents">{rincian(false)}</div>
           </div>
           <div>
@@ -94,7 +95,7 @@ export default function Tumbuh({ aktif, tumbuh }) {
         <div className="grid grid-cols-[minmax(0,1fr)] gap-x-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)] lg:items-start">
           <div className="grid grid-cols-[minmax(0,1fr)] gap-3.5">
             <RingkasTumbuh aspek={aspek} periode={periode} panggil={panggil} />
-            <GrafikAspek aspek={aspek} periode={periode} skala={skala} />
+            <GrafikAspek aspek={utama} periode={periode} skala={skala} />
           </div>
           <div>{rincian(true)}</div>
         </div>
@@ -114,8 +115,8 @@ function TombolSemua({ children, onClick }) {
   return <button onClick={onClick} className="mt-2.5 w-full rounded-[16px] py-2.5 text-[13px] font-extrabold text-brand">{children}</button>
 }
 
-function KartuCatatan({ c, aspek, buka }) {
-  const a = c.aspekId && aspek.find((x) => x.id === c.aspekId)
+function KartuCatatan({ c, cariAspek, buka }) {
+  const a = cariAspek(c.aspekId)
   return (
     <article className="card !p-4">
       <header className="flex items-center gap-2.5">
