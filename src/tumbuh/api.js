@@ -6,10 +6,12 @@ import { penggunaSaya } from '../lib/api.js'
 const BUCKET = 'tumbuh'
 const BELUM_0052 = 'Fitur tumbuh kembang belum aktif di database. Jalankan 0052_tumbuh_kembang.sql di Supabase › SQL Editor.'
 
-async function rpc(nama, arg) {
+const BELUM_0055 = 'Ceklis periode sebelumnya belum aktif di database. Jalankan 0055_ceklis_periode_lalu.sql di Supabase › SQL Editor.'
+
+async function rpc(nama, arg, belum = BELUM_0052) {
   const { data, error } = await supabase.rpc(nama, arg)
   if (error) {
-    if (error.code === 'PGRST202' || /could not find the function/i.test(error.message)) throw new Error(BELUM_0052)
+    if (error.code === 'PGRST202' || /could not find the function/i.test(error.message)) throw new Error(belum)
     throw new Error(rapikanPesan(error.message))
   }
   return data
@@ -110,17 +112,27 @@ export async function kelasPeriodeBuka(fokus, tema) {
   if (modeDemo) return demo().buka(fokus)
   return rpc('kelas_periode_buka', { p_fokus: fokus || null, p_tema: tema || null })
 }
+/** Periode yang sudah lewat di tahun ajaran ini, terbaru dulu (0055). */
+export async function kelasDaftarPeriode() {
+  if (modeDemo) return demo().daftarPeriode()
+  return rpc('kelas_daftar_periode', undefined, BELUM_0055)
+}
+/** Buka / buat ceklis periode lalu (tanggal mulai); dengan fokus = simpan indikator yang dinilai. */
+export async function kelasPeriodeLaluBuka(mulai, fokus) {
+  if (modeDemo) return demo().bukaLalu(mulai, fokus)
+  return rpc('kelas_periode_lalu_buka', { p_tgl: mulai, p_fokus: fokus || null }, BELUM_0055)
+}
 export async function kelasCeklis(periodeId) {
-  if (modeDemo) return demo().ceklis()
+  if (modeDemo) return demo().ceklis(periodeId)
   return rpc('kelas_ceklis', { p_periode: periodeId })
 }
 /** nilai = [{ s: siswaId, n: 1..4 }] */
 export async function kelasNilaiSimpan(periodeId, indikatorId, nilai) {
-  if (modeDemo) return demo().simpanNilai(indikatorId, nilai)
+  if (modeDemo) return demo().simpanNilai(indikatorId, nilai, periodeId)
   return rpc('kelas_nilai_simpan', { p_periode: periodeId, p_indikator: indikatorId, p_nilai: nilai })
 }
 export async function kelasPeriodeTerbit(periodeId, terbit = true) {
-  if (modeDemo) return demo().terbit(terbit)
+  if (modeDemo) return demo().terbit(terbit, periodeId)
   return rpc('kelas_periode_terbit', { p_periode: periodeId, p_terbit: terbit })
 }
 export async function kelasCatatanSimpan({ id = null, siswaId, teks, aspekId = null, foto = [], terbit }) {
@@ -259,10 +271,12 @@ function demo() {
     { jenis: 'catatan', id: 'c1', siswaId: 'd0', aspekId: s.aspek[1].id, teks: 'Hari ini Aisyah berani maju bercerita tentang kacang hijau yang ia tanam. Suaranya jelas dan teman-temannya bertepuk tangan. 👏', foto: [], terbit: new Date(Date.now() - 864e5).toISOString(), penulis: 'Bu Sari', waktu: new Date(Date.now() - 864e5).toISOString() },
     { jenis: 'catatan', id: 'c2', siswaId: 'd13', aspekId: s.aspek[1].id, teks: 'Rayyan mulai mau berbagi mainan balok dengan temannya.', foto: [], terbit: null, penulis: 'Bu Sari', waktu: new Date(Date.now() - 864e5).toISOString() },
   ]
+  const akhirBulan = (mulai) => { const d = new Date(`${mulai}T00:00:00`); return new Date(d.getFullYear(), d.getMonth() + 1, 0).toLocaleDateString('sv-SE') }
   const periodeJson = (p) => p && ({
-    id: p.id, jenis: 'bulan', label: p.label, pendek: p.pendek, mulai: p.mulai, selesai: '2026-10-31', fokus: p.fokus, terbit: p.terbit,
+    id: p.id, jenis: 'bulan', label: p.label, pendek: p.pendek, mulai: p.mulai, selesai: akhirBulan(p.mulai), fokus: p.fokus, terbit: p.terbit,
     dinilai: siswa.filter((x) => p.fokus.length && p.fokus.every((f) => p.nilai[x.id]?.[f])).length, anak: siswa.length,
   })
+  const cariPeriode = (id) => s.periode.find((p) => p.id === id) || kini()
   const salin = (o) => JSON.parse(JSON.stringify(o))
 
   _demo = {
@@ -272,20 +286,32 @@ function demo() {
     }),
     tulisan: () => salin([...s.tulisan].sort((a, b) => (a.waktu < b.waktu ? 1 : -1))),
     buka: (fokus) => { if (fokus) kini().fokus = fokus; return periodeJson(kini()) },
-    ceklis: () => {
-      const p = kini(); const sebelum = s.periode[s.periode.length - 2]
+    // periode sebelum periode berjalan (demo: Jul–Sep), terbaru dulu
+    daftarPeriode: () => salin(s.periode.slice(0, -1).reverse().map((p) => ({
+      ...periodeJson(p), kode: p.mulai.slice(0, 7), terisi: Object.values(p.nilai).reduce((n, m) => n + Object.keys(m).length, 0),
+    }))),
+    bukaLalu: (mulai, fokus) => {
+      const p = s.periode.find((x) => x.mulai === mulai)
+      if (!p || p === kini()) throw new Error('Periode ini belum lewat. Pakai ceklis periode berjalan.')
+      if (fokus) p.fokus = fokus
+      const i = s.periode.indexOf(p)
+      const saran = (s.periode[i - 1] || s.periode[i + 1])?.fokus.filter((id) => semuaInd().some((x) => x.id === id)) || []
+      return salin({ ...periodeJson(p), kode: p.mulai.slice(0, 7), saran })
+    },
+    ceklis: (id) => {
+      const p = cariPeriode(id); const sebelum = s.periode[s.periode.indexOf(p) - 1]
       const nilai = []; const awal = []
       Object.entries(p.nilai).forEach(([sid, m]) => Object.entries(m).forEach(([i, n]) => nilai.push({ s: sid, i, n })))
       Object.entries(sebelum?.nilai || {}).forEach(([sid, m]) => Object.entries(m).forEach(([i, n]) => p.fokus.includes(i) && awal.push({ s: sid, i, n })))
       const lama = s.lama.filter((x) => p.fokus.includes(x.id) || nilai.some((v) => v.i === x.id))
       return salin({ periode: periodeJson(p), nilai, awal, lama })
     },
-    simpanNilai: (ind, daftar) => {
+    simpanNilai: (ind, daftar, id) => {
       if (s.lama.some((x) => x.id === ind)) throw new Error('Indikator ini sudah diganti sekolah. Nilainya hanya bisa dilihat.')
-      const p = kini(); daftar.forEach(({ s: sid, n }) => { p.nilai[sid] = { ...(p.nilai[sid] || {}), [ind]: n } })
+      const p = cariPeriode(id); daftar.forEach(({ s: sid, n }) => { p.nilai[sid] = { ...(p.nilai[sid] || {}), [ind]: n } })
       return { ...periodeJson(p), tersimpan: daftar.length }
     },
-    terbit: (t) => { kini().terbit = t ? new Date().toISOString() : null; return periodeJson(kini()) },
+    terbit: (t, id) => { const p = cariPeriode(id); p.terbit = t ? new Date().toISOString() : null; return periodeJson(p) },
     simpanTulisan: (t) => {
       const ada = t.id && s.tulisan.find((x) => x.id === t.id)
       const baru = { ...(ada || {}), ...t, id: t.id || 't' + idAcak(), penulis: 'Bu Sari', waktu: new Date().toISOString(),
@@ -345,9 +371,16 @@ function demo() {
   }
   // uji tampilan (hanya npm run dev): /kelas?uji=ganti-dasar → ceklis bulan ini sudah terbit,
   // lalu sekolah mengganti dasar penilaian ke STPPA
-  if (import.meta.env.DEV && new URLSearchParams(window.location.search).get('uji') === 'ganti-dasar') {
+  const uji = import.meta.env.DEV ? new URLSearchParams(window.location.search).get('uji') : null
+  if (uji === 'ganti-dasar') {
     kini().terbit = new Date().toISOString()
     _demo.pakaiDasar('stppa')
+  }
+  // /kelas?uji=ceklis-lalu → September belum diisi, Agustus masih draf (12 dari 18 anak)
+  if (uji === 'ceklis-lalu') {
+    Object.assign(s.periode[2], { fokus: [], nilai: {}, terbit: null })
+    s.periode[1].terbit = null
+    siswa.slice(12).forEach((x) => { delete s.periode[1].nilai[x.id] })
   }
   return _demo
 }

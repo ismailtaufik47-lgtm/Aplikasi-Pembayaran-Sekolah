@@ -1,7 +1,8 @@
 // Ceklis sekelas: satu indikator per layar, satu baris per anak.
 // Isian awal = nilai terakhir sebelumnya; tersimpan otomatis.
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Pil } from '../components/ui.jsx'
+import { useParams } from 'react-router-dom'
+import { Pil, Sheet } from '../components/ui.jsx'
 import { KepalaKelas } from './merek.jsx'
 import { Gulir, BilahBawah } from './bingkai.jsx'
 import Avatar from '../components/Avatar.jsx'
@@ -9,31 +10,107 @@ import { IkonT, PilSkala } from '../tumbuh/bagian.jsx'
 import { daftarSkala, infoNilai } from '../tumbuh/skala.js'
 import * as t from '../tumbuh/api.js'
 
-export default function Ceklis({ data, setPeriode, kembali, toast }) {
-  const p = data.periode
+/**
+ * periode: ceklis yang dibuka (bawaan = periode berjalan, data.periode).
+ * Untuk periode lalu (0055): `periode` + `buka(fokus)` dari CeklisLalu, `lalu` = true.
+ */
+export default function Ceklis({ data, setPeriode, kembali, toast, periode, buka, lalu = false }) {
+  const p = periode === undefined ? data.periode : periode
+  const bukaFokus = buka || ((fokus) => t.kelasPeriodeBuka(fokus))
   const semuaInd = useMemo(() => data.aspek.flatMap((a) => a.indikator.map((x) => ({ ...x, aspek: a }))), [data.aspek])
   // sekolah mengganti dasar penilaian sesudah ceklis terbit → guru memilih indikator baru
   const [pilihUlang, setPilihUlang] = useState(false)
+  const umum = { data, p, semuaInd, buka: bukaFokus }
 
   if (data.atur.periode === 'tema' && !p) return <TemaBaru setPeriode={setPeriode} kembali={kembali} />
-  if (!p || !p.fokus.length) return <PilihFokus data={data} semuaInd={semuaInd} setPeriode={setPeriode} kembali={kembali} />
+  if (!p || !p.fokus.length) return <PilihFokus {...umum} setPeriode={setPeriode} kembali={kembali} lalu={lalu} />
   if (pilihUlang) {
-    return <PilihFokus data={data} semuaInd={semuaInd} ulang kembali={() => setPilihUlang(false)}
+    return <PilihFokus {...umum} ulang kembali={() => setPilihUlang(false)}
       setPeriode={(x) => { setPilihUlang(false); setPeriode(x) }} />
   }
-  return <IsiCeklis data={data} semuaInd={semuaInd} setPeriode={setPeriode} kembali={kembali} toast={toast} pilihBaru={() => setPilihUlang(true)} />
+  return <IsiCeklis {...umum} setPeriode={setPeriode} kembali={kembali} toast={toast} lalu={lalu} pilihBaru={() => setPilihUlang(true)} />
+}
+
+/* ---------------- ceklis periode yang sudah lewat (0055) ---------------- */
+const SEBUTAN = { bulan: 'bulan', minggu: 'minggu', '2minggu': 'periode' }
+export const sebutanPeriode = (jenis) => SEBUTAN[jenis] || 'periode'
+
+/** /kelas/ceklis/:mulai — ceklis satu periode lalu (tanggal mulai periode). */
+export function CeklisLalu({ data, kembali, toast }) {
+  const { mulai } = useParams()
+  const [p, setP] = useState(null)
+  const [galat, setGalat] = useState('')
+  useEffect(() => {
+    let batal = false
+    setP(null); setGalat('')
+    t.kelasPeriodeLaluBuka(mulai).then((x) => !batal && setP(x)).catch((e) => !batal && setGalat(e.message))
+    return () => { batal = true }
+  }, [mulai])
+  if (galat) return <Gulir><KepalaKelas polos kembali={kembali} judul="Ceklis" sub={galat} /></Gulir>
+  if (!p) return <Gulir><p className="py-16 text-center text-[13.5px] font-bold text-muted">Memuat ceklis…</p></Gulir>
+  return (
+    <Ceklis data={data} periode={p} lalu kembali={kembali} toast={toast}
+      setPeriode={(x) => setP((lama) => ({ ...lama, ...x }))} buka={(fokus) => t.kelasPeriodeLaluBuka(mulai, fokus)} />
+  )
+}
+
+/** Daftar periode lalu di tahun ajaran ini + statusnya. */
+export function SheetCeklisLalu({ buka, tutup, data, ke }) {
+  const [daftar, setDaftar] = useState(null)
+  const [galat, setGalat] = useState('')
+  useEffect(() => {
+    if (!buka) return undefined
+    let batal = false
+    setDaftar(null); setGalat('')
+    t.kelasDaftarPeriode().then((d) => !batal && setDaftar(d)).catch((e) => !batal && setGalat(e.message))
+    return () => { batal = true }
+  }, [buka])
+  const s = sebutanPeriode(data.atur.periode)
+  return (
+    <Sheet buka={buka} tutup={tutup} judul={`Ceklis ${s} sebelumnya`} lead={`Isi atau perbaiki penilaian ${s} yang sudah lewat di tahun ajaran ini.`}>
+      {galat ? <p className="mb-2 rounded-xl bg-danger-soft px-3.5 py-3 text-center text-[13px] font-semibold text-danger">{galat}</p>
+        : !daftar ? <p className="py-8 text-center text-[13.5px] font-bold text-muted">Memuat…</p>
+          : !daftar.length ? (
+            <p className="mb-2 rounded-[20px] border-[1.5px] border-dashed border-[#C9D3E6] px-4 py-4 text-center text-[13px] font-semibold leading-relaxed text-muted dark:border-line">
+              Belum ada {s} sebelumnya di tahun ajaran ini.
+            </p>
+          ) : (
+            <div className="card mb-1 !p-0">
+              {daftar.map((x) => <BarisPeriode key={x.kode} x={x} onClick={() => { tutup(); ke(`/kelas/ceklis/${x.mulai}`) }} />)}
+            </div>
+          )}
+    </Sheet>
+  )
+}
+
+function BarisPeriode({ x, onClick }) {
+  const status = x.terbit ? ['Terbit', 'bg-ok-soft text-ok-deep'] : x.terisi > 0 ? ['Draf', 'bg-warn-soft text-warn-deep'] : ['Belum diisi', 'bg-isi text-muted']
+  return (
+    <button onClick={onClick} className="flex w-full items-center gap-3 border-b border-line px-3.5 py-3 text-left transition last:border-b-0 hover:bg-isi">
+      <span className="min-w-0 flex-1">
+        <b className="block truncate text-[14.5px] font-extrabold">{x.label}</b>
+        <span className="block text-[12px] font-semibold text-muted">{x.terisi > 0 ? `${x.dinilai} dari ${x.anak} anak dinilai` : 'Belum ada nilai'}</span>
+      </span>
+      <span className={`chip shrink-0 ${status[1]}`}>{status[0]}</span>
+      <IkonT.kanan size={17} className="text-[#C8CDD8]" />
+    </button>
+  )
 }
 
 /* ---------------- pilih indikator fokus ---------------- */
-function PilihFokus({ data, semuaInd, setPeriode, kembali, ulang = false }) {
-  // indikator yang sudah diganti sekolah tidak bisa dipilih lagi
-  const [pilih, setPilih] = useState(() => new Set((data.periode?.fokus || []).filter((id) => semuaInd.some((x) => x.id === id))))
+function PilihFokus({ data, p, semuaInd, buka, setPeriode, kembali, ulang = false, lalu = false }) {
+  // indikator yang sudah diganti sekolah tidak bisa dipilih lagi; periode lalu yang belum
+  // punya indikator → disarankan indikator periode terdekat
+  const [pilih, setPilih] = useState(() => {
+    const awal = p?.fokus?.length ? p.fokus : p?.saran || []
+    return new Set(awal.filter((id) => semuaInd.some((x) => x.id === id)).slice(0, 8))
+  })
   const [sibuk, setSibuk] = useState(false)
   const [galat, setGalat] = useState('')
   const ubah = (id) => setPilih((s) => { const b = new Set(s); b.has(id) ? b.delete(id) : b.size < 8 && b.add(id); return b })
   const mulai = async () => {
     setSibuk(true); setGalat('')
-    try { setPeriode(await t.kelasPeriodeBuka([...pilih])) } catch (e) { setGalat(e.message); setSibuk(false) }
+    try { setPeriode(await buka([...pilih])) } catch (e) { setGalat(e.message); setSibuk(false) }
   }
   const bar = (
     <BilahBawah>
@@ -56,8 +133,10 @@ function PilihFokus({ data, semuaInd, setPeriode, kembali, ulang = false }) {
   return (
     <>
      <Gulir>
-      <KepalaKelas polos kembali={kembali} judul={`Ceklis ${data.periode?.label || ''}`.trim()}
-        sub={ulang ? 'Pilih kemampuan dari indikator baru sekolah (maks. 8). Nilai lama tetap tersimpan.' : 'Pilih kemampuan yang dinilai periode ini (maks. 8). Tidak perlu semuanya.'} />
+      <KepalaKelas polos kembali={kembali} judul={`Ceklis ${p?.label || ''}`.trim()}
+        sub={ulang ? 'Pilih kemampuan dari indikator baru sekolah (maks. 8). Nilai lama tetap tersimpan.'
+          : lalu ? 'Periode yang sudah lewat. Pilih kemampuan yang dinilai saat itu (maks. 8).'
+            : 'Pilih kemampuan yang dinilai periode ini (maks. 8). Tidak perlu semuanya.'} />
       <div className="lg:grid lg:grid-cols-2 lg:items-start lg:gap-4">
       {data.aspek.map((a) => a.indikator.length > 0 && (
         <section key={a.id} className="card mb-3 !p-0 lg:mb-0">
@@ -105,8 +184,7 @@ function TemaBaru({ setPeriode, kembali }) {
 }
 
 /* ---------------- isi ceklis ---------------- */
-function IsiCeklis({ data, semuaInd, setPeriode, kembali, toast, pilihBaru }) {
-  const p = data.periode
+function IsiCeklis({ data, p, semuaInd, setPeriode, kembali, toast, pilihBaru, lalu = false }) {
   // indikator yang sudah diganti/dihapus sekolah tapi masih dipakai periode ini (0054): hanya dilihat
   const [lama, setLama] = useState([])
   const fokusAktif = useMemo(() => p.fokus.map((id) => semuaInd.find((x) => x.id === id)).filter(Boolean), [p.fokus, semuaInd])
@@ -231,7 +309,10 @@ function IsiCeklis({ data, semuaInd, setPeriode, kembali, toast, pilihBaru }) {
      <Gulir>
       <KepalaKelas polos kembali={async () => { await simpan(ind.id); kembali() }}
         judul={`Ceklis ${p.pendek}`}
-        sub={!fokusAktif.length ? 'Ceklis lama — nilainya hanya bisa dilihat.' : p.terbit ? 'Sudah terbit — perubahan langsung terlihat orang tua.' : 'Isian awal = nilai sebelumnya. Cukup ubah anak yang berbeda.'} />
+        sub={!fokusAktif.length ? 'Ceklis lama — nilainya hanya bisa dilihat.'
+          : p.terbit ? 'Sudah terbit — perubahan langsung terlihat orang tua.'
+            : lalu ? `Periode ${p.label} (sudah lewat). Isian awal = nilai periode sebelumnya.`
+              : 'Isian awal = nilai sebelumnya. Cukup ubah anak yang berbeda.'} />
 
       {jumlahLama > 0 && (
         <section className="card mb-3.5 flex items-start gap-3 !p-3.5 lg:mb-5 lg:!p-4">

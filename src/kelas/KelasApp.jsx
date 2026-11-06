@@ -20,7 +20,7 @@ import { IkonT, Foto } from '../tumbuh/bagian.jsx'
 import { pakaiSkala, waktuSingkat, namaKelas } from '../tumbuh/skala.js'
 import { Bingkai, Gulir, BilahAtas, TabKelas, SampingKelas } from './bingkai.jsx'
 import SheetTulis from './SheetTulis.jsx'
-import Ceklis from './Ceklis.jsx'
+import Ceklis, { CeklisLalu, SheetCeklisLalu, sebutanPeriode } from './Ceklis.jsx'
 import GabungKelas from './Gabung.jsx'
 import { KepalaKelas, MEREK_KELAS, NAMA_APP } from './merek.jsx'
 import { alamatKas } from '../lib/domain.js'
@@ -86,6 +86,7 @@ function Kelas({ data, setData, muatUlang, toast, pesan }) {
   const { pathname } = useLocation()
   const [tulis, setTulis] = useState(null) // awal SheetTulis
   const [pilihBagikan, setPilihBagikan] = useState(false)
+  const [lihatLalu, setLihatLalu] = useState(false) // daftar ceklis periode sebelumnya
   const adaCeklis = pakaiSkala(data.atur.skala)
   const aktif = pathname.includes('/anak') ? 'anak' : pathname.includes('/ceklis') ? 'ceklis' : pathname.includes('/lainnya') ? 'lainnya' : 'beranda'
 
@@ -100,9 +101,10 @@ function Kelas({ data, setData, muatUlang, toast, pesan }) {
   return (
     <Bingkai samping={samping}>
       <Routes>
-        <Route index element={<><Gulir><Beranda data={data} ke={ke} bukaTulis={setTulis} /></Gulir>{tab}</>} />
+        <Route index element={<><Gulir><Beranda data={data} ke={ke} bukaTulis={setTulis} bukaLalu={() => setLihatLalu(true)} /></Gulir>{tab}</>} />
         <Route path="anak" element={<><Gulir><Anak data={data} ke={ke} bukaTulis={setTulis} /></Gulir>{tab}</>} />
         {adaCeklis && <Route path="ceklis" element={<Ceklis data={data} setPeriode={setPeriode} kembali={() => ke('/kelas')} toast={toast} />} />}
+        {adaCeklis && <Route path="ceklis/:mulai" element={<CeklisLalu data={data} kembali={() => ke('/kelas')} toast={toast} />} />}
         <Route path="lainnya" element={<><Gulir><Lainnya data={data} setData={setData} muatUlang={muatUlang} toast={toast} /></Gulir>{tab}</>} />
         <Route path="*" element={<Navigate to="/kelas" replace />} />
       </Routes>
@@ -115,6 +117,7 @@ function Kelas({ data, setData, muatUlang, toast, pesan }) {
             onClick={() => { setPilihBagikan(false); setTulis({ jenis: 'catatan' }) }} />
         </div>
       </Sheet>
+      <SheetCeklisLalu buka={lihatLalu} tutup={() => setLihatLalu(false)} data={data} ke={ke} />
       <SheetTulis awal={tulis} data={data} tutup={() => setTulis(null)}
         selesai={(m) => { setTulis(null); toast(m); segarkanTulisan() }} />
       <Toast pesan={pesan} />
@@ -136,7 +139,7 @@ function PilihanBagikan({ warna, ikon, judul, sub, onClick }) {
 }
 
 /* ---------------- beranda kelas ---------------- */
-function Beranda({ data, ke, bukaTulis }) {
+function Beranda({ data, ke, bukaTulis, bukaLalu }) {
   const p = data.periode
   const adaCeklis = pakaiSkala(data.atur.skala)
   const persen = p && p.anak ? Math.round((p.dinilai / p.anak) * 100) : 0
@@ -182,6 +185,11 @@ function Beranda({ data, ke, bukaTulis }) {
             {!p ? 'Mulai tema' : !p.fokus.length ? 'Pilih indikator' : diganti ? 'Lihat & pilih indikator baru' : p.terbit ? 'Lihat / ubah ceklis' : p.dinilai ? 'Lanjutkan ceklis' : 'Mulai ceklis'}
             <IkonT.kanan size={18} sw={2.6} />
           </button>
+          {data.atur.periode !== 'tema' && (
+            <button onClick={bukaLalu} className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-2xl py-2.5 text-[13.5px] font-extrabold text-brand transition hover:bg-brand-soft active:scale-[.99]">
+              <IkonT.kiri size={16} sw={2.6} /> Isi ceklis {sebutanPeriode(data.atur.periode)} sebelumnya
+            </button>
+          )}
         </section>
       )}
 
